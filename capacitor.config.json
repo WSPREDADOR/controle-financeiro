@@ -1,0 +1,9 @@
+{
+  "appId": "com.werbertsilva.controlefinanceiro.mobile",
+  "appName": "Controle Financeiro",
+  "webDir": "mobile-web",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

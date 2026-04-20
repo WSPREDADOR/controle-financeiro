@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1418">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Controle Financeiro">
+  <title>Controle Financeiro</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-background" aria-hidden="true">
+    <span class="glow glow-one"></span>
+    <span class="glow glow-two"></span>
+    <span class="grid-fade"></span>
+  </div>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-brand">
+        <img src="Controle Financeiro.png" alt="Ilustração do painel financeiro" class="topbar-brand-image">
+        <div>
+          <span class="eyebrow">Controle de pagamentos</span>
+          <h1 class="topbar-title">Controle Financeiro</h1>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="mobile-menu-btn"
+        id="mobileMenuBtn"
+        aria-label="Abrir opções do aplicativo"
+        aria-controls="mobileOptionsDrawer"
+        aria-expanded="false"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="topbar-meta">
+        <button type="button" class="version-pill update-pill" id="checkUpdatesBtn">
+          <span class="version-label">Atualizações</span>
+          <strong id="updateStatusText">Verificar</strong>
+        </button>
+        <div class="version-pill">
+          <span class="version-label">Versão</span>
+          <strong>v1.3.0</strong>
+        </div>
+        <div class="version-pill">
+          <span class="version-label">Atualizado em</span>
+          <strong id="currentDate">--/--/----</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="update-banner" id="updateBanner" hidden aria-live="polite">
+      <div class="update-banner-copy">
+        <span class="section-kicker">Atualização</span>
+        <strong id="updateBannerTitle">Seu app está atualizado</strong>
+        <p id="updateBannerMessage">Quando houver uma nova versão disponível no GitHub, ela aparecerá aqui.</p>
+      </div>
+      <div class="update-banner-actions">
+        <button type="button" class="btn-secondary" id="updateSecondaryBtn">Verificar agora</button>
+        <button type="button" class="btn-primary" id="updatePrimaryBtn" hidden>Atualizar app</button>
+      </div>
+    </section>
+
+    <div class="mobile-drawer-backdrop" id="mobileDrawerBackdrop" hidden></div>
+    <aside class="mobile-options-drawer" id="mobileOptionsDrawer" hidden aria-label="Opções do aplicativo para celular">
+      <div class="mobile-drawer-header">
+        <div>
+          <span class="section-kicker">Acesso rápido</span>
+          <h2>Opções</h2>
+        </div>
+        <button type="button" class="mobile-drawer-close" id="closeMobileDrawerBtn" aria-label="Fechar opções">
+          X
+        </button>
+      </div>
+
+      <div class="mobile-drawer-section">
+        <span class="mobile-drawer-label">Atalhos</span>
+        <div class="mobile-drawer-actions">
+          <button type="button" class="mobile-action-btn mobile-action-btn-primary" data-mobile-action="add">
+            Adicionar compromisso
+          </button>
+          <button type="button" class="mobile-action-btn" data-mobile-action="reorder">
+            Reorganizar lista
+          </button>
+          <button type="button" class="mobile-action-btn" data-mobile-action="results">
+            Ver resultado atual
+          </button>
+          <button type="button" class="mobile-action-btn" data-mobile-action="check-update">
+            Verificar atualização
+          </button>
+          <button type="button" class="mobile-action-btn" data-mobile-action="top">
+            Ir para o topo
+          </button>
+        </div>
+      </div>
+
+      <div class="mobile-drawer-section">
+        <span class="mobile-drawer-label">Visão rápida</span>
+        <div class="mobile-drawer-pills">
+          <div class="mobile-drawer-pill">
+            <span>Versão</span>
+            <strong>v1.3.0</strong>
+          </div>
+          <div class="mobile-drawer-pill">
+            <span>Atualizado em</span>
+            <strong id="mobileCurrentDate">--/--/----</strong>
+          </div>
+          <div class="mobile-drawer-pill">
+            <span>Atualizações</span>
+            <strong id="mobileUpdateStatus">Verificar</strong>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="dashboard">
+      <section class="calculator-card calculator-card-compact">
+        <div class="section-heading">
+          <span class="section-kicker">Novo compromisso</span>
+          <h2>Adicionar compromisso</h2>
+          <p>Abra um modal rápido para criar um novo compromisso. Para alterar um item existente, clique em <strong>Editar</strong> na lista de compromissos.</p>
+        </div>
+
+        <div class="create-launcher">
+          <div class="create-launcher-copy">
+            <span class="creation-badge">Cadastro rápido</span>
+            <p>O cadastro agora abre em um modal compacto, no mesmo estilo da edição, sem ocupar toda a área principal da tela.</p>
+          </div>
+
+          <div class="button-row create-launcher-actions">
+            <button type="button" id="openCreateModalBtn" class="btn-primary">Adicionar compromisso</button>
+          </div>
+        </div>
+
+        <div class="status-message" id="statusMessage" aria-live="polite">
+          Use o botão acima para abrir o modal de cadastro. Para editar um compromisso existente, use o botão Editar na lista de compromissos.
+        </div>
+      </section>
+
+      <section class="workspace">
+        <aside class="plans-panel">
+          <div class="section-heading">
+            <h2>Lista De Compromissos</h2>
+            <p>Selecione um compromisso salvo para abrir os detalhes dele.</p>
+          </div>
+
+          <div class="panel-shortcuts">
+            <button type="button" class="nav-chip" id="goToFormBtn">Ir para cadastro</button>
+            <button type="button" class="nav-chip" id="openReorderModalBtn">Reorganizar</button>
+          </div>
+
+          <div class="plans-summary" aria-label="Resumo dos compromissos">
+            <div class="summary-mini-card">
+              <span class="summary-mini-label">Total</span>
+              <strong id="plansTotalCount">0</strong>
+            </div>
+            <div class="summary-mini-card">
+              <span class="summary-mini-label">Em foco</span>
+              <strong id="plansVisibleCount">0</strong>
+            </div>
+            <div class="summary-mini-card">
+              <span class="summary-mini-label">Selecionado</span>
+              <strong id="plansSelectedCount">0</strong>
+            </div>
+          </div>
+
+          <div class="plans-list" id="plansList"></div>
+        </aside>
+
+        <section class="results-section" id="resultsSection" hidden>
+          <div class="section-heading">
+            <span class="section-kicker">Resultado</span>
+            <h2 id="selectedPlanTitle">Painel do seu compromisso</h2>
+            <p id="selectedPlanSubtitle">Uma visão elegante do início ao fim do período de pagamento.</p>
+          </div>
+
+          <div class="results-toolbar">
+            <button type="button" class="nav-chip" id="backToListBtn">Voltar para lista</button>
+            <button type="button" class="nav-chip" id="backToTopBtn">Ir para o topo</button>
+          </div>
+
+          <div class="summary-grid">
+            <article class="stat-card accent stat-progress">
+              <span class="stat-label">Progresso geral</span>
+              <strong class="stat-value" id="percentage">0%</strong>
+              <p class="stat-note">Percentual já concluído do plano.</p>
+            </article>
+            <article class="stat-card stat-remaining">
+              <span class="stat-label">Tempo restante</span>
+              <strong class="stat-value" id="remainingTime">0 meses</strong>
+              <p class="stat-note">Quanto ainda falta para encerrar.</p>
+            </article>
+            <article class="stat-card stat-completed">
+              <span class="stat-label">Meses concluídos</span>
+              <strong class="stat-value" id="completedMonths">0</strong>
+              <p class="stat-note">Parcelas já encerradas até hoje.</p>
+            </article>
+            <article class="stat-card stat-deadline">
+              <span class="stat-label">Fim previsto</span>
+              <strong class="stat-value" id="summaryEnd">--/--/----</strong>
+              <p class="stat-note">Data estimada de conclusão.</p>
+            </article>
+          </div>
+
+          <div class="progress-panel">
+            <div class="progress-panel-top">
+              <div>
+                <span class="section-kicker">Panorama</span>
+                <h3>Andamento do plano</h3>
+              </div>
+              <strong id="summaryDays">0 dias</strong>
+            </div>
+
+            <div class="progress-track" aria-hidden="true">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="progress-meta">
+              <div class="meta-pill">
+                <span class="meta-label">Início</span>
+                <strong id="summaryStart">--/--/----</strong>
+              </div>
+              <div class="meta-pill">
+                <span class="meta-label">Duração</span>
+                <strong><span id="summaryMonths">0</span> meses</strong>
+              </div>
+              <div class="meta-pill">
+                <span class="meta-label">Status</span>
+                <strong id="planStatus">Aguardando dados</strong>
+              </div>
+              <div class="meta-pill">
+                <span class="meta-label">Contagem</span>
+                <strong id="countModeLabel">Aguardando dados</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="timeline-panel">
+            <div class="timeline-header">
+              <div>
+                <span class="section-kicker">Etapas</span>
+                <h3>Linha do tempo mensal</h3>
+              </div>
+              <p>Cada cartão mostra a situação de uma etapa do seu plano.</p>
+            </div>
+            <div class="monthly-grid" id="monthlyContainer"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="signature-footer">
+      <p>
+        Desenvolvido por <strong class="signature-name">Werbert Silva</strong>
+      </p>
+    </footer>
+  </div>
+
+  <div class="modal-overlay" id="createModal" hidden>
+    <section class="edit-modal create-modal" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
+      <div class="modal-header create-modal-header">
+        <div class="modal-heading">
+          <span class="section-kicker">Novo compromisso</span>
+          <h2 id="createModalTitle">Adicionar compromisso</h2>
+          <p>Preencha os dados do novo compromisso e salve para vê-lo imediatamente na lista e no painel de resultado.</p>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeCreateModalBtn" aria-label="Fechar modal de criação" title="Fechar">
+          X
+        </button>
+      </div>
+
+      <form id="createPlanForm" class="form-grid modal-form">
+        <label class="input-group" for="createPlanName">
+          <span>Nome do compromisso</span>
+          <input type="text" id="createPlanName" class="input-field" placeholder="Ex.: Parcelas da moto" required>
+        </label>
+
+        <label class="input-group" for="createStartDate">
+          <span>Data de início</span>
+          <input type="date" id="createStartDate" class="input-field" required>
+        </label>
+
+        <label class="input-group" for="createTotalMonths">
+          <span>Total de meses</span>
+          <input type="number" id="createTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
+        </label>
+
+        <label class="input-group" for="createCountMode">
+          <span>Quando começa a contagem</span>
+          <select id="createCountMode" class="input-field" required>
+            <option value="start_month">Começar no mês informado</option>
+            <option value="next_month">Começar a partir do próximo mês</option>
+          </select>
+        </label>
+
+        <div class="button-row modal-actions">
+          <button type="submit" class="btn-primary">Adicionar compromisso</button>
+          <button type="button" id="cancelCreateModalBtn" class="btn-secondary">Cancelar</button>
+        </div>
+      </form>
+
+      <div class="status-message" id="createStatusMessage" aria-live="polite" hidden>
+        Preencha os dados e salve para criar o novo compromisso.
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="editModal" hidden>
+    <section class="edit-modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+      <div class="modal-header">
+        <div class="modal-heading">
+          <span class="section-kicker">Editar compromisso</span>
+          <h2 id="editModalTitle">Atualize seu cadastro</h2>
+          <p id="editModalSubtitle">Revise os dados do compromisso e salve as alterações.</p>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeEditModalBtn" aria-label="Fechar modal de edição" title="Fechar">
+          X
+        </button>
+      </div>
+
+      <form id="editPlanForm" class="form-grid modal-form">
+        <label class="input-group" for="editPlanName">
+          <span>Nome do compromisso</span>
+          <input type="text" id="editPlanName" class="input-field" placeholder="Ex.: Parcelas da moto" required>
+        </label>
+
+        <label class="input-group" for="editStartDate">
+          <span>Data de início</span>
+          <input type="date" id="editStartDate" class="input-field" required>
+        </label>
+
+        <label class="input-group" for="editTotalMonths">
+          <span>Total de meses</span>
+          <input type="number" id="editTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
+        </label>
+
+        <label class="input-group" for="editCountMode">
+          <span>Quando começa a contagem</span>
+          <select id="editCountMode" class="input-field" required>
+            <option value="start_month">Começar no mês informado</option>
+            <option value="next_month">Começar a partir do próximo mês</option>
+          </select>
+        </label>
+
+        <div class="button-row modal-actions">
+          <button type="submit" class="btn-primary">Salvar alterações</button>
+          <button type="button" id="cancelEditModalBtn" class="btn-secondary">Cancelar</button>
+        </div>
+      </form>
+
+      <div class="status-message" id="editStatusMessage" aria-live="polite" hidden>
+        Atualize os campos e salve para aplicar as mudanças.
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="deleteModal" hidden>
+    <section class="edit-modal delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+      <div class="modal-header delete-modal-header">
+        <div class="modal-heading">
+          <span class="section-kicker">Confirmar exclusão</span>
+          <h2 id="deleteModalTitle">Excluir compromisso</h2>
+          <p>Você está prestes a remover este compromisso permanentemente do painel.</p>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeDeleteModalBtn" aria-label="Fechar confirmação de exclusão" title="Fechar">
+          X
+        </button>
+      </div>
+
+      <div class="delete-modal-body">
+        <div class="delete-warning-badge">Ação permanente</div>
+        <p class="delete-modal-copy">
+          Tem certeza que deseja excluir <strong id="deletePlanName">este compromisso</strong>?
+        </p>
+        <p class="delete-modal-note">
+          Essa ação remove o item da lista e não poderá ser desfeita.
+        </p>
+      </div>
+
+      <div class="button-row modal-actions delete-modal-actions">
+        <button type="button" id="cancelDeleteModalBtn" class="btn-secondary">Cancelar</button>
+        <button type="button" id="confirmDeleteModalBtn" class="btn-danger">Excluir compromisso</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="reorderModal" hidden>
+    <section class="edit-modal reorder-modal" role="dialog" aria-modal="true" aria-labelledby="reorderModalTitle">
+      <div class="modal-header reorder-modal-header">
+        <div class="modal-heading">
+          <span class="section-kicker">Organizar lista</span>
+          <h2 id="reorderModalTitle">Reorganizar compromissos</h2>
+          <p>Arraste os itens para definir a ordem da lista de compromissos. A numeração será atualizada automaticamente.</p>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeReorderModalBtn" aria-label="Fechar organização de compromissos" title="Fechar">
+          X
+        </button>
+      </div>
+
+      <div class="reorder-modal-body">
+        <div class="reorder-modal-tip">
+          <span class="reorder-tip-badge">Arraste e solte</span>
+          <p>O primeiro item da lista será o compromisso exibido primeiro no painel lateral.</p>
+        </div>
+
+        <div class="reorder-list" id="reorderList" aria-label="Lista para reorganizar compromissos"></div>
+      </div>
+
+      <div class="button-row modal-actions reorder-modal-actions">
+        <button type="button" id="cancelReorderModalBtn" class="btn-secondary">Fechar</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="update-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
