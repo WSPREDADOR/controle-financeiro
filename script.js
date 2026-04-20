@@ -63,10 +63,10 @@ let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
 let availableUpdate = null;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
+const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.3.14',
-  latestReleaseUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
-  manifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
+  currentVersion: '1.4.0',
+  bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   checkOnStartup: true,
   requestTimeoutMs: 6000
 };
@@ -1054,7 +1054,7 @@ function closeMobileDrawer() {
 function initializeUpdateCheck() {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
-  if (!config.latestReleaseUrl && !config.manifestUrl) {
+  if (!config.bundleManifestUrl) {
     hideUpdateBanner();
     return;
   }
@@ -1075,20 +1075,20 @@ function initializeUpdateCheck() {
 async function checkForUpdates() {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
-  if (!config.latestReleaseUrl && !config.manifestUrl) {
+  if (!config.bundleManifestUrl) {
     hideUpdateBanner();
     return;
   }
 
   try {
-    const release = await fetchLatestRelease(config, config.requestTimeoutMs ?? 6000);
-    const currentVersion = config.currentVersion || '1.3.14';
+    const release = await fetchBundleManifest(config.bundleManifestUrl, config.requestTimeoutMs ?? 6000);
+    const currentVersion = getCurrentAppVersion(config);
 
     if (release?.version && isRemoteVersionNewer(release.version, currentVersion)) {
       availableUpdate = release;
       showUpdateBanner(
-        `Atualizar para a versão ${release.version}`,
-        release.notes || 'Uma nova atualização foi encontrada. Toque no botão verde para instalar a versão mais recente.',
+        `Atualizar interface para ${release.version}`,
+        release.notes || 'Uma nova interface foi encontrada. Toque no botão verde para aplicar a atualização sem reinstalar o app.',
         release.version
       );
       return;
@@ -1102,60 +1102,7 @@ async function checkForUpdates() {
   }
 }
 
-async function fetchLatestRelease(config, timeoutMs) {
-  const release = await fetchLatestReleaseFromGitHub(config.latestReleaseUrl, timeoutMs).catch(() => null);
-
-  if (release?.version) {
-    return release;
-  }
-
-  if (!config.manifestUrl) {
-    return null;
-  }
-
-  return fetchUpdateManifest(config.manifestUrl, timeoutMs);
-}
-
-function fetchLatestReleaseFromGitHub(url, timeoutMs) {
-  if (!url) {
-    return Promise.resolve(null);
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  return fetch(url, {
-    cache: 'no-store',
-    headers: {
-      Accept: 'application/vnd.github+json'
-    },
-    signal: controller.signal
-  })
-    .then((response) => {
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error('Release mais recente indisponível.');
-      }
-
-      return response.json();
-    })
-    .then((release) => {
-      const version = String(release.tag_name || '').replace(/^v/i, '');
-      const apkAsset = Array.isArray(release.assets)
-        ? release.assets.find((asset) => asset.name?.toLowerCase().endsWith('.apk'))
-        : null;
-
-      return {
-        version,
-        apkUrl: apkAsset?.browser_download_url || '',
-        notes: release.body || '',
-        publishedAt: release.published_at || ''
-      };
-    });
-}
-
-function fetchUpdateManifest(url, timeoutMs) {
+function fetchBundleManifest(url, timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -1167,7 +1114,7 @@ function fetchUpdateManifest(url, timeoutMs) {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error('Manifesto de atualização indisponível.');
+        throw new Error('Manifesto web indisponível.');
       }
 
       return response.json();
@@ -1243,46 +1190,35 @@ function announceInstalledUpdate() {
 }
 
 async function startAppUpdate(update) {
-  if (!update?.apkUrl) {
+  if (!update?.bundleUrl) {
     return;
   }
 
   localStorage.setItem(PENDING_UPDATE_VERSION_KEY, update.version || '');
 
-  if (isNativeAndroid() && window.Capacitor?.Plugins?.UpdateInstaller) {
-    try {
-      const result = await window.Capacitor.Plugins.UpdateInstaller.downloadAndInstall({
-        apkUrl: update.apkUrl,
-        version: update.version || ''
-      });
+  try {
+    const response = await fetch(update.bundleUrl, { cache: 'no-store' });
 
-      if (result?.requiresPermission) {
-        showInstallPermissionBanner(update.version || '');
-      }
-
-      return;
-    } catch (error) {
-      localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+    if (!response.ok) {
+      throw new Error('Bundle web indisponível.');
     }
-  }
 
-  openUpdateUrl(update.apkUrl);
+    const bundle = await response.json();
+
+    if (!bundle?.html || !bundle?.version) {
+      throw new Error('Bundle web inválido.');
+    }
+
+    localStorage.setItem(WEB_BUNDLE_STORAGE_KEY, JSON.stringify(bundle));
+    location.reload();
+  } catch (error) {
+    localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+  }
 }
 
-function showInstallPermissionBanner(version) {
-  if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
-    return;
-  }
-
-  updateBanner.hidden = false;
-  updateBannerTitle.textContent = `Autorize a instalação da versão ${version}`;
-  updateBannerMessage.textContent = 'O Android pediu permissão para instalar atualizações por este app. Libere essa opção e toque novamente no botão verde.';
-  updatePrimaryBtn.hidden = false;
-  updatePrimaryBtn.textContent = `Atualizar para ${version}`;
-}
-
-function isNativeAndroid() {
-  return window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'android';
+function getCurrentAppVersion(config) {
+  const activeVersion = window.APP_UPDATE_CONFIG?.currentVersion || config.currentVersion || defaultUpdateConfig.currentVersion;
+  return activeVersion;
 }
 
 function openUpdateUrl(url) {

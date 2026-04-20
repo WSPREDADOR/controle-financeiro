@@ -1,6 +1,6 @@
 {
   "version": "1.4.0",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.0/app-release.apk",
   "notes": "Nova base do app com atualizacao da interface por dentro do proprio aplicativo, sem reinstalar APK a cada mudanca visual.",
-  "publishedAt": "2026-04-20"
+  "publishedAt": "2026-04-20",
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json"
 }

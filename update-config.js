@@ -1,7 +1,6 @@
 window.APP_UPDATE_CONFIG = {
-  currentVersion: '1.3.14',
-  latestReleaseUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
-  manifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
+  currentVersion: '1.4.0',
+  bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   checkOnStartup: true,
   requestTimeoutMs: 6000
 };
