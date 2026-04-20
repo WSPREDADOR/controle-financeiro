@@ -67,7 +67,7 @@ let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
 let availableUpdate = null;
 const defaultUpdateConfig = {
-  currentVersion: '1.3.3',
+  currentVersion: '1.3.4',
   manifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
   checkOnStartup: true,
   requestTimeoutMs: 6000
@@ -1107,7 +1107,7 @@ async function checkForUpdates({ manual = false } = {}) {
 
   try {
     const manifest = await fetchUpdateManifest(config.manifestUrl, config.requestTimeoutMs ?? 6000);
-    const currentVersion = config.currentVersion || '1.3.3';
+    const currentVersion = config.currentVersion || '1.3.4';
 
     if (manifest?.version && isRemoteVersionNewer(manifest.version, currentVersion)) {
       availableUpdate = manifest;
