@@ -1101,7 +1101,7 @@ async function checkForUpdates({ manual = false } = {}) {
 
   try {
     const manifest = await fetchUpdateManifest(config.manifestUrl, config.requestTimeoutMs ?? 6000);
-    const currentVersion = config.currentVersion || '1.3.1';
+    const currentVersion = config.currentVersion || '1.3.2';
 
     if (manifest?.version && isRemoteVersionNewer(manifest.version, currentVersion)) {
       availableUpdate = manifest;
