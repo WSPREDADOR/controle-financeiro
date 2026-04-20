@@ -36,7 +36,7 @@ function copyFile(source, destination) {
 function updateIndexHtml(html) {
   return html
     .replace(/src="Controle Financeiro\.png"/g, 'src="assets/Controle Financeiro.png"')
-    .replace('</body>', '  <script>\n    if (\'serviceWorker\' in navigator) {\n      window.addEventListener(\'load\', () => {\n        navigator.serviceWorker.register(\'./sw.js\').catch(() => {});\n      });\n    }\n  </script>\n</body>');
+    .replace('</body>', '  <script>\n    window.addEventListener(\'load\', async () => {\n      if (!(\'serviceWorker\' in navigator)) {\n        return;\n      }\n\n      const isNativeApp = !!window.Capacitor?.isNativePlatform?.();\n\n      if (isNativeApp) {\n        try {\n          const registrations = await navigator.serviceWorker.getRegistrations();\n          await Promise.all(registrations.map((registration) => registration.unregister()));\n\n          if (window.caches?.keys) {\n            const keys = await window.caches.keys();\n            await Promise.all(keys.map((key) => window.caches.delete(key)));\n          }\n        } catch (_) {}\n\n        return;\n      }\n\n      navigator.serviceWorker.register(\'./sw.js\').catch(() => {});\n    });\n  </script>\n</body>');
 }
 
 function main() {
