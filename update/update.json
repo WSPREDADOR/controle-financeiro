@@ -1,6 +1,6 @@
 {
-  "version": "1.3.0",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.0/app-release.apk",
-  "notes": "Primeira versao com suporte a atualizacao manual pelo proprio app.",
+  "version": "1.3.1",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.1/app-release.apk",
+  "notes": "Versao com menu mobile no topo, layout mais solto no celular e estrutura de atualizacao pelo GitHub pronta para uso.",
   "publishedAt": "2026-04-20"
 }
