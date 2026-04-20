@@ -778,10 +778,6 @@ button.version-pill {
   cursor: pointer;
 }
 
-.update-pill {
-  border-color: rgba(241, 182, 111, 0.16);
-}
-
 .version-pill strong {
   display: block;
   margin-top: 4px;
@@ -793,9 +789,9 @@ button.version-pill {
   margin-bottom: 18px;
   padding: 18px 20px;
   border-radius: 24px;
-  border: 1px solid rgba(241, 182, 111, 0.16);
+  border: 1px solid rgba(89, 218, 174, 0.2);
   background:
-    linear-gradient(135deg, rgba(241, 182, 111, 0.1), rgba(24, 32, 38, 0.94));
+    linear-gradient(135deg, rgba(74, 181, 141, 0.18), rgba(18, 27, 33, 0.96));
   box-shadow: var(--shadow-soft);
   display: flex;
   align-items: center;
@@ -825,6 +821,13 @@ button.version-pill {
   gap: 10px;
   flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+.update-banner .btn-primary {
+  min-width: 220px;
+  background: linear-gradient(135deg, #5ce0a2, #7af7cf);
+  color: #07251d;
+  box-shadow: 0 18px 36px rgba(92, 224, 162, 0.22);
 }
 
 .stat-card::before,

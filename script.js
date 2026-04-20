@@ -11,10 +11,6 @@ const updateBanner = document.getElementById('updateBanner');
 const updateBannerTitle = document.getElementById('updateBannerTitle');
 const updateBannerMessage = document.getElementById('updateBannerMessage');
 const updatePrimaryBtn = document.getElementById('updatePrimaryBtn');
-const updateSecondaryBtn = document.getElementById('updateSecondaryBtn');
-const updateStatusText = document.getElementById('updateStatusText');
-const mobileUpdateStatus = document.getElementById('mobileUpdateStatus');
-const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
 const plansList = document.getElementById('plansList');
 const selectedPlanTitle = document.getElementById('selectedPlanTitle');
 const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
@@ -67,7 +63,8 @@ let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
 let availableUpdate = null;
 const defaultUpdateConfig = {
-  currentVersion: '1.3.4',
+  currentVersion: '1.3.5',
+  latestReleaseUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
   manifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
   checkOnStartup: true,
   requestTimeoutMs: 6000
@@ -411,14 +408,6 @@ backToTopBtn.addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-checkUpdatesBtn?.addEventListener('click', () => {
-  checkForUpdates({ manual: true });
-});
-
-updateSecondaryBtn?.addEventListener('click', () => {
-  checkForUpdates({ manual: true });
-});
-
 updatePrimaryBtn?.addEventListener('click', () => {
   if (availableUpdate?.apkUrl) {
     openUpdateUrl(availableUpdate.apkUrl);
@@ -479,9 +468,6 @@ mobileOptionsDrawer?.addEventListener('click', (event) => {
     return;
   }
 
-  if (mobileAction === 'check-update') {
-    checkForUpdates({ manual: true });
-  }
 });
 
 function renderPlanDetails(plan) {
@@ -1066,12 +1052,12 @@ function closeMobileDrawer() {
 function initializeUpdateCheck() {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
-  if (!config || !config.manifestUrl) {
-    setUpdateIdleState('Configure o GitHub para ativar as atualizações.');
+  if (!config.latestReleaseUrl && !config.manifestUrl) {
+    hideUpdateBanner();
     return;
   }
 
-  setUpdateIdleState('Toque para verificar novas versões.');
+  hideUpdateBanner();
 
   if (config.checkOnStartup && navigator.onLine) {
     checkForUpdates();
@@ -1084,64 +1070,92 @@ function initializeUpdateCheck() {
   });
 }
 
-async function checkForUpdates({ manual = false } = {}) {
+async function checkForUpdates() {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
-  if (!config?.manifestUrl) {
-    if (manual) {
-      setUpdateIdleState('Defina o manifestUrl do GitHub em update-config.js.');
-      showUpdateBanner('Atualização não configurada', 'Preencha o arquivo update-config.js com os links do seu repositório GitHub.', false);
-    }
+  if (!config.latestReleaseUrl && !config.manifestUrl) {
+    hideUpdateBanner();
     return;
   }
 
   if (!navigator.onLine) {
-    if (manual) {
-      setUpdateIdleState('Sem internet no momento.');
-      showUpdateBanner('Sem conexão', 'Conecte-se à internet para verificar se existe uma nova versão do app.', false);
-    }
+    hideUpdateBanner();
     return;
   }
 
-  setUpdateCheckingState();
-
   try {
-    const manifest = await fetchUpdateManifest(config.manifestUrl, config.requestTimeoutMs ?? 6000);
-    const currentVersion = config.currentVersion || '1.3.4';
+    const release = await fetchLatestRelease(config, config.requestTimeoutMs ?? 6000);
+    const currentVersion = config.currentVersion || '1.3.5';
 
-    if (manifest?.version && isRemoteVersionNewer(manifest.version, currentVersion)) {
-      availableUpdate = manifest;
-      setUpdateAvailableState(manifest.version);
+    if (release?.version && isRemoteVersionNewer(release.version, currentVersion)) {
+      availableUpdate = release;
       showUpdateBanner(
-        `Nova versão disponível: ${manifest.version}`,
-        manifest.notes || 'Uma nova atualização foi encontrada. Toque no botão para instalar a versão mais recente.',
-        true
+        `Atualizar para a versão ${release.version}`,
+        release.notes || 'Uma nova atualização foi encontrada. Toque no botão verde para instalar a versão mais recente.',
+        release.version
       );
       return;
     }
 
     availableUpdate = null;
-    setUpdateIdleState('App atualizado.');
-
-    if (manual) {
-      showUpdateBanner(
-        'Seu app já está atualizado',
-        `Você já está usando a versão ${currentVersion}. Quando uma nova release for publicada no GitHub, ela aparecerá aqui.`,
-        false
-      );
-    }
+    hideUpdateBanner();
   } catch (error) {
     availableUpdate = null;
-    setUpdateIdleState('Falha ao verificar.');
-
-    if (manual) {
-      showUpdateBanner(
-        'Não foi possível verificar',
-        'Confira se o app está com internet e se o arquivo update.json do GitHub está acessível.',
-        false
-      );
-    }
+    hideUpdateBanner();
   }
+}
+
+async function fetchLatestRelease(config, timeoutMs) {
+  const release = await fetchLatestReleaseFromGitHub(config.latestReleaseUrl, timeoutMs).catch(() => null);
+
+  if (release?.version) {
+    return release;
+  }
+
+  if (!config.manifestUrl) {
+    return null;
+  }
+
+  return fetchUpdateManifest(config.manifestUrl, timeoutMs);
+}
+
+function fetchLatestReleaseFromGitHub(url, timeoutMs) {
+  if (!url) {
+    return Promise.resolve(null);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, {
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/vnd.github+json'
+    },
+    signal: controller.signal
+  })
+    .then((response) => {
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error('Release mais recente indisponível.');
+      }
+
+      return response.json();
+    })
+    .then((release) => {
+      const version = String(release.tag_name || '').replace(/^v/i, '');
+      const apkAsset = Array.isArray(release.assets)
+        ? release.assets.find((asset) => asset.name?.toLowerCase().endsWith('.apk'))
+        : null;
+
+      return {
+        version,
+        apkUrl: apkAsset?.browser_download_url || '',
+        notes: release.body || '',
+        publishedAt: release.published_at || ''
+      };
+    });
 }
 
 function fetchUpdateManifest(url, timeoutMs) {
@@ -1184,29 +1198,7 @@ function isRemoteVersionNewer(remoteVersion, currentVersion) {
   return false;
 }
 
-function setUpdateCheckingState() {
-  setUpdateTexts('Verificando', 'Verificando');
-}
-
-function setUpdateIdleState(text) {
-  setUpdateTexts(text, text);
-}
-
-function setUpdateAvailableState(version) {
-  setUpdateTexts(`Nova: ${version}`, `Nova: ${version}`);
-}
-
-function setUpdateTexts(topbarText, mobileText) {
-  if (updateStatusText) {
-    updateStatusText.textContent = topbarText;
-  }
-
-  if (mobileUpdateStatus) {
-    mobileUpdateStatus.textContent = mobileText;
-  }
-}
-
-function showUpdateBanner(title, message, canUpdate) {
+function showUpdateBanner(title, message, version) {
   if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
     return;
   }
@@ -1214,7 +1206,18 @@ function showUpdateBanner(title, message, canUpdate) {
   updateBanner.hidden = false;
   updateBannerTitle.textContent = title;
   updateBannerMessage.textContent = message;
-  updatePrimaryBtn.hidden = !canUpdate;
+  updatePrimaryBtn.hidden = false;
+  updatePrimaryBtn.textContent = `Atualizar para ${version}`;
+}
+
+function hideUpdateBanner() {
+  if (!updateBanner || !updatePrimaryBtn) {
+    return;
+  }
+
+  updateBanner.hidden = true;
+  updatePrimaryBtn.hidden = true;
+  updatePrimaryBtn.textContent = 'Atualizar app';
 }
 
 function openUpdateUrl(url) {
