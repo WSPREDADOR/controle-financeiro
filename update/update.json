@@ -1,6 +1,6 @@
 {
-  "version": "1.3.2",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.2/app-release.apk",
-  "notes": "Versao de teste para validar a atualizacao pelo proprio app, mantendo o funcionamento offline e com nova release detectada pela internet.",
+  "version": "1.3.3",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.3/app-release.apk",
+  "notes": "Correcao do pacote mobile para incluir a configuracao de atualizacoes e fallback interno quando o arquivo externo nao estiver presente.",
   "publishedAt": "2026-04-20"
 }

@@ -66,6 +66,12 @@ let pendingDeletePlanId = null;
 let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
 let availableUpdate = null;
+const defaultUpdateConfig = {
+  currentVersion: '1.3.3',
+  manifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
+  checkOnStartup: true,
+  requestTimeoutMs: 6000
+};
 
 currentDate.textContent = formatDate(normalizeDate(new Date()));
 if (mobileCurrentDate) {
@@ -1058,7 +1064,7 @@ function closeMobileDrawer() {
 }
 
 function initializeUpdateCheck() {
-  const config = window.APP_UPDATE_CONFIG;
+  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
   if (!config || !config.manifestUrl) {
     setUpdateIdleState('Configure o GitHub para ativar as atualizações.');
@@ -1079,7 +1085,7 @@ function initializeUpdateCheck() {
 }
 
 async function checkForUpdates({ manual = false } = {}) {
-  const config = window.APP_UPDATE_CONFIG;
+  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
   if (!config?.manifestUrl) {
     if (manual) {
@@ -1101,7 +1107,7 @@ async function checkForUpdates({ manual = false } = {}) {
 
   try {
     const manifest = await fetchUpdateManifest(config.manifestUrl, config.requestTimeoutMs ?? 6000);
-    const currentVersion = config.currentVersion || '1.3.2';
+    const currentVersion = config.currentVersion || '1.3.3';
 
     if (manifest?.version && isRemoteVersionNewer(manifest.version, currentVersion)) {
       availableUpdate = manifest;
