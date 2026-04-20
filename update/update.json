@@ -1,6 +1,6 @@
 {
-  "version": "1.3.5",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.5/app-release.apk",
-  "notes": "Nova logica de atualizacao automatica ao abrir o app, com banner verde direto na tela inicial quando existir uma versao mais recente.",
+  "version": "1.3.6",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.6/app-release.apk",
+  "notes": "Versao criada para validar o aparecimento automatico do botao verde de atualizacao na tela inicial.",
   "publishedAt": "2026-04-20"
 }
