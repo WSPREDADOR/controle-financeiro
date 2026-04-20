@@ -62,8 +62,9 @@ let pendingDeletePlanId = null;
 let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
 let availableUpdate = null;
+const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const defaultUpdateConfig = {
-  currentVersion: '1.3.8',
+  currentVersion: '1.3.9',
   latestReleaseUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
   manifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
   checkOnStartup: true,
@@ -81,6 +82,7 @@ if (selectedPlanId) {
   renderPlanDetails(getSelectedPlan());
 }
 
+announceInstalledUpdate();
 initializeUpdateCheck();
 
 createForm.addEventListener('submit', (event) => {
@@ -410,7 +412,7 @@ backToTopBtn.addEventListener('click', () => {
 
 updatePrimaryBtn?.addEventListener('click', () => {
   if (availableUpdate?.apkUrl) {
-    openUpdateUrl(availableUpdate.apkUrl);
+    startAppUpdate(availableUpdate);
   }
 });
 
@@ -1080,7 +1082,7 @@ async function checkForUpdates() {
 
   try {
     const release = await fetchLatestRelease(config, config.requestTimeoutMs ?? 6000);
-    const currentVersion = config.currentVersion || '1.3.8';
+    const currentVersion = config.currentVersion || '1.3.9';
 
     if (release?.version && isRemoteVersionNewer(release.version, currentVersion)) {
       availableUpdate = release;
@@ -1205,6 +1207,17 @@ function showUpdateBanner(title, message, version) {
   updatePrimaryBtn.textContent = `Atualizar para ${version}`;
 }
 
+function showUpdatedBanner(version) {
+  if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
+    return;
+  }
+
+  updateBanner.hidden = false;
+  updateBannerTitle.textContent = `Aplicativo atualizado para ${version}`;
+  updateBannerMessage.textContent = 'A nova versão foi instalada com sucesso. Tudo certo para continuar usando o app.';
+  updatePrimaryBtn.hidden = true;
+}
+
 function hideUpdateBanner() {
   if (!updateBanner || !updatePrimaryBtn) {
     return;
@@ -1213,6 +1226,63 @@ function hideUpdateBanner() {
   updateBanner.hidden = true;
   updatePrimaryBtn.hidden = true;
   updatePrimaryBtn.textContent = 'Atualizar app';
+}
+
+function announceInstalledUpdate() {
+  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
+  const currentVersion = config.currentVersion || defaultUpdateConfig.currentVersion;
+  const pendingVersion = localStorage.getItem(PENDING_UPDATE_VERSION_KEY);
+
+  if (!pendingVersion || pendingVersion !== currentVersion) {
+    return;
+  }
+
+  localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+  availableUpdate = null;
+  showUpdatedBanner(currentVersion);
+}
+
+async function startAppUpdate(update) {
+  if (!update?.apkUrl) {
+    return;
+  }
+
+  localStorage.setItem(PENDING_UPDATE_VERSION_KEY, update.version || '');
+
+  if (isNativeAndroid() && window.Capacitor?.Plugins?.UpdateInstaller) {
+    try {
+      const result = await window.Capacitor.Plugins.UpdateInstaller.downloadAndInstall({
+        apkUrl: update.apkUrl,
+        version: update.version || ''
+      });
+
+      if (result?.requiresPermission) {
+        showInstallPermissionBanner(update.version || '');
+      }
+
+      return;
+    } catch (error) {
+      localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+    }
+  }
+
+  openUpdateUrl(update.apkUrl);
+}
+
+function showInstallPermissionBanner(version) {
+  if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
+    return;
+  }
+
+  updateBanner.hidden = false;
+  updateBannerTitle.textContent = `Autorize a instalação da versão ${version}`;
+  updateBannerMessage.textContent = 'O Android pediu permissão para instalar atualizações por este app. Libere essa opção e toque novamente no botão verde.';
+  updatePrimaryBtn.hidden = false;
+  updatePrimaryBtn.textContent = `Atualizar para ${version}`;
+}
+
+function isNativeAndroid() {
+  return window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'android';
 }
 
 function openUpdateUrl(url) {

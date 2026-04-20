@@ -1,6 +1,6 @@
 {
-  "version": "1.3.8",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.8/app-release.apk",
-  "notes": "Versao criada para validar a base corrigida da 1.3.7 com o banner verde automatico na tela inicial.",
+  "version": "1.3.9",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.9/app-release.apk",
+  "notes": "Atualizacao iniciada dentro do proprio app no Android, com instalacao aberta sem mandar para o navegador e mensagem de app atualizado ao reabrir.",
   "publishedAt": "2026-04-20"
 }
