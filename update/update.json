@@ -1,6 +1,6 @@
 {
-  "version": "1.3.12",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.12/app-release.apk",
-  "notes": "Correcao do cache do service worker no app Android para evitar abrir a interface de versoes antigas depois da atualizacao.",
+  "version": "1.3.13",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.3.13/app-release.apk",
+  "notes": "Versao de validacao final apos a correcao de cache no app Android.",
   "publishedAt": "2026-04-20"
 }
