@@ -1,6 +1,6 @@
 {
-  "version": "1.4.11",
-  "notes": "Melhora os cards da lista de compromissos no celular, com visual mais limpo, progresso mais claro e botoes de acao mais faceis de tocar.",
+  "version": "1.4.12",
+  "notes": "Restaura o fluxo da atualizacao web dentro do app e mantem a melhoria visual dos cards da lista de compromissos no celular.",
   "publishedAt": "2026-04-21",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
   "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json"

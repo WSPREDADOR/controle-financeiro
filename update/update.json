@@ -1,6 +1,6 @@
 {
-  "version": "1.4.11",
+  "version": "1.4.12",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Melhora os cards da lista de compromissos no celular, com visual mais limpo, progresso mais claro e botoes de acao mais faceis de tocar.",
+  "notes": "Restaura o fluxo da atualizacao web dentro do app e mantem a melhoria visual dos cards da lista de compromissos no celular.",
   "publishedAt": "2026-04-21"
 }
