@@ -10,6 +10,7 @@ const packagePath = path.join(projectRoot, 'package.json');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
 const manifestOutPath = path.join(projectRoot, 'update', 'web-manifest.json');
 const bundleOutPath = path.join(projectRoot, 'update', 'web-bundle.json');
+const topbarImagePath = path.join(projectRoot, 'Controle Financeiro.png');
 
 function extractBodyHtml(indexHtml) {
   const match = indexHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
@@ -25,7 +26,16 @@ function extractBodyHtml(indexHtml) {
     .trim();
 }
 
-function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs }) {
+function fileToDataUrl(filePath) {
+  const buffer = fs.readFileSync(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeType = ext === '.png' ? 'image/png' : 'application/octet-stream';
+  return `data:${mimeType};base64,${buffer.toString('base64')}`;
+}
+
+function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topbarImageDataUrl }) {
+  const hydratedBodyHtml = bodyHtml.replace(/src="assets\/Controle Financeiro\.png"/g, `src="${topbarImageDataUrl}"`);
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -45,7 +55,7 @@ ${styleCss}
   </style>
 </head>
 <body>
-${bodyHtml}
+${hydratedBodyHtml}
   <script>
     window.__CF_RUNTIME_ACTIVE__ = true;
   </script>
@@ -68,7 +78,8 @@ function main() {
   const updateInfo = JSON.parse(fs.readFileSync(updateInfoPath, 'utf8'));
   const version = packageJson.version;
   const bodyHtml = extractBodyHtml(indexHtml);
-  const html = buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs });
+  const topbarImageDataUrl = fileToDataUrl(topbarImagePath);
+  const html = buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topbarImageDataUrl });
 
   const manifest = {
     version,

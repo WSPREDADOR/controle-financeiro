@@ -1,6 +1,6 @@
 {
-  "version": "1.4.5",
+  "version": "1.4.6",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Teste final da atualizacao web. A base 1.4.4 deve detectar esta versao e aplicar a interface 1.4.5 dentro do proprio app.",
+  "notes": "Corrige o icone do topo dentro do bundle web e impede o banner de continuar pedindo a mesma atualizacao depois de aplicada.",
   "publishedAt": "2026-04-20"
 }

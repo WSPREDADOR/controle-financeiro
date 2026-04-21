@@ -65,7 +65,7 @@ let availableUpdate = null;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.4.5',
+  currentVersion: '1.4.6',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: '',
   checkOnStartup: true,
@@ -83,8 +83,8 @@ if (selectedPlanId) {
   renderPlanDetails(getSelectedPlan());
 }
 
-announceInstalledUpdate();
-initializeUpdateCheck();
+const installedUpdateVersion = announceInstalledUpdate();
+initializeUpdateCheck(installedUpdateVersion);
 
 createForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -1052,7 +1052,7 @@ function closeMobileDrawer() {
   mobileMenuBtn.setAttribute('aria-expanded', 'false');
 }
 
-function initializeUpdateCheck() {
+function initializeUpdateCheck(installedVersion = null) {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
   if (!config.bundleManifestUrl) {
@@ -1060,9 +1060,11 @@ function initializeUpdateCheck() {
     return;
   }
 
-  hideUpdateBanner();
+  if (!installedVersion) {
+    hideUpdateBanner();
+  }
 
-  if (config.checkOnStartup) {
+  if (config.checkOnStartup && !installedVersion) {
     checkForUpdates();
   }
 
@@ -1200,16 +1202,17 @@ function hideUpdateBanner() {
 
 function announceInstalledUpdate() {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
-  const currentVersion = config.currentVersion || defaultUpdateConfig.currentVersion;
+  const currentVersion = getCurrentAppVersion(config);
   const pendingVersion = localStorage.getItem(PENDING_UPDATE_VERSION_KEY);
 
   if (!pendingVersion || pendingVersion !== currentVersion) {
-    return;
+    return null;
   }
 
   localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
   availableUpdate = null;
   showUpdatedBanner(currentVersion);
+  return currentVersion;
 }
 
 async function startAppUpdate(update) {
@@ -1240,8 +1243,21 @@ async function startAppUpdate(update) {
 }
 
 function getCurrentAppVersion(config) {
-  const activeVersion = window.APP_UPDATE_CONFIG?.currentVersion || config.currentVersion || defaultUpdateConfig.currentVersion;
-  return activeVersion;
+  try {
+    const rawBundle = localStorage.getItem(WEB_BUNDLE_STORAGE_KEY);
+
+    if (rawBundle) {
+      const parsedBundle = JSON.parse(rawBundle);
+      if (parsedBundle?.version && !isRemoteVersionNewer(parsedBundle.version, config.currentVersion || defaultUpdateConfig.currentVersion)) {
+        return config.currentVersion || defaultUpdateConfig.currentVersion;
+      }
+      if (parsedBundle?.version) {
+        return parsedBundle.version;
+      }
+    }
+  } catch (_) {}
+
+  return window.APP_UPDATE_CONFIG?.currentVersion || config.currentVersion || defaultUpdateConfig.currentVersion;
 }
 
 function openUpdateUrl(url) {
