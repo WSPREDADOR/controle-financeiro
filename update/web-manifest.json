@@ -1,6 +1,7 @@
 {
-  "version": "1.4.6",
-  "notes": "Corrige o icone do topo dentro do bundle web e impede o banner de continuar pedindo a mesma atualizacao depois de aplicada.",
+  "version": "1.4.7",
+  "notes": "Corrige a aplicacao do bundle web com cache-buster e fallback tambem no download da interface, evitando receber um bundle antigo quando o manifesto ja aponta para a versao nova.",
   "publishedAt": "2026-04-20",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json"
 }

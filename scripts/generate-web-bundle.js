@@ -85,7 +85,8 @@ function main() {
     version,
     notes: updateInfo.notes || '',
     publishedAt: updateInfo.publishedAt || '',
-    bundleUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json'
+    bundleUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json',
+    bundleFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json'
   };
 
   const bundle = {

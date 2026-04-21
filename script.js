@@ -65,7 +65,7 @@ let availableUpdate = null;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.4.6',
+  currentVersion: '1.4.7',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: '',
   checkOnStartup: true,
@@ -1223,23 +1223,55 @@ async function startAppUpdate(update) {
   localStorage.setItem(PENDING_UPDATE_VERSION_KEY, update.version || '');
 
   try {
-    const response = await fetch(update.bundleUrl, { cache: 'no-store' });
-
-    if (!response.ok) {
-      throw new Error('Bundle web indisponível.');
-    }
-
-    const bundle = await response.json();
-
-    if (!bundle?.html || !bundle?.version) {
-      throw new Error('Bundle web inválido.');
-    }
+    const bundle = await fetchBundlePayload(update, window.APP_UPDATE_CONFIG?.currentVersion || defaultUpdateConfig.currentVersion);
 
     localStorage.setItem(WEB_BUNDLE_STORAGE_KEY, JSON.stringify(bundle));
     location.reload();
   } catch (error) {
     localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
   }
+}
+
+function buildBundleUrls(update, currentVersion) {
+  const urls = [
+    update.bundleUrl,
+    update.bundleFallbackUrl
+  ].filter(Boolean);
+
+  return urls.map((url, index) => {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}target=${encodeURIComponent(update.version || '')}&base=${encodeURIComponent(currentVersion || '')}&t=${Date.now()}-${index}`;
+  });
+}
+
+async function fetchBundlePayload(update, currentVersion) {
+  let lastError = null;
+
+  for (const url of buildBundleUrls(update, currentVersion)) {
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+
+      if (!response.ok) {
+        throw new Error('Bundle web indisponível.');
+      }
+
+      const bundle = await response.json();
+
+      if (!bundle?.html || !bundle?.version) {
+        throw new Error('Bundle web inválido.');
+      }
+
+      if (update.version && bundle.version !== update.version) {
+        throw new Error(`Bundle fora de sincronia. Esperado ${update.version} e recebido ${bundle.version}.`);
+      }
+
+      return bundle;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new Error('Bundle web indisponível.');
 }
 
 function getCurrentAppVersion(config) {

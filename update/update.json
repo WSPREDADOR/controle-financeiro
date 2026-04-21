@@ -1,6 +1,6 @@
 {
-  "version": "1.4.6",
+  "version": "1.4.7",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Corrige o icone do topo dentro do bundle web e impede o banner de continuar pedindo a mesma atualizacao depois de aplicada.",
+  "notes": "Corrige a aplicacao do bundle web com cache-buster e fallback tambem no download da interface, evitando receber um bundle antigo quando o manifesto ja aponta para a versao nova.",
   "publishedAt": "2026-04-20"
 }
