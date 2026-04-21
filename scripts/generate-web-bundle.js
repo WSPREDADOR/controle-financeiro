@@ -33,8 +33,27 @@ function fileToDataUrl(filePath) {
   return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
+function inlineTopbarImage(bodyHtml, topbarImageDataUrl) {
+  const imageSources = [
+    'src="Controle Financeiro.png"',
+    'src="assets/Controle Financeiro.png"'
+  ];
+
+  let hydratedBodyHtml = bodyHtml;
+
+  imageSources.forEach((source) => {
+    hydratedBodyHtml = hydratedBodyHtml.split(source).join(`src="${topbarImageDataUrl}"`);
+  });
+
+  if (imageSources.some((source) => hydratedBodyHtml.includes(source))) {
+    throw new Error('Nao foi possivel embutir a imagem do topo no bundle web.');
+  }
+
+  return hydratedBodyHtml;
+}
+
 function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topbarImageDataUrl }) {
-  const hydratedBodyHtml = bodyHtml.replace(/src="assets\/Controle Financeiro\.png"/g, `src="${topbarImageDataUrl}"`);
+  const hydratedBodyHtml = inlineTopbarImage(bodyHtml, topbarImageDataUrl);
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">

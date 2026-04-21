@@ -1,5 +1,5 @@
 window.APP_UPDATE_CONFIG = {
-  currentVersion: '1.4.7',
+  currentVersion: '1.4.8',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   checkOnStartup: true,
