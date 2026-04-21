@@ -65,8 +65,9 @@ let availableUpdate = null;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.4.3',
+  currentVersion: '1.4.4',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
+  bundleManifestFallbackUrl: '',
   checkOnStartup: true,
   requestTimeoutMs: 6000
 };
@@ -411,7 +412,7 @@ backToTopBtn.addEventListener('click', () => {
 });
 
 updatePrimaryBtn?.addEventListener('click', () => {
-  if (availableUpdate?.apkUrl) {
+  if (availableUpdate?.bundleUrl) {
     startAppUpdate(availableUpdate);
   }
 });
@@ -1081,7 +1082,7 @@ async function checkForUpdates() {
   }
 
   try {
-    const release = await fetchBundleManifest(config.bundleManifestUrl, config.requestTimeoutMs ?? 6000);
+    const release = await fetchBundleManifest(buildManifestUrls(config), config.requestTimeoutMs ?? 6000);
     const currentVersion = getCurrentAppVersion(config);
 
     if (release?.version && isRemoteVersionNewer(release.version, currentVersion)) {
@@ -1102,23 +1103,45 @@ async function checkForUpdates() {
   }
 }
 
-function fetchBundleManifest(url, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+function buildManifestUrls(config) {
+  const urls = [
+    config.bundleManifestUrl,
+    config.bundleManifestFallbackUrl
+  ].filter(Boolean);
 
-  return fetch(url, {
-    cache: 'no-store',
-    signal: controller.signal
-  })
-    .then((response) => {
+  return urls.map((url, index) => {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}app=${encodeURIComponent(config.currentVersion || defaultUpdateConfig.currentVersion)}&t=${Date.now()}-${index}`;
+  });
+}
+
+async function fetchBundleManifest(urls, timeoutMs) {
+  let lastError = null;
+
+  for (const url of urls) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        signal: controller.signal
+      });
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('Manifesto web indisponível.');
       }
 
-      return response.json();
-    });
+      return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new Error('Manifesto web indisponível.');
 }
 
 function isRemoteVersionNewer(remoteVersion, currentVersion) {

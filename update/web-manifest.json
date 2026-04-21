@@ -1,6 +1,6 @@
 {
-  "version": "1.4.3",
-  "notes": "Primeiro teste real de atualizacao web dentro do app, sem reinstalar APK. Ao aplicar, a interface deve subir para a versao 1.4.3 direto na tela.",
+  "version": "1.4.4",
+  "notes": "Base mobile corrigida para atualizacao web. Resolve o cache do manifesto com fallback e corrige o botao verde para aplicar o bundle dentro do app.",
   "publishedAt": "2026-04-20",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json"
 }
