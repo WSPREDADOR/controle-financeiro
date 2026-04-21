@@ -1,6 +1,6 @@
 {
-  "version": "1.4.1",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.1/app-release.apk",
-  "notes": "Base corrigida para limpar estado legado da interface antiga na primeira abertura e consolidar a nova arquitetura de atualizacao web.",
+  "version": "1.4.2",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
+  "notes": "Base com limpeza mais forte do estado legado da WebView, preservando os compromissos e forçando a interface nova a assumir.",
   "publishedAt": "2026-04-20"
 }

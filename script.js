@@ -65,7 +65,7 @@ let availableUpdate = null;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.4.1',
+  currentVersion: '1.4.2',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   checkOnStartup: true,
   requestTimeoutMs: 6000

@@ -2,6 +2,7 @@ package com.werbertsilva.controlefinanceiro.mobile;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.webkit.ValueCallback;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -22,24 +23,53 @@ public class MainActivity extends BridgeActivity {
         }
 
         preferences.edit().putBoolean(migrationKey, true).apply();
+        getBridge().getWebView().clearCache(true);
 
         getBridge().getWebView().postDelayed(() -> getBridge().getWebView().evaluateJavascript(
-            "(async function () {" +
+            "(function () {" +
                 "try {" +
-                    "localStorage.removeItem('cf-active-web-bundle');" +
-                    "localStorage.removeItem('pending-app-update-version');" +
-                    "if ('serviceWorker' in navigator) {" +
-                        "const registrations = await navigator.serviceWorker.getRegistrations();" +
-                        "await Promise.all(registrations.map((registration) => registration.unregister()));" +
-                    "}" +
-                    "if (window.caches && caches.keys) {" +
-                        "const keys = await caches.keys();" +
-                        "await Promise.all(keys.map((key) => caches.delete(key)));" +
-                    "}" +
-                    "location.reload();" +
-                "} catch (_) {}" +
+                    "return JSON.stringify({" +
+                        "plans: localStorage.getItem('payment-plans-v1') || ''," +
+                        "selected: localStorage.getItem('selected-plan-id') || ''" +
+                    "});" +
+                "} catch (_) {" +
+                    "return JSON.stringify({ plans: '', selected: '' });" +
+                "}" +
             "})();",
-            null
+            (ValueCallback<String>) value -> {
+                String payload = value == null ? "{\"plans\":\"\",\"selected\":\"\"}" : value;
+                String escapedPayload = payload
+                    .replace("\\", "\\\\")
+                    .replace("'", "\\'");
+
+                getBridge().getWebView().evaluateJavascript(
+                    "(async function () {" +
+                        "try {" +
+                            "const preserved = JSON.parse('" + escapedPayload + "');" +
+                            "localStorage.clear();" +
+                            "sessionStorage.clear();" +
+                            "if (preserved.plans) {" +
+                                "localStorage.setItem('payment-plans-v1', preserved.plans);" +
+                            "}" +
+                            "if (preserved.selected) {" +
+                                "localStorage.setItem('selected-plan-id', preserved.selected);" +
+                            "}" +
+                            "if ('serviceWorker' in navigator) {" +
+                                "const registrations = await navigator.serviceWorker.getRegistrations();" +
+                                "await Promise.all(registrations.map((registration) => registration.unregister()));" +
+                            "}" +
+                            "if (window.caches && caches.keys) {" +
+                                "const keys = await caches.keys();" +
+                                "await Promise.all(keys.map((key) => caches.delete(key)));" +
+                            "}" +
+                            "location.reload();" +
+                        "} catch (_) {" +
+                            "location.reload();" +
+                        "}" +
+                    "})();",
+                    null
+                );
+            }
         ), 1200);
     }
 
