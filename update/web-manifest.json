@@ -1,6 +1,6 @@
 {
-  "version": "1.4.0",
-  "notes": "Nova base do app com atualizacao da interface por dentro do proprio aplicativo, sem reinstalar APK a cada mudanca visual.",
+  "version": "1.4.1",
+  "notes": "Base corrigida para limpar estado legado da interface antiga na primeira abertura e consolidar a nova arquitetura de atualizacao web.",
   "publishedAt": "2026-04-20",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json"
 }
