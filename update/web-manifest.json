@@ -1,6 +1,6 @@
 {
-  "version": "1.4.13",
-  "notes": "Reforca a deteccao de novas versoes dentro do app com fallback extra pela API de latest release do GitHub, mantendo a atualizacao web sem APK.",
+  "version": "1.4.14",
+  "notes": "Publicacao web no mesmo modelo que funcionava entre a 1.4.9 e a 1.4.10, para garantir deteccao pelo manifesto e bundle no main sem depender do timing da release.",
   "publishedAt": "2026-04-21",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
   "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json"
