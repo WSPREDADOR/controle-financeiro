@@ -1,6 +1,6 @@
 {
-  "version": "1.4.9",
+  "version": "1.4.10",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Remove o texto introdutorio do card inicial de adicionar compromisso para compactar o topo da tela e subir o restante do painel.",
+  "notes": "Melhora a deteccao de novas versoes sem fechar o app, com rechecagem automatica, limpeza do estado local de update e escolha da fonte de manifesto mais nova entre GitHub e fallback.",
   "publishedAt": "2026-04-20"
 }

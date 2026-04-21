@@ -62,14 +62,18 @@ let pendingDeletePlanId = null;
 let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
 let availableUpdate = null;
+let updateCheckIntervalId = null;
+let isUpdateCheckInFlight = false;
+let updateBannerHoldUntil = 0;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.4.9',
+  currentVersion: '1.4.10',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: '',
   checkOnStartup: true,
-  requestTimeoutMs: 6000
+  requestTimeoutMs: 6000,
+  recheckIntervalMs: 45000
 };
 
 currentDate.textContent = formatDate(normalizeDate(new Date()));
@@ -1064,18 +1068,45 @@ function initializeUpdateCheck(installedVersion = null) {
     hideUpdateBanner();
   }
 
-  if (config.checkOnStartup && !installedVersion) {
-    checkForUpdates();
+  if (installedVersion) {
+    updateBannerHoldUntil = Date.now() + 12000;
+  }
+
+  if (config.checkOnStartup) {
+    const initialDelayMs = installedVersion ? 12000 : 0;
+    window.setTimeout(() => {
+      checkForUpdates({ force: true });
+    }, initialDelayMs);
   }
 
   window.addEventListener('online', () => {
-    if (!availableUpdate) {
-      checkForUpdates();
+    checkForUpdates({ force: true });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkForUpdates({ force: true });
     }
   });
+
+  window.addEventListener('focus', () => {
+    checkForUpdates({ force: true });
+  });
+
+  if (updateCheckIntervalId) {
+    window.clearInterval(updateCheckIntervalId);
+  }
+
+  const recheckIntervalMs = Number(config.recheckIntervalMs);
+
+  if (Number.isFinite(recheckIntervalMs) && recheckIntervalMs >= 15000) {
+    updateCheckIntervalId = window.setInterval(() => {
+      checkForUpdates();
+    }, recheckIntervalMs);
+  }
 }
 
-async function checkForUpdates() {
+async function checkForUpdates(options = {}) {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
   if (!config.bundleManifestUrl) {
@@ -1083,9 +1114,22 @@ async function checkForUpdates() {
     return;
   }
 
+  if (isUpdateCheckInFlight) {
+    return;
+  }
+
+  isUpdateCheckInFlight = true;
+
   try {
-    const release = await fetchBundleManifest(buildManifestUrls(config), config.requestTimeoutMs ?? 6000);
     const currentVersion = getCurrentAppVersion(config);
+
+    cleanupUpdateState(currentVersion);
+
+    const release = await fetchBundleManifest(
+      buildManifestUrls(config),
+      config.requestTimeoutMs ?? 6000,
+      currentVersion
+    );
 
     if (release?.version && isRemoteVersionNewer(release.version, currentVersion)) {
       availableUpdate = release;
@@ -1098,10 +1142,18 @@ async function checkForUpdates() {
     }
 
     availableUpdate = null;
-    hideUpdateBanner();
+
+    if (Date.now() >= updateBannerHoldUntil) {
+      hideUpdateBanner();
+    }
   } catch (error) {
     availableUpdate = null;
-    hideUpdateBanner();
+
+    if (Date.now() >= updateBannerHoldUntil) {
+      hideUpdateBanner();
+    }
+  } finally {
+    isUpdateCheckInFlight = false;
   }
 }
 
@@ -1117,33 +1169,68 @@ function buildManifestUrls(config) {
   });
 }
 
-async function fetchBundleManifest(urls, timeoutMs) {
-  let lastError = null;
+async function fetchBundleManifest(urls, timeoutMs, currentVersion) {
+  const responses = await Promise.allSettled(
+    urls.map((url) => fetchManifestCandidate(url, timeoutMs))
+  );
 
-  for (const url of urls) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const manifests = responses
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .filter((manifest) => manifest?.version);
 
-    try {
-      const response = await fetch(url, {
-        cache: 'no-store',
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error('Manifesto web indisponível.');
-      }
-
-      return await response.json();
-    } catch (error) {
-      clearTimeout(timeoutId);
-      lastError = error;
-    }
+  if (manifests.length === 0) {
+    const rejection = responses.find((result) => result.status === 'rejected');
+    throw rejection?.reason ?? new Error('Manifesto web indisponível.');
   }
 
-  throw lastError ?? new Error('Manifesto web indisponível.');
+  return manifests.reduce((latest, manifest) => {
+    if (!latest) {
+      return manifest;
+    }
+
+    if (isRemoteVersionNewer(manifest.version, latest.version)) {
+      return manifest;
+    }
+
+    if (
+      currentVersion &&
+      latest.version === currentVersion &&
+      manifest.version === currentVersion &&
+      manifest.bundleFallbackUrl &&
+      !latest.bundleFallbackUrl
+    ) {
+      return manifest;
+    }
+
+    return latest;
+  }, null);
+}
+
+async function fetchManifestCandidate(url, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      signal: controller.signal,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache'
+      }
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error('Manifesto web indisponível.');
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function isRemoteVersionNewer(remoteVersion, currentVersion) {
@@ -1211,6 +1298,7 @@ function announceInstalledUpdate() {
 
   localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
   availableUpdate = null;
+  updateBannerHoldUntil = Date.now() + 12000;
   showUpdatedBanner(currentVersion);
   return currentVersion;
 }
@@ -1290,6 +1378,30 @@ function getCurrentAppVersion(config) {
   } catch (_) {}
 
   return window.APP_UPDATE_CONFIG?.currentVersion || config.currentVersion || defaultUpdateConfig.currentVersion;
+}
+
+function cleanupUpdateState(currentVersion) {
+  const pendingVersion = localStorage.getItem(PENDING_UPDATE_VERSION_KEY);
+
+  if (pendingVersion && !isRemoteVersionNewer(pendingVersion, currentVersion)) {
+    localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+  }
+
+  try {
+    const rawBundle = localStorage.getItem(WEB_BUNDLE_STORAGE_KEY);
+
+    if (!rawBundle) {
+      return;
+    }
+
+    const bundle = JSON.parse(rawBundle);
+
+    if (!bundle?.html || !bundle?.version) {
+      localStorage.removeItem(WEB_BUNDLE_STORAGE_KEY);
+    }
+  } catch (_) {
+    localStorage.removeItem(WEB_BUNDLE_STORAGE_KEY);
+  }
 }
 
 function openUpdateUrl(url) {
