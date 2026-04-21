@@ -68,7 +68,7 @@ let updateBannerHoldUntil = 0;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.4.14',
+  currentVersion: '1.4.15',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1282,9 +1282,7 @@ async function fetchReleaseApiCandidate(url, timeoutMs) {
       cache: 'no-store',
       signal: controller.signal,
       headers: {
-        Accept: 'application/vnd.github+json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache'
+        Accept: 'application/vnd.github+json'
       }
     });
 
@@ -1319,11 +1317,7 @@ async function fetchManifestCandidate(url, timeoutMs) {
   try {
     const response = await fetch(url, {
       cache: 'no-store',
-      signal: controller.signal,
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache'
-      }
+      signal: controller.signal
     });
 
     clearTimeout(timeoutId);

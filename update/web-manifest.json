@@ -1,6 +1,6 @@
 {
-  "version": "1.4.14",
-  "notes": "Publicacao web no mesmo modelo que funcionava entre a 1.4.9 e a 1.4.10, para garantir deteccao pelo manifesto e bundle no main sem depender do timing da release.",
+  "version": "1.4.15",
+  "notes": "Corrige a checagem de atualizacao dentro do app removendo os headers que faziam o fetch falhar no WebView, restaurando o fluxo de update web para as proximas versoes.",
   "publishedAt": "2026-04-21",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
   "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json"
