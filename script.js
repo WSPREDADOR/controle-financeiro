@@ -68,7 +68,7 @@ let updateBannerHoldUntil = 0;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.4.10',
+  currentVersion: '1.4.11',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: '',
   checkOnStartup: true,
@@ -533,26 +533,45 @@ function renderPlansList() {
   plans.forEach((plan, index) => {
     const planStartDate = parseDateInput(plan.startDate);
     const planEndDate = addMonths(getEffectiveStartDate(planStartDate, plan.countMode), plan.totalMonths);
+    const paidCount = getPaidMonths(plan).length;
+    const progressRatio = plan.totalMonths > 0 ? clamp(paidCount / plan.totalMonths, 0, 1) : 0;
+    const progressPercent = Math.round(progressRatio * 100);
     const item = document.createElement('div');
     item.className = 'plan-entry';
     item.dataset.planNumber = String(index + 1);
     item.dataset.planId = plan.id;
     item.innerHTML = `
-      <article class="plan-item${plan.id === selectedPlanId ? ' active' : ''}" data-plan-number="${String(index + 1)}" data-plan-id="${plan.id}">
-        <div class="plan-item-top">
-          <button type="button" class="plan-select-btn" data-plan-id="${plan.id}">
-            <div class="plan-item-head">
-              <div>
-                <span class="plan-item-tag">${String(index + 1).padStart(2, '0')}</span>
-                <strong class="plan-item-name">${escapeHtml(plan.name)}</strong>
-              </div>
-              <strong>${plan.totalMonths}m</strong>
+      <article class="plan-item${plan.id === selectedPlanId ? ' active' : ''}" style="--plan-progress:${progressRatio};" data-plan-number="${String(index + 1)}" data-plan-id="${plan.id}">
+        <button type="button" class="plan-select-btn" data-plan-id="${plan.id}">
+          <div class="plan-item-head">
+            <span class="plan-item-tag">${String(index + 1).padStart(2, '0')}</span>
+            <span class="plan-duration-pill">${plan.totalMonths} ${plan.totalMonths === 1 ? 'mês' : 'meses'}</span>
+          </div>
+          <strong class="plan-item-name">${escapeHtml(plan.name)}</strong>
+          <div class="plan-progress-meta">
+            <span class="plan-progress-label">Andamento</span>
+            <strong class="plan-progress-value">${progressPercent}%</strong>
+          </div>
+          <div class="plan-progress" aria-hidden="true">
+            <span class="plan-progress-fill"></span>
+          </div>
+          <div class="plan-stat-grid">
+            <div class="plan-stat-card">
+              <span class="plan-stat-label">Início</span>
+              <strong class="plan-stat-value">${formatDateShort(planStartDate)}</strong>
             </div>
-            <div class="plan-item-meta">
-              <span>Início: ${formatDate(planStartDate)}</span>
-              <span>${getPaidMonths(plan).length}/${plan.totalMonths} pagos</span>
+            <div class="plan-stat-card">
+              <span class="plan-stat-label">Pagos</span>
+              <strong class="plan-stat-value">${paidCount}/${plan.totalMonths}</strong>
             </div>
-          </button>
+            <div class="plan-stat-card plan-stat-card-end">
+              <span class="plan-stat-label">Fim</span>
+              <strong class="plan-stat-value">${formatMonthYearCompact(planEndDate)}</strong>
+            </div>
+          </div>
+        </button>
+        <div class="plan-item-actions">
+          <button type="button" class="plan-edit-btn" data-edit-plan-id="${plan.id}">Editar</button>
           <button
             type="button"
             class="plan-delete-btn"
@@ -561,10 +580,6 @@ function renderPlansList() {
           >
             Excluir
           </button>
-        </div>
-        <div class="plan-item-footer">
-          <span class="plan-info-pill">Fim ${formatMonthYearCompact(planEndDate)}</span>
-          <button type="button" class="plan-edit-btn" data-edit-plan-id="${plan.id}">Editar</button>
         </div>
       </article>
     `;
@@ -722,6 +737,14 @@ function formatDate(date) {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'
+  });
+}
+
+function formatDateShort(date) {
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit'
   });
 }
 
@@ -907,7 +930,7 @@ function loadPlans() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-
+    
     return Array.isArray(parsed)
       ? parsed.filter(isValidPlan)
       : [];
