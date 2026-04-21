@@ -68,9 +68,10 @@ let updateBannerHoldUntil = 0;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const defaultUpdateConfig = {
-  currentVersion: '1.4.12',
+  currentVersion: '1.4.13',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
+  releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
   checkOnStartup: true,
   requestTimeoutMs: 6000,
   recheckIntervalMs: 45000
@@ -1148,9 +1149,8 @@ async function checkForUpdates(options = {}) {
 
     cleanupUpdateState(currentVersion);
 
-    const release = await fetchBundleManifest(
-      buildManifestUrls(config),
-      config.requestTimeoutMs ?? 6000,
+    const release = await fetchLatestAvailableUpdate(
+      config,
       currentVersion
     );
 
@@ -1192,6 +1192,45 @@ function buildManifestUrls(config) {
   });
 }
 
+async function fetchLatestAvailableUpdate(config, currentVersion) {
+  const timeoutMs = config.requestTimeoutMs ?? 6000;
+  const candidates = [];
+
+  try {
+    const manifestCandidate = await fetchBundleManifest(
+      buildManifestUrls(config),
+      timeoutMs,
+      currentVersion
+    );
+
+    if (manifestCandidate?.version) {
+      candidates.push(manifestCandidate);
+    }
+  } catch (_) {}
+
+  try {
+    const releaseCandidate = await fetchReleaseApiCandidate(config.releaseApiUrl, timeoutMs);
+
+    if (releaseCandidate?.version) {
+      candidates.push(releaseCandidate);
+    }
+  } catch (_) {}
+
+  if (candidates.length === 0) {
+    throw new Error('Nenhuma fonte de atualizacao respondeu.');
+  }
+
+  return candidates.reduce((latest, candidate) => {
+    if (!latest) {
+      return candidate;
+    }
+
+    return isRemoteVersionNewer(candidate.version, latest.version)
+      ? candidate
+      : latest;
+  }, null);
+}
+
 async function fetchBundleManifest(urls, timeoutMs, currentVersion) {
   const responses = await Promise.allSettled(
     urls.map((url) => fetchManifestCandidate(url, timeoutMs))
@@ -1228,6 +1267,49 @@ async function fetchBundleManifest(urls, timeoutMs, currentVersion) {
 
     return latest;
   }, null);
+}
+
+async function fetchReleaseApiCandidate(url, timeoutMs) {
+  if (!url) {
+    throw new Error('API de release indisponivel.');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache'
+      }
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error('Release do GitHub indisponivel.');
+    }
+
+    const release = await response.json();
+    const tagName = String(release?.tag_name || '').trim().replace(/^v/i, '');
+
+    if (!tagName) {
+      throw new Error('Release do GitHub invalida.');
+    }
+
+    return {
+      version: tagName,
+      notes: String(release?.body || '').trim() || 'Uma nova interface foi encontrada. Toque no botao verde para aplicar a atualizacao sem reinstalar o app.',
+      bundleUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json',
+      bundleFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json'
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function fetchManifestCandidate(url, timeoutMs) {

@@ -1,6 +1,6 @@
 {
-  "version": "1.4.12",
+  "version": "1.4.13",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Restaura o fluxo da atualizacao web dentro do app e mantem a melhoria visual dos cards da lista de compromissos no celular.",
+  "notes": "Reforca a deteccao de novas versoes dentro do app com fallback extra pela API de latest release do GitHub, mantendo a atualizacao web sem APK.",
   "publishedAt": "2026-04-21"
 }
