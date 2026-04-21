@@ -1,6 +1,6 @@
 {
-  "version": "1.4.2",
-  "notes": "Base com limpeza mais forte do estado legado da WebView, preservando os compromissos e forçando a interface nova a assumir.",
+  "version": "1.4.3",
+  "notes": "Primeiro teste real de atualizacao web dentro do app, sem reinstalar APK. Ao aplicar, a interface deve subir para a versao 1.4.3 direto na tela.",
   "publishedAt": "2026-04-20",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json"
 }

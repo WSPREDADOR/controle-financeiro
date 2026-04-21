@@ -1,6 +1,6 @@
 {
-  "version": "1.4.2",
+  "version": "1.4.3",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Base com limpeza mais forte do estado legado da WebView, preservando os compromissos e forçando a interface nova a assumir.",
+  "notes": "Primeiro teste real de atualizacao web dentro do app, sem reinstalar APK. Ao aplicar, a interface deve subir para a versao 1.4.3 direto na tela.",
   "publishedAt": "2026-04-20"
 }
