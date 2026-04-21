@@ -1,6 +1,6 @@
 {
-  "version": "1.4.4",
+  "version": "1.4.5",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Base mobile corrigida para atualizacao web. Resolve o cache do manifesto com fallback e corrige o botao verde para aplicar o bundle dentro do app.",
+  "notes": "Teste final da atualizacao web. A base 1.4.4 deve detectar esta versao e aplicar a interface 1.4.5 dentro do proprio app.",
   "publishedAt": "2026-04-20"
 }
