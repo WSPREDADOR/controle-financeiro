@@ -1,6 +1,6 @@
 {
-  "version": "1.4.8",
+  "version": "1.4.9",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Corrige o icone do topo dentro do bundle web, embutindo a imagem diretamente na interface atualizada para ela continuar aparecendo apos a atualizacao interna.",
+  "notes": "Remove o texto introdutorio do card inicial de adicionar compromisso para compactar o topo da tela e subir o restante do painel.",
   "publishedAt": "2026-04-20"
 }

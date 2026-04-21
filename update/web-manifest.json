@@ -1,6 +1,6 @@
 {
-  "version": "1.4.8",
-  "notes": "Corrige o icone do topo dentro do bundle web, embutindo a imagem diretamente na interface atualizada para ela continuar aparecendo apos a atualizacao interna.",
+  "version": "1.4.9",
+  "notes": "Remove o texto introdutorio do card inicial de adicionar compromisso para compactar o topo da tela e subir o restante do painel.",
   "publishedAt": "2026-04-20",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
   "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json"

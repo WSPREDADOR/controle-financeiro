@@ -4,7 +4,7 @@
   }
 
   const STORAGE_KEY = 'cf-active-web-bundle';
-  const bundledVersion = '1.4.8';
+  const bundledVersion = '1.4.9';
 
   function isNativeApp() {
     const isCapacitorLocalhost = window.location.protocol === 'https:' && window.location.hostname === 'localhost' && !window.location.port;
