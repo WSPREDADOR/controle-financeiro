@@ -1,6 +1,6 @@
 {
   "name": "controle-financeiro",
-  "version": "1.4.34",
+  "version": "1.4.35",
   "description": "Aplicativo desktop para controle de compromissos e pagamentos.",
   "main": "main.js",
   "author": {
