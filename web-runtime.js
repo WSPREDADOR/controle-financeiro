@@ -56,14 +56,11 @@
     window.__CF_RUNTIME_ACTIVE__ = true;
     window.stop();
     
-    // Substituição agressiva para evitar duplicação no WebView
-    setTimeout(() => {
-      document.documentElement.innerHTML = bundle.html;
-      // Garante que o estado seja limpo
-      if (window.navigation && window.navigation.reload) {
-         // Opcional: lidar com navegação se necessário
-      }
-    }, 0);
+    // Usa document.write para garantir que os scripts da nova versão sejam executados
+    // document.open() limpa o documento atual completamente antes de escrever o novo
+    document.open();
+    document.write(bundle.html);
+    document.close();
   } catch (_) {
     localStorage.removeItem(STORAGE_KEY);
   }
