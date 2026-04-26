@@ -1,33 +1,20 @@
 ## Atualizacao Pelo GitHub
 
-O app continua funcionando offline normalmente. Quando houver internet, ele consulta um arquivo JSON no GitHub para verificar se existe uma versao nova.
+O app continua funcionando offline normalmente. Quando houver internet, ele consulta `update/web-manifest.json` no GitHub para verificar se existe uma versao web nova e aplica `update/web-bundle.json` sem reinstalar o APK.
 
-### 1. Ajuste a configuracao do app
+### Fluxo recomendado
 
-Edite `update-config.js` e troque:
+1. Rode `npm run release` para incrementar a versao, atualizar os metadados e gerar o bundle web.
+2. Confirme que `update/web-bundle.json` ficou pequeno. Ele deve referenciar assets ja empacotados, nao embutir imagens grandes em base64.
+3. Publique o commit no GitHub. O app vai buscar o manifesto e aplicar o bundle quando o usuario tocar em atualizar.
 
-- `WSPREDADOR`
-- `controle-financeiro`
+### APK nativo
 
-### 2. Publique o arquivo de versao
+Quando precisar distribuir um APK novo, rode `npm run mobile:sync` e gere o build Android. O `versionName` e o `versionCode` ficam em `android/app/build.gradle`.
 
-Hospede `update/update.json` no seu repositório e atualize estes campos a cada nova versao:
+O arquivo `update/update.json` fica apenas para compatibilidade com fluxos antigos de instalacao por APK. Se ele for usado, mantenha estes campos coerentes com a release:
 
 - `version`
 - `apkUrl`
 - `notes`
 - `publishedAt`
-
-### 3. Publique o APK no GitHub Releases
-
-Em cada nova versao:
-
-1. Gere o novo `app-release.apk`
-2. Crie uma release no GitHub com a tag, por exemplo `v1.3.1`
-3. Envie o APK da release
-4. Atualize o `update/update.json` com a nova versao e o novo link
-
-### Exemplo de fluxo
-
-- APK: `https://github.com/SEU-USUARIO/SEU-REPOSITORIO/releases/download/v1.3.1/app-release.apk`
-- JSON: `https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json`

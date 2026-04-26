@@ -86,11 +86,13 @@ let draggedReorderPlanId = null;
 let availableUpdate = null;
 let updateCheckIntervalId = null;
 let isUpdateCheckInFlight = false;
+let isUpdateInstallInFlight = false;
 let updateBannerHoldUntil = 0;
 let notificationSyncTimeoutId = null;
 let paymentNotificationListenersRegistered = false;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
+const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders';
@@ -153,7 +155,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.15',
+  currentVersion: '1.4.29',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -170,7 +172,6 @@ updateResultsNavigation();
 // Migra dados do localStorage para armazenamento nativo (executa em background)
 (async () => {
   await Storage.migrate(STORAGE_KEY);
-  await Storage.migrate(WEB_BUNDLE_STORAGE_KEY);
   await Storage.migrate(NOTIFICATION_PREFERENCE_KEY);
   await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
 
@@ -1741,6 +1742,7 @@ function showUpdateBanner(title, message, version) {
   updateBannerTitle.textContent = title;
   updateBannerMessage.textContent = message;
   updatePrimaryBtn.hidden = false;
+  updatePrimaryBtn.disabled = false;
   updatePrimaryBtn.textContent = `Atualizar para ${version}`;
 }
 
@@ -1752,6 +1754,7 @@ function showUpdatedBanner(version) {
   updateBanner.hidden = false;
   updateBannerTitle.textContent = `Aplicativo atualizado para ${version}`;
   updateBannerMessage.textContent = 'A nova versão foi instalada com sucesso. Tudo certo para continuar usando o app.';
+  updatePrimaryBtn.disabled = false;
   updatePrimaryBtn.hidden = true;
 }
 
@@ -1762,7 +1765,34 @@ function hideUpdateBanner() {
 
   updateBanner.hidden = true;
   updatePrimaryBtn.hidden = true;
+  updatePrimaryBtn.disabled = false;
   updatePrimaryBtn.textContent = 'Atualizar app';
+}
+
+function showUpdateError(message) {
+  if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
+    return;
+  }
+
+  updateBannerHoldUntil = Date.now() + 15000;
+  updateBanner.hidden = false;
+  updateBannerTitle.textContent = 'Atualização não concluída';
+  updateBannerMessage.textContent = message || 'Não foi possível aplicar a atualização agora. Confira a conexão e tente novamente.';
+  updatePrimaryBtn.hidden = false;
+  updatePrimaryBtn.disabled = false;
+  updatePrimaryBtn.textContent = availableUpdate?.version
+    ? `Tentar ${availableUpdate.version} novamente`
+    : 'Tentar novamente';
+}
+
+function setUpdateProgress(message) {
+  if (!updatePrimaryBtn) {
+    return;
+  }
+
+  updatePrimaryBtn.hidden = false;
+  updatePrimaryBtn.disabled = true;
+  updatePrimaryBtn.textContent = message;
 }
 
 function announceInstalledUpdate() {
@@ -1782,19 +1812,35 @@ function announceInstalledUpdate() {
 }
 
 async function startAppUpdate(update) {
-  if (!update?.bundleUrl) {
+  if (!update?.bundleUrl || isUpdateInstallInFlight) {
     return;
   }
 
-  await Storage.set(PENDING_UPDATE_VERSION_KEY, update.version || '');
+  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
+  let didStartReload = false;
+  isUpdateInstallInFlight = true;
+  setUpdateProgress('Baixando atualização...');
 
   try {
-    const bundle = await fetchBundlePayload(update, window.APP_UPDATE_CONFIG?.currentVersion || defaultUpdateConfig.currentVersion);
+    await Storage.set(PENDING_UPDATE_VERSION_KEY, update.version || '');
 
-    await Storage.set(WEB_BUNDLE_STORAGE_KEY, JSON.stringify(bundle));
+    const bundle = await fetchBundlePayload(
+      update,
+      config.currentVersion || defaultUpdateConfig.currentVersion,
+      config.requestTimeoutMs ?? defaultUpdateConfig.requestTimeoutMs
+    );
+
+    setUpdateProgress('Aplicando atualização...');
+    persistWebBundle(bundle);
+    didStartReload = true;
     location.reload();
   } catch (error) {
     await Storage.remove(PENDING_UPDATE_VERSION_KEY);
+    showUpdateError(error?.message);
+  } finally {
+    if (!didStartReload) {
+      isUpdateInstallInFlight = false;
+    }
   }
 }
 
@@ -1810,12 +1856,20 @@ function buildBundleUrls(update, currentVersion) {
   });
 }
 
-async function fetchBundlePayload(update, currentVersion) {
+async function fetchBundlePayload(update, currentVersion, timeoutMs = 10000) {
   let lastError = null;
 
   for (const url of buildBundleUrls(update, currentVersion)) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
-      const response = await fetch(url, { cache: 'no-store' });
+      const response = await fetch(url, {
+        cache: 'no-store',
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('Bundle web indisponível.');
@@ -1831,13 +1885,38 @@ async function fetchBundlePayload(update, currentVersion) {
         throw new Error(`Bundle fora de sincronia. Esperado ${update.version} e recebido ${bundle.version}.`);
       }
 
+      assertBundleSize(bundle);
       return bundle;
     } catch (error) {
       lastError = error;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
   throw lastError ?? new Error('Bundle web indisponível.');
+}
+
+function assertBundleSize(bundle) {
+  const serializedBundle = JSON.stringify(bundle);
+
+  if (serializedBundle.length > MAX_WEB_BUNDLE_CHARS) {
+    throw new Error('Bundle web grande demais para aplicar com segurança no celular.');
+  }
+}
+
+function persistWebBundle(bundle) {
+  if (!bundle?.html || !bundle?.version) {
+    throw new Error('Bundle web inválido.');
+  }
+
+  const serializedBundle = JSON.stringify(bundle);
+
+  if (serializedBundle.length > MAX_WEB_BUNDLE_CHARS) {
+    throw new Error('Bundle web grande demais para aplicar com segurança no celular.');
+  }
+
+  localStorage.setItem(WEB_BUNDLE_STORAGE_KEY, serializedBundle);
 }
 
 function getCurrentAppVersion(config) {

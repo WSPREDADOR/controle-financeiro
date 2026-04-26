@@ -4,7 +4,8 @@
   }
 
   const STORAGE_KEY = 'cf-active-web-bundle';
-  const bundledVersion = '1.4.15';
+  const bundledVersion = '1.4.29';
+  const maxBundleChars = 1024 * 1024;
 
   function isNativeApp() {
     const isCapacitorLocalhost = window.location.protocol === 'https:' && window.location.hostname === 'localhost' && !window.location.port;
@@ -43,6 +44,11 @@
       return;
     }
 
+    if (rawBundle.length > maxBundleChars) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
     const bundle = JSON.parse(rawBundle);
 
     if (!bundle?.html || !bundle?.version) {
@@ -50,6 +56,7 @@
     }
 
     if (compareVersions(bundle.version, bundledVersion) < 0) {
+      localStorage.removeItem(STORAGE_KEY);
       return;
     }
 

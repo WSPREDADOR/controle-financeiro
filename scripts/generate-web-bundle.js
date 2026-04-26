@@ -10,7 +10,7 @@ const packagePath = path.join(projectRoot, 'package.json');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
 const manifestOutPath = path.join(projectRoot, 'update', 'web-manifest.json');
 const bundleOutPath = path.join(projectRoot, 'update', 'web-bundle.json');
-const topbarImagePath = path.join(projectRoot, 'Controle Financeiro.png');
+const topbarImageBundlePath = 'assets/Controle Financeiro.png';
 
 function extractBodyHtml(indexHtml) {
   const match = indexHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
@@ -26,14 +26,7 @@ function extractBodyHtml(indexHtml) {
     .trim();
 }
 
-function fileToDataUrl(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const ext = path.extname(filePath).toLowerCase();
-  const mimeType = ext === '.png' ? 'image/png' : 'application/octet-stream';
-  return `data:${mimeType};base64,${buffer.toString('base64')}`;
-}
-
-function inlineTopbarImage(bodyHtml, topbarImageDataUrl) {
+function normalizeBundleAssetPaths(bodyHtml) {
   const imageSources = [
     'src="Controle Financeiro.png"',
     'src="assets/Controle Financeiro.png"'
@@ -42,18 +35,18 @@ function inlineTopbarImage(bodyHtml, topbarImageDataUrl) {
   let hydratedBodyHtml = bodyHtml;
 
   imageSources.forEach((source) => {
-    hydratedBodyHtml = hydratedBodyHtml.split(source).join(`src="${topbarImageDataUrl}"`);
+    hydratedBodyHtml = hydratedBodyHtml.split(source).join(`src="${topbarImageBundlePath}"`);
   });
 
-  if (imageSources.some((source) => hydratedBodyHtml.includes(source))) {
-    throw new Error('Nao foi possivel embutir a imagem do topo no bundle web.');
+  if (!hydratedBodyHtml.includes(`src="${topbarImageBundlePath}"`)) {
+    throw new Error('Nao foi possivel localizar a imagem do topo no bundle web.');
   }
 
   return hydratedBodyHtml;
 }
 
-function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topbarImageDataUrl }) {
-  const hydratedBodyHtml = inlineTopbarImage(bodyHtml, topbarImageDataUrl)
+function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs }) {
+  const hydratedBodyHtml = normalizeBundleAssetPaths(bodyHtml)
     .replace('class="app-shell"', 'class="app-shell app-bundle"'); // Marca o shell do bundle
 
   return `<!DOCTYPE html>
@@ -98,8 +91,7 @@ function main() {
   const updateInfo = JSON.parse(fs.readFileSync(updateInfoPath, 'utf8'));
   const version = packageJson.version;
   const bodyHtml = extractBodyHtml(indexHtml);
-  const topbarImageDataUrl = fileToDataUrl(topbarImagePath);
-  const html = buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topbarImageDataUrl });
+  const html = buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs });
 
   const manifest = {
     version,
@@ -118,6 +110,7 @@ function main() {
   fs.writeFileSync(bundleOutPath, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8');
 
   console.log(`Bundle web gerado em: ${bundleOutPath}`);
+  console.log(`Tamanho do bundle: ${(Buffer.byteLength(JSON.stringify(bundle), 'utf8') / 1024).toFixed(1)} KB`);
   console.log(`Manifesto web gerado em: ${manifestOutPath}`);
 }
 
