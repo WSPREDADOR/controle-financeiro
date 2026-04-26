@@ -181,7 +181,32 @@ async function main() {
     console.log('Gerando bundle web...');
     execSync('node scripts/generate-web-bundle.js', { stdio: 'inherit' });
 
-    // 5. Git Add, Commit e Push
+    // 5. Sincronizar com a pasta 'mobile-web' (exigida pelo Capacitor)
+    console.log('Sincronizando arquivos com mobile-web...');
+    if (!fs.existsSync(path.join(projectRoot, 'mobile-web'))) {
+      fs.mkdirSync(path.join(projectRoot, 'mobile-web'));
+    }
+    const filesToCopy = [
+      'index.html', 'script.js', 'style.css', 'web-runtime.js', 
+      'update-config.js', 'manifest.webmanifest', 'Controle Financeiro.png'
+    ];
+    for (const file of filesToCopy) {
+      fs.copyFileSync(path.join(projectRoot, file), path.join(projectRoot, 'mobile-web', file));
+    }
+    // Copiar pasta assets
+    const srcAssets = path.join(projectRoot, 'assets');
+    const destAssets = path.join(projectRoot, 'mobile-web', 'assets');
+    if (fs.existsSync(srcAssets)) {
+      if (!fs.existsSync(destAssets)) fs.mkdirSync(destAssets, { recursive: true });
+      const assets = fs.readdirSync(srcAssets, { recursive: true });
+      // Para simplificar, usamos comando do sistema para cópia recursiva
+      execSync(`xcopy "${srcAssets}" "${destAssets}" /E /I /Y`, { stdio: 'ignore' });
+    }
+    
+    console.log('Sincronizando Capacitor...');
+    execSync('npx cap sync android', { stdio: 'inherit' });
+
+    // 6. Git Add, Commit e Push
     console.log('Subindo para o GitHub...');
     execSync('git add .', { stdio: 'inherit' });
     execSync(`git commit -m "Release v${newVersion}"`, { stdio: 'inherit' });
