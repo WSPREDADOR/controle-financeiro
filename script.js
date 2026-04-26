@@ -1446,7 +1446,8 @@ function buildManifestUrls(config) {
 
   return urls.map((url, index) => {
     const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}app=${encodeURIComponent(config.currentVersion || defaultUpdateConfig.currentVersion)}&t=${Date.now()}-${index}`;
+    // Adicionamos um timestamp e um número aleatório para garantir que o GitHub não entregue nada do cache
+    return `${url}${separator}app=${encodeURIComponent(config.currentVersion || defaultUpdateConfig.currentVersion)}&cache_bust=${Date.now()}_${Math.random().toString(36).substring(7)}&t=${index}`;
   });
 }
 
