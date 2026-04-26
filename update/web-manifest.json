@@ -1,5 +1,5 @@
 {
-  "version": "1.4.27",
+  "version": "1.4.28",
   "notes": "Ajuste na largura dos modais e adição da data de validade no cabeçalho mobile.",
   "publishedAt": "2026-04-26",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",

@@ -2102,6 +2102,11 @@ button.version-pill {
     border-radius: 26px;
   }
 
+  .plans-panel {
+    max-height: none;
+    padding-bottom: 24px;
+  }
+
   .create-launcher {
     padding: 16px;
     border-radius: 20px;
@@ -2119,16 +2124,21 @@ button.version-pill {
   }
 
   .plans-list {
-    max-height: none;
-    display: flex;
-    flex-direction: row;
+    height: auto !important;
+    max-height: none !important;
     overflow-x: auto;
-    overflow-y: visible;
-    padding: 12px 4px 16px;
-    gap: 14px;
+    overflow-y: visible !important;
+    padding: 8px 2px 32px !important;
+    scrollbar-gutter: auto;
+    grid-template-columns: none;
+    grid-template-rows: 1fr;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(260px, 82vw);
+    gap: 10px;
+    scroll-snap-type: x proximity;
     scrollbar-width: none;
-    touch-action: pan-x pan-y !important;
-    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: auto !important;
+    touch-action: auto !important;
   }
 
   .plans-list::-webkit-scrollbar {
@@ -2140,8 +2150,7 @@ button.version-pill {
   }
 
   .plan-entry {
-    flex: 0 0 82vw;
-    min-width: 260px;
+    scroll-snap-align: start;
   }
 
   .panel-shortcuts,
@@ -2285,15 +2294,16 @@ button.version-pill {
   }
 
   .monthly-grid {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: none;
+    grid-template-rows: 1fr;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(260px, 82vw);
+    align-items: stretch;
     overflow-x: auto;
-    overflow-y: visible;
-    padding-bottom: 12px;
-    gap: 12px;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
     scrollbar-width: none;
-    touch-action: pan-x pan-y !important;
-    -webkit-overflow-scrolling: touch;
   }
 
   .monthly-grid::-webkit-scrollbar {
@@ -2301,8 +2311,7 @@ button.version-pill {
   }
 
   .month-card {
-    flex: 0 0 82vw;
-    min-width: 260px;
+    scroll-snap-align: start;
   }
 
   .button-row {
