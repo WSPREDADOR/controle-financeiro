@@ -52,35 +52,8 @@ function inlineTopbarImage(bodyHtml, topbarImageDataUrl) {
   return hydratedBodyHtml;
 }
 
-function inlineFonts(cssContent) {
-  const fontFiles = [
-    { name: 'manrope-400.woff2', path: 'assets/fonts/manrope-400.woff2' },
-    { name: 'manrope-500.woff2', path: 'assets/fonts/manrope-500.woff2' },
-    { name: 'manrope-600.woff2', path: 'assets/fonts/manrope-600.woff2' },
-    { name: 'manrope-700.woff2', path: 'assets/fonts/manrope-700.woff2' },
-    { name: 'manrope-800.woff2', path: 'assets/fonts/manrope-800.woff2' },
-    { name: 'space-grotesk-500.woff2', path: 'assets/fonts/space-grotesk-500.woff2' },
-    { name: 'space-grotesk-700.woff2', path: 'assets/fonts/space-grotesk-700.woff2' }
-  ];
-
-  let hydratedCss = cssContent;
-
-  fontFiles.forEach((font) => {
-    const fullPath = path.join(projectRoot, font.path);
-    if (fs.existsSync(fullPath)) {
-      const buffer = fs.readFileSync(fullPath);
-      const dataUrl = `data:font/woff2;base64,${buffer.toString('base64')}`;
-      // Substitui o caminho relativo pelo Data URL da fonte
-      hydratedCss = hydratedCss.split(`url('${font.path}')`).join(`url('${dataUrl}')`);
-    }
-  });
-
-  return hydratedCss;
-}
-
 function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topbarImageDataUrl }) {
   const hydratedBodyHtml = inlineTopbarImage(bodyHtml, topbarImageDataUrl);
-  const hydratedStyleCss = inlineFonts(styleCss);
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -93,8 +66,11 @@ function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topb
   <meta name="apple-mobile-web-app-title" content="Controle Financeiro">
   <title>Controle Financeiro</title>
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <style>
-${hydratedStyleCss}
+${styleCss}
   </style>
 </head>
 <body>

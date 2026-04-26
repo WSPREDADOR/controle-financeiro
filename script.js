@@ -1,3 +1,22 @@
+(function() {
+  if (window.__CF_RUNTIME_ACTIVE__) {
+    // Garante que apenas UM app-shell exista, removendo qualquer resquício do index.html original
+    const shells = document.querySelectorAll('.app-shell');
+    if (shells.length > 1) {
+      for (let i = 0; i < shells.length - 1; i++) {
+        shells[i].remove();
+      }
+    }
+    // Remove qualquer overlay de fundo que possa estar duplicado
+    const bgs = document.querySelectorAll('.page-background');
+    if (bgs.length > 1) {
+      for (let i = 0; i < bgs.length - 1; i++) {
+        bgs[i].remove();
+      }
+    }
+  }
+})();
+
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const STORAGE_KEY = 'payment-plans-v1';
 
