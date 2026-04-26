@@ -523,11 +523,6 @@ button,
   cursor: grabbing;
 }
 
-.reorder-modal-actions {
-  margin-top: 20px;
-  justify-content: flex-end;
-}
-
 .btn-danger {
   border: none;
   border-radius: 999px;
@@ -1995,10 +1990,6 @@ button.version-pill {
 
   .reorder-item-content {
     grid-column: 2;
-  }
-
-  .reorder-modal-actions {
-    justify-content: stretch;
   }
 
   .topbar,

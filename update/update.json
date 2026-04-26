@@ -1,6 +1,6 @@
 {
-  "version": "1.4.29",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.29/app-release.apk",
-  "notes": "Ajuste na largura dos modais e adição da data de validade no cabeçalho mobile.",
+  "version": "1.4.30",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.30/app-release.apk",
+  "notes": "Correção do contador Em foco e salvamento automático ao reorganizar compromissos.",
   "publishedAt": "2026-04-26"
 }

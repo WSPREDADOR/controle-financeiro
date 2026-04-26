@@ -74,8 +74,6 @@ const confirmDeleteModalBtn = document.getElementById('confirmDeleteModalBtn');
 const reorderModal = document.getElementById('reorderModal');
 const reorderList = document.getElementById('reorderList');
 const closeReorderModalBtn = document.getElementById('closeReorderModalBtn');
-const cancelReorderModalBtn = document.getElementById('cancelReorderModalBtn');
-const confirmReorderModalBtn = document.getElementById('confirmReorderModalBtn');
 
 let plans = loadPlans();
 let selectedPlanId = plans[0]?.id ?? null;
@@ -83,6 +81,8 @@ let editingPlanId = null;
 let pendingDeletePlanId = null;
 let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
+let reorderSavedOrderSignature = '';
+let planFocusFrameId = null;
 let availableUpdate = null;
 let updateCheckIntervalId = null;
 let isUpdateCheckInFlight = false;
@@ -155,7 +155,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.29',
+  currentVersion: '1.4.30',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -294,9 +294,11 @@ monthlyContainer.addEventListener('click', (event) => {
 });
 
 plansList.addEventListener('scroll', () => {
-  const visibleNumber = getVisiblePlanNumber();
-  updatePlansSummary(visibleNumber);
-  updateFocusedPlanCard(visibleNumber);
+  schedulePlanFocusUpdate();
+});
+
+window.addEventListener('resize', () => {
+  schedulePlanFocusUpdate();
 });
 
 function handleReorderStart(id, element) {
@@ -321,6 +323,7 @@ function handleReorderMove(clientY) {
 
 function handleReorderEnd() {
   if (!draggedReorderPlanId) return;
+  saveReorderFromDom({ silentWhenUnchanged: true });
   clearReorderDragState();
 }
 
@@ -347,7 +350,7 @@ reorderList.addEventListener('drop', (event) => {
 });
 
 reorderList.addEventListener('dragend', () => {
-  clearReorderDragState();
+  handleReorderEnd();
 });
 
 // Suporte para Touch (Mobile)
@@ -368,6 +371,10 @@ reorderList.addEventListener('touchmove', (event) => {
 }, { passive: false });
 
 reorderList.addEventListener('touchend', (event) => {
+  handleReorderEnd();
+});
+
+reorderList.addEventListener('touchcancel', () => {
   handleReorderEnd();
 });
 
@@ -458,15 +465,6 @@ openReorderModalBtn.addEventListener('click', () => {
 });
 
 closeReorderModalBtn.addEventListener('click', () => {
-  closeReorderModal();
-});
-
-cancelReorderModalBtn.addEventListener('click', () => {
-  closeReorderModal();
-});
-
-confirmReorderModalBtn.addEventListener('click', () => {
-  saveReorderFromDom();
   closeReorderModal();
 });
 
@@ -660,6 +658,7 @@ function renderPlansList() {
   updatePlansSummary(visibleNumber);
   updateFocusedPlanCard(visibleNumber);
   updateResultsNavigation();
+  schedulePlanFocusUpdate();
 }
 
 function renderMonthlyTimeline(plan, startDate, today, options = {}) {
@@ -898,6 +897,7 @@ function closeDeleteModal() {
 
 function openReorderModal() {
   reorderDraftPlanIds = plans.map((plan) => plan.id);
+  reorderSavedOrderSignature = getPlanOrderSignature(plans);
   renderReorderList();
   reorderModal.hidden = false;
   syncModalBodyState();
@@ -905,6 +905,7 @@ function openReorderModal() {
 
 function closeReorderModal() {
   reorderDraftPlanIds = [];
+  reorderSavedOrderSignature = '';
   clearReorderDragState();
   reorderList.innerHTML = '';
   reorderModal.hidden = true;
@@ -1977,6 +1978,19 @@ function updatePlansSummary(visibleNumber = 0) {
   plansSelectedCount.textContent = String(getSelectedPlanNumber());
 }
 
+function schedulePlanFocusUpdate() {
+  if (planFocusFrameId) {
+    window.cancelAnimationFrame(planFocusFrameId);
+  }
+
+  planFocusFrameId = window.requestAnimationFrame(() => {
+    planFocusFrameId = null;
+    const visibleNumber = getVisiblePlanNumber();
+    updatePlansSummary(visibleNumber);
+    updateFocusedPlanCard(visibleNumber);
+  });
+}
+
 function updateFocusedPlanCard(visibleNumber = 0) {
   const items = [...plansList.querySelectorAll('.plan-item')];
 
@@ -2014,22 +2028,29 @@ function getVisiblePlanNumber() {
   }
 
   const listRect = plansList.getBoundingClientRect();
-  const listCenter = listRect.top + (listRect.height / 2);
-  let nearestItem = items[0];
-  let nearestDistance = Number.POSITIVE_INFINITY;
+  const isHorizontal = plansList.scrollWidth > plansList.clientWidth + 1;
+  const listStart = isHorizontal ? listRect.left : listRect.top;
+  let focusedItem = items[0];
+  let bestScore = Number.NEGATIVE_INFINITY;
 
   items.forEach((item) => {
     const itemRect = item.getBoundingClientRect();
-    const itemCenter = itemRect.top + (itemRect.height / 2);
-    const distance = Math.abs(itemCenter - listCenter);
+    const visibleWidth = Math.max(0, Math.min(itemRect.right, listRect.right) - Math.max(itemRect.left, listRect.left));
+    const visibleHeight = Math.max(0, Math.min(itemRect.bottom, listRect.bottom) - Math.max(itemRect.top, listRect.top));
+    const visibleArea = visibleWidth * visibleHeight;
+    const itemArea = Math.max(1, itemRect.width * itemRect.height);
+    const visibleRatio = visibleArea / itemArea;
+    const itemStart = isHorizontal ? itemRect.left : itemRect.top;
+    const startDistance = Math.abs(itemStart - listStart);
+    const score = (visibleRatio * 1000) - startDistance;
 
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestItem = item;
+    if (score > bestScore) {
+      bestScore = score;
+      focusedItem = item;
     }
   });
 
-  return Number.parseInt(nearestItem.dataset.planNumber ?? '0', 10) || 0;
+  return Number.parseInt(focusedItem.dataset.planNumber ?? '0', 10) || 0;
 }
 
 function getReorderInsertTarget(pointerY) {
@@ -2068,7 +2089,11 @@ function getOrderedPlansFromReorderDom() {
     .filter(Boolean);
 }
 
-function saveReorderFromDom() {
+function getPlanOrderSignature(items) {
+  return items.map((plan) => plan.id).join('|');
+}
+
+function saveReorderFromDom(options = {}) {
   persistReorderDraftFromDom();
   const orderedPlans = getOrderedPlansFromReorderDom();
 
@@ -2078,7 +2103,17 @@ function saveReorderFromDom() {
     return;
   }
 
+  const nextOrderSignature = getPlanOrderSignature(orderedPlans);
+
+  if (nextOrderSignature === reorderSavedOrderSignature) {
+    if (!options.silentWhenUnchanged) {
+      setStatus('A ordem dos compromissos já está atualizada.', 'success');
+    }
+    return;
+  }
+
   plans = orderedPlans;
+  reorderSavedOrderSignature = nextOrderSignature;
   savePlans();
   renderPlansList();
 
@@ -2088,7 +2123,7 @@ function saveReorderFromDom() {
     renderPlanDetails(selectedPlan, { resetTimelineScroll: true });
   }
 
-  setStatus('Ordem dos compromissos atualizada automaticamente.', 'success');
+  setStatus('Ordem dos compromissos salva automaticamente.', 'success');
 }
 
 function clearReorderDragState() {
