@@ -470,7 +470,6 @@ function renderPlanDetails(plan, options = {}) {
 
   renderMonthlyTimeline(plan, effectiveStartDate, today, options);
 
-  setStatus(buildSummaryMessage(plan.name, completedMonths, plan.totalMonths), 'success');
   updateResultsNavigation();
 }
 
@@ -1476,7 +1475,7 @@ async function fetchLatestAvailableUpdate(config, currentVersion) {
   } catch (_) {}
 
   if (candidates.length === 0) {
-    throw new Error('Nenhuma fonte de atualizacao respondeu.');
+    throw new Error('Nenhuma fonte de atualização respondeu.');
   }
 
   return candidates.reduce((latest, candidate) => {
@@ -1560,7 +1559,7 @@ async function fetchReleaseApiCandidate(url, timeoutMs) {
 
     return {
       version: tagName,
-      notes: String(release?.body || '').trim() || 'Uma nova interface foi encontrada. Toque no botao verde para aplicar a atualizacao sem reinstalar o app.',
+      notes: String(release?.body || '').trim() || 'Uma nova interface foi encontrada. Toque no botao verde para aplicar a atualização sem reinstalar o app.',
       bundleUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json',
       bundleFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json'
     };
