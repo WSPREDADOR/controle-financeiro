@@ -1,6 +1,6 @@
 {
-  "version": "1.4.30",
-  "notes": "Correção do contador Em foco e salvamento automático ao reorganizar compromissos.",
+  "version": "1.4.31",
+  "notes": "Correção do fluxo de atualização com aplicação direta, barra de progresso e porcentagem.",
   "publishedAt": "2026-04-26",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
   "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json"

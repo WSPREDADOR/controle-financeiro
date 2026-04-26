@@ -35,7 +35,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v1.4.30</strong>
+            <strong id="appVersionLabel">v1.4.31</strong>
           </div>
           <div class="version-item expiration-item">
             <span class="version-label">Validade</span>
@@ -54,6 +54,15 @@
         <span class="section-kicker">Atualização</span>
         <strong id="updateBannerTitle">Nova versão disponível</strong>
         <p id="updateBannerMessage">Uma nova versão do app foi encontrada. Toque no botão abaixo para atualizar.</p>
+        <div class="update-progress" id="updateProgress" hidden>
+          <div class="update-progress-top">
+            <span id="updateProgressLabel">Preparando atualização</span>
+            <strong id="updateProgressPercent">0%</strong>
+          </div>
+          <div class="update-progress-track" aria-hidden="true">
+            <span id="updateProgressBar"></span>
+          </div>
+        </div>
       </div>
       <div class="update-banner-actions">
         <button type="button" class="btn-primary" id="updatePrimaryBtn" hidden>Atualizar app</button>

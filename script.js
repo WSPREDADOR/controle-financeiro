@@ -31,6 +31,10 @@ const updateBanner = document.getElementById('updateBanner');
 const updateBannerTitle = document.getElementById('updateBannerTitle');
 const updateBannerMessage = document.getElementById('updateBannerMessage');
 const updatePrimaryBtn = document.getElementById('updatePrimaryBtn');
+const updateProgress = document.getElementById('updateProgress');
+const updateProgressLabel = document.getElementById('updateProgressLabel');
+const updateProgressPercent = document.getElementById('updateProgressPercent');
+const updateProgressBar = document.getElementById('updateProgressBar');
 const notificationBanner = document.getElementById('notificationBanner');
 const notificationBannerTitle = document.getElementById('notificationBannerTitle');
 const notificationBannerMessage = document.getElementById('notificationBannerMessage');
@@ -155,7 +159,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.30',
+  currentVersion: '1.4.31',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1745,6 +1749,7 @@ function showUpdateBanner(title, message, version) {
   updatePrimaryBtn.hidden = false;
   updatePrimaryBtn.disabled = false;
   updatePrimaryBtn.textContent = `Atualizar para ${version}`;
+  resetUpdateProgress();
 }
 
 function showUpdatedBanner(version) {
@@ -1757,6 +1762,7 @@ function showUpdatedBanner(version) {
   updateBannerMessage.textContent = 'A nova versão foi instalada com sucesso. Tudo certo para continuar usando o app.';
   updatePrimaryBtn.disabled = false;
   updatePrimaryBtn.hidden = true;
+  setUpdateProgress('Atualização concluída', 100);
 }
 
 function hideUpdateBanner() {
@@ -1768,6 +1774,7 @@ function hideUpdateBanner() {
   updatePrimaryBtn.hidden = true;
   updatePrimaryBtn.disabled = false;
   updatePrimaryBtn.textContent = 'Atualizar app';
+  resetUpdateProgress();
 }
 
 function showUpdateError(message) {
@@ -1784,16 +1791,45 @@ function showUpdateError(message) {
   updatePrimaryBtn.textContent = availableUpdate?.version
     ? `Tentar ${availableUpdate.version} novamente`
     : 'Tentar novamente';
+  setUpdateProgress('Falha na atualização', 0);
 }
 
-function setUpdateProgress(message) {
-  if (!updatePrimaryBtn) {
+function resetUpdateProgress() {
+  if (!updateProgress || !updateProgressLabel || !updateProgressPercent || !updateProgressBar) {
     return;
   }
 
-  updatePrimaryBtn.hidden = false;
-  updatePrimaryBtn.disabled = true;
-  updatePrimaryBtn.textContent = message;
+  updateProgress.hidden = true;
+  updateProgressLabel.textContent = 'Preparando atualização';
+  updateProgressPercent.textContent = '0%';
+  updateProgressBar.style.width = '0%';
+}
+
+function setUpdateProgress(message, percent = null) {
+  if (updatePrimaryBtn) {
+    updatePrimaryBtn.hidden = false;
+    updatePrimaryBtn.disabled = true;
+    updatePrimaryBtn.textContent = message;
+  }
+
+  if (!updateProgress || !updateProgressLabel || !updateProgressPercent || !updateProgressBar) {
+    return;
+  }
+
+  const normalizedPercent = Number.isFinite(percent)
+    ? clamp(Math.round(percent), 0, 100)
+    : null;
+
+  updateProgress.hidden = false;
+  updateProgressLabel.textContent = message;
+
+  if (normalizedPercent !== null) {
+    updateProgressPercent.textContent = `${normalizedPercent}%`;
+    updateProgressBar.style.width = `${normalizedPercent}%`;
+    return;
+  }
+
+  updateProgressPercent.textContent = '--%';
 }
 
 function announceInstalledUpdate() {
@@ -1818,9 +1854,9 @@ async function startAppUpdate(update) {
   }
 
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
-  let didStartReload = false;
+  let didStartApply = false;
   isUpdateInstallInFlight = true;
-  setUpdateProgress('Baixando atualização...');
+  setUpdateProgress('Preparando atualização...', 1);
 
   try {
     await Storage.set(PENDING_UPDATE_VERSION_KEY, update.version || '');
@@ -1828,18 +1864,30 @@ async function startAppUpdate(update) {
     const bundle = await fetchBundlePayload(
       update,
       config.currentVersion || defaultUpdateConfig.currentVersion,
-      config.requestTimeoutMs ?? defaultUpdateConfig.requestTimeoutMs
+      config.requestTimeoutMs ?? defaultUpdateConfig.requestTimeoutMs,
+      (percent) => setUpdateProgress('Baixando atualização...', percent)
     );
 
-    setUpdateProgress('Aplicando atualização...');
+    setUpdateProgress('Salvando atualização...', 82);
     persistWebBundle(bundle);
-    didStartReload = true;
-    location.reload();
+    setUpdateProgress('Aplicando atualização...', 96);
+    didStartApply = true;
+    window.setTimeout(() => {
+      try {
+        setUpdateProgress('Aplicando atualização...', 100);
+        applyWebBundle(bundle);
+      } catch (error) {
+        isUpdateInstallInFlight = false;
+        Storage.remove(PENDING_UPDATE_VERSION_KEY).finally(() => {
+          showUpdateError(error?.message);
+        });
+      }
+    }, 80);
   } catch (error) {
     await Storage.remove(PENDING_UPDATE_VERSION_KEY);
     showUpdateError(error?.message);
   } finally {
-    if (!didStartReload) {
+    if (!didStartApply) {
       isUpdateInstallInFlight = false;
     }
   }
@@ -1857,7 +1905,7 @@ function buildBundleUrls(update, currentVersion) {
   });
 }
 
-async function fetchBundlePayload(update, currentVersion, timeoutMs = 10000) {
+async function fetchBundlePayload(update, currentVersion, timeoutMs = 10000, onProgress = null) {
   let lastError = null;
 
   for (const url of buildBundleUrls(update, currentVersion)) {
@@ -1876,7 +1924,10 @@ async function fetchBundlePayload(update, currentVersion, timeoutMs = 10000) {
         throw new Error('Bundle web indisponível.');
       }
 
-      const bundle = await response.json();
+      const bundleText = await readResponseText(response, onProgress);
+      clearTimeout(timeoutId);
+
+      const bundle = JSON.parse(bundleText);
 
       if (!bundle?.html || !bundle?.version) {
         throw new Error('Bundle web inválido.');
@@ -1896,6 +1947,43 @@ async function fetchBundlePayload(update, currentVersion, timeoutMs = 10000) {
   }
 
   throw lastError ?? new Error('Bundle web indisponível.');
+}
+
+async function readResponseText(response, onProgress = null) {
+  if (!response.body?.getReader) {
+    const text = await response.text();
+    onProgress?.(70);
+    return text;
+  }
+
+  const contentLength = Number.parseInt(response.headers.get('content-length') || '0', 10);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const chunks = [];
+  let receivedLength = 0;
+  let fallbackProgress = 8;
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    chunks.push(decoder.decode(value, { stream: true }));
+    receivedLength += value.length;
+
+    if (contentLength > 0) {
+      onProgress?.(Math.min(70, Math.max(8, (receivedLength / contentLength) * 70)));
+    } else {
+      fallbackProgress = Math.min(68, fallbackProgress + 4);
+      onProgress?.(fallbackProgress);
+    }
+  }
+
+  chunks.push(decoder.decode());
+  onProgress?.(75);
+  return chunks.join('');
 }
 
 function assertBundleSize(bundle) {
@@ -1918,6 +2006,18 @@ function persistWebBundle(bundle) {
   }
 
   localStorage.setItem(WEB_BUNDLE_STORAGE_KEY, serializedBundle);
+}
+
+function applyWebBundle(bundle) {
+  if (!bundle?.html || !bundle?.version) {
+    throw new Error('Bundle web inválido.');
+  }
+
+  window.__CF_RUNTIME_ACTIVE__ = true;
+  window.stop();
+  document.open();
+  document.write(bundle.html);
+  document.close();
 }
 
 function getCurrentAppVersion(config) {

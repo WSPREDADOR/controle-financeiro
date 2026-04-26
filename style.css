@@ -775,6 +775,53 @@ button.version-pill {
   line-height: 1.55;
 }
 
+.update-progress {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  max-width: 520px;
+}
+
+.update-progress[hidden] {
+  display: none;
+}
+
+.update-progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.update-progress-top strong {
+  margin: 0;
+  color: var(--primary-strong);
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+}
+
+.update-progress-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(8, 13, 17, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.24);
+}
+
+.update-progress-track span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #55d4cb, #7af7cf);
+  box-shadow: 0 0 18px rgba(85, 212, 203, 0.34);
+  transition: width 0.18s ease;
+}
+
 .notification-banner-copy p {
   margin-top: 8px;
   color: var(--muted);

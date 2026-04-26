@@ -1,6 +1,6 @@
 {
-  "version": "1.4.30",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.30/app-release.apk",
-  "notes": "Correção do contador Em foco e salvamento automático ao reorganizar compromissos.",
+  "version": "1.4.31",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.31/app-release.apk",
+  "notes": "Correção do fluxo de atualização com aplicação direta, barra de progresso e porcentagem.",
   "publishedAt": "2026-04-26"
 }
