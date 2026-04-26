@@ -143,7 +143,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.35',
+  currentVersion: '1.4.36',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1947,12 +1947,21 @@ async function fetchBundlePayload(update, currentVersion, timeoutMs = 10000, onP
 
       const bundle = JSON.parse(bundleText);
 
-      if (!bundle?.html || !bundle?.version) {
-        throw new Error('Bundle web inválido.');
+      if (!bundle?.version) {
+        throw new Error('Bundle web inválido: sem versão.');
       }
 
-      if (update.version && bundle.version !== update.version) {
-        throw new Error(`Bundle fora de sincronia. Esperado ${update.version} e recebido ${bundle.version}.`);
+      // Aceita formato html (legado) e css+js (novo)
+      const hasHtml = Boolean(bundle.html);
+      const hasCssJs = bundle.css !== undefined && bundle.js !== undefined;
+      if (!hasHtml && !hasCssJs) {
+        throw new Error('Bundle web inválido: sem conteúdo.');
+      }
+
+      // Aceitar qualquer bundle mais novo que a versão atual do app.
+      // Não exige match exato com o manifesto — CDNs podem ter lag.
+      if (!isRemoteVersionNewer(bundle.version, currentVersion)) {
+        throw new Error(`Bundle (${bundle.version}) não é mais recente que a versão atual (${currentVersion}).`);
       }
 
       assertBundleSize(bundle);
@@ -2013,8 +2022,14 @@ function assertBundleSize(bundle) {
 }
 
 function persistWebBundle(bundle) {
-  if (!bundle?.html || !bundle?.version) {
+  if (!bundle?.version) {
     throw new Error('Bundle web inválido.');
+  }
+
+  const hasHtml = Boolean(bundle.html);
+  const hasCssJs = bundle.css !== undefined && bundle.js !== undefined;
+  if (!hasHtml && !hasCssJs) {
+    throw new Error('Bundle web inválido: sem conteúdo.');
   }
 
   const serializedBundle = JSON.stringify(bundle);
@@ -2027,17 +2042,13 @@ function persistWebBundle(bundle) {
 }
 
 function applyWebBundle(bundle) {
-  if (!bundle?.html || !bundle?.version) {
+  if (!bundle?.version) {
     throw new Error('Bundle web inválido.');
   }
 
   // O bundle já foi salvo no localStorage por persistWebBundle().
-  // Chamar document.write() de dentro de uma página totalmente carregada
-  // não executa os scripts do novo HTML no Android WebView — o app fica travado.
-  //
-  // A solução correta: recarregar a página. O web-runtime.js roda no início
-  // do carregamento, antes de qualquer outro script, detecta o bundle no
-  // localStorage e aplica via document.write() no momento certo.
+  // Ao recarregar, o web-runtime.js do APK detecta o bundle e aplica
+  // via document.write() de forma síncrona no <head> — que é confiável.
   window.location.reload();
 }
 

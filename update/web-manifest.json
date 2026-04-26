@@ -1,7 +1,7 @@
 {
-  "version": "1.4.35",
+  "version": "1.4.36",
   "notes": "Correções no modal de reorganizar: botão X fixo, painel informativo removido e arraste dos cards funcionando pelo card inteiro.",
   "publishedAt": "2026-04-26",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777244815246",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777244815246"
 }
