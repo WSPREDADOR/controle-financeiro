@@ -1,21 +1,3 @@
-(function() {
-  if (window.__CF_RUNTIME_ACTIVE__) {
-    // Garante que apenas UM app-shell exista, removendo qualquer resquício do index.html original
-    const shells = document.querySelectorAll('.app-shell');
-    if (shells.length > 1) {
-      for (let i = 0; i < shells.length - 1; i++) {
-        shells[i].remove();
-      }
-    }
-    // Remove qualquer overlay de fundo que possa estar duplicado
-    const bgs = document.querySelectorAll('.page-background');
-    if (bgs.length > 1) {
-      for (let i = 0; i < bgs.length - 1; i++) {
-        bgs[i].remove();
-      }
-    }
-  }
-})();
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const STORAGE_KEY = 'payment-plans-v1';
@@ -161,7 +143,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.33',
+  currentVersion: '1.4.34',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -2049,11 +2031,14 @@ function applyWebBundle(bundle) {
     throw new Error('Bundle web inválido.');
   }
 
-  window.__CF_RUNTIME_ACTIVE__ = true;
-  window.stop();
-  document.open();
-  document.write(bundle.html);
-  document.close();
+  // O bundle já foi salvo no localStorage por persistWebBundle().
+  // Chamar document.write() de dentro de uma página totalmente carregada
+  // não executa os scripts do novo HTML no Android WebView — o app fica travado.
+  //
+  // A solução correta: recarregar a página. O web-runtime.js roda no início
+  // do carregamento, antes de qualquer outro script, detecta o bundle no
+  // localStorage e aplica via document.write() no momento certo.
+  window.location.reload();
 }
 
 function getCurrentAppVersion(config) {
