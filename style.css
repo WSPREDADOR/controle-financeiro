@@ -132,6 +132,7 @@ button,
   width: min(100%, 620px);
   max-height: min(92vh, 860px);
   overflow-y: auto;
+  overflow-x: hidden; /* Evita rolagem horizontal */
   padding: 28px;
   border-radius: 30px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -591,147 +592,6 @@ button,
   filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.24));
 }
 
-.mobile-menu-btn,
-.mobile-drawer-backdrop,
-.mobile-options-drawer {
-  display: none;
-}
-
-.mobile-menu-btn {
-  width: 48px;
-  height: 48px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(28, 37, 44, 0.92);
-  color: var(--text);
-  cursor: pointer;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  box-shadow: var(--shadow-soft);
-}
-
-.mobile-menu-btn span {
-  display: block;
-  width: 18px;
-  height: 2px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.mobile-drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 18;
-  background: rgba(4, 8, 12, 0.58);
-  backdrop-filter: blur(10px);
-}
-
-.mobile-options-drawer {
-  position: fixed;
-  top: max(12px, env(safe-area-inset-top));
-  right: 12px;
-  left: 12px;
-  z-index: 19;
-  padding: 18px;
-  border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(24, 32, 38, 0.98), rgba(14, 21, 26, 0.96));
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
-}
-
-.mobile-drawer-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.mobile-drawer-header h2 {
-  margin-top: 8px;
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
-  font-size: 1.4rem;
-  letter-spacing: -0.03em;
-}
-
-.mobile-drawer-close {
-  width: 42px;
-  height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  background: rgba(28, 37, 44, 0.9);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.mobile-drawer-section {
-  margin-top: 18px;
-}
-
-.mobile-drawer-label {
-  display: block;
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.mobile-drawer-actions,
-.mobile-drawer-pills {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.mobile-drawer-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.mobile-action-btn,
-.mobile-drawer-pill {
-  min-height: 54px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.mobile-action-btn {
-  color: var(--text);
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
-}
-
-.mobile-action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.mobile-action-btn-primary {
-  background: linear-gradient(135deg, rgba(70, 200, 190, 0.2), rgba(109, 224, 214, 0.14));
-  border-color: rgba(85, 212, 203, 0.18);
-  color: var(--primary-strong);
-}
-
-.mobile-drawer-pill span {
-  display: block;
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.mobile-drawer-pill strong {
-  display: block;
-  margin-top: 6px;
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
-}
-
 .eyebrow,
 .section-kicker,
 .stat-label,
@@ -764,12 +624,26 @@ button,
 }
 
 .version-pill {
-  min-width: 132px;
-  padding: 8px 12px;
-  border-radius: 18px;
+  min-width: 140px;
+  padding: 10px 14px;
+  border-radius: 20px;
   background: linear-gradient(180deg, rgba(35, 45, 52, 0.96), rgba(21, 29, 35, 0.92));
   border: 1px solid rgba(85, 212, 203, 0.12);
   box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+}
+
+.version-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.expiration-item {
+  display: none; /* Escondido no desktop por padrão */
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 8px;
 }
 
 button.version-pill {
@@ -780,9 +654,14 @@ button.version-pill {
 
 .version-pill strong {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+  color: var(--primary-strong);
+}
+
+.expiration-item strong {
+  color: var(--accent);
 }
 
 .update-banner {
@@ -799,11 +678,36 @@ button.version-pill {
   gap: 18px;
 }
 
+.notification-banner {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(85, 212, 203, 0.18);
+  background:
+    linear-gradient(135deg, rgba(85, 212, 203, 0.12), rgba(18, 27, 33, 0.96));
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
 .update-banner-copy {
   min-width: 0;
 }
 
+.notification-banner-copy {
+  min-width: 0;
+}
+
 .update-banner-copy strong {
+  display: block;
+  margin-top: 8px;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 1.1rem;
+}
+
+.notification-banner-copy strong {
   display: block;
   margin-top: 8px;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
@@ -816,7 +720,20 @@ button.version-pill {
   line-height: 1.55;
 }
 
+.notification-banner-copy p {
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .update-banner-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.notification-banner-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -828,6 +745,10 @@ button.version-pill {
   background: linear-gradient(135deg, #5ce0a2, #7af7cf);
   color: #07251d;
   box-shadow: 0 18px 36px rgba(92, 224, 162, 0.22);
+}
+
+.notification-banner .btn-primary {
+  min-width: 220px;
 }
 
 .stat-card::before,
@@ -999,6 +920,9 @@ button.version-pill {
   border-radius: 18px;
   color: var(--text);
   padding: 16px 18px;
+  width: 100%; /* Garante que ocupe toda a largura do grupo */
+  max-width: 100%;
+  display: block;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
@@ -1942,21 +1866,19 @@ button.version-pill {
     justify-content: flex-start;
   }
 
-  .update-banner {
+  .update-banner,
+  .notification-banner {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .update-banner-actions {
+  .update-banner-actions,
+  .notification-banner-actions {
     width: 100%;
   }
 }
 
 @media (max-width: 680px) {
-  body.mobile-drawer-open {
-    overflow: hidden;
-  }
-
   body {
     padding:
       max(12px, env(safe-area-inset-top))
@@ -1974,10 +1896,11 @@ button.version-pill {
   }
 
   .edit-modal {
-    width: min(100%, 100vw - 20px);
-    max-height: calc(100vh - max(20px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom)));
-    padding: 18px;
+    width: min(100%, 100vw - 24px); /* Margem lateral maior no mobile */
+    max-height: calc(100vh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
+    padding: 20px 18px;
     border-radius: 24px;
+    overflow-x: hidden;
   }
 
   .modal-header {
@@ -2025,14 +1948,17 @@ button.version-pill {
   }
 
   .topbar {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 84px;
+    padding-right: 100px;
   }
 
   .topbar-brand {
     align-items: center;
     gap: 8px;
+    width: 100%;
     min-width: 0;
   }
 
@@ -2053,26 +1979,57 @@ button.version-pill {
     width: 100%;
   }
 
-  .mobile-menu-btn,
-  .mobile-drawer-backdrop,
-  .mobile-options-drawer {
-    display: flex;
-  }
-
-  .mobile-options-drawer {
-    display: block;
-  }
-
   .topbar-meta {
+    display: block;
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: auto;
+  }
+
+  .app-date-pill {
     display: none;
   }
 
-  .update-banner {
+  .app-version-pill {
+    min-width: 0;
+    padding: 8px 11px;
+    border-radius: 16px;
+    gap: 0;
+  }
+
+  .app-version-pill .version-label {
+    display: none;
+  }
+
+  .app-version-pill strong {
+    margin-top: 0;
+    font-size: 0.82rem;
+  }
+
+  .expiration-item {
+    display: flex; /* Exibido apenas no mobile */
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+
+  .expiration-item .version-label {
+    display: none; /* Esconde o rótulo "Validade" no mobile para economizar espaço se necessário, ou mantém se quiser */
+  }
+
+  .expiration-item strong {
+    font-size: 0.72rem;
+    opacity: 0.8;
+  }
+
+  .update-banner,
+  .notification-banner {
     padding: 16px;
     border-radius: 22px;
   }
 
-  .update-banner-actions {
+  .update-banner-actions,
+  .notification-banner-actions {
     flex-direction: column;
   }
 
@@ -2109,12 +2066,30 @@ button.version-pill {
 
   .plans-list {
     max-height: none;
-    overflow: visible;
-    padding: 8px 2px 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 2px 10px;
     scrollbar-gutter: auto;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: none;
+    grid-template-rows: 1fr;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(260px, 82vw);
     gap: 10px;
-    scroll-snap-type: none;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .plans-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .plans-list .empty-state {
+    grid-column: auto;
+  }
+
+  .plan-entry {
+    scroll-snap-align: start;
   }
 
   .panel-shortcuts,
@@ -2259,8 +2234,11 @@ button.version-pill {
 
   .monthly-grid {
     display: grid;
+    grid-template-columns: none;
+    grid-template-rows: 1fr;
     grid-auto-flow: column;
     grid-auto-columns: minmax(260px, 82vw);
+    align-items: stretch;
     overflow-x: auto;
     padding-bottom: 4px;
     scroll-snap-type: x proximity;
@@ -2295,10 +2273,6 @@ button.version-pill {
 }
 
 @media (max-width: 480px) {
-  .mobile-drawer-actions {
-    grid-template-columns: 1fr;
-  }
-
   .topbar-meta,
   .summary-grid,
   .progress-meta {
@@ -2332,6 +2306,10 @@ button.version-pill {
   }
 
   .monthly-grid {
+    grid-auto-columns: minmax(248px, 88vw);
+  }
+
+  .plans-list {
     grid-auto-columns: minmax(248px, 88vw);
   }
 

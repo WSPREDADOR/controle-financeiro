@@ -31,25 +31,19 @@
           <h1 class="topbar-title">Controle Financeiro</h1>
         </div>
       </div>
-      <button
-        type="button"
-        class="mobile-menu-btn"
-        id="mobileMenuBtn"
-        aria-label="Abrir opções do aplicativo"
-        aria-controls="mobileOptionsDrawer"
-        aria-expanded="false"
-      >
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
       <div class="topbar-meta">
-        <div class="version-pill">
-          <span class="version-label">Versão</span>
-          <strong>v1.4.15</strong>
+        <div class="version-pill app-version-pill">
+          <div class="version-item">
+            <span class="version-label">Versão</span>
+            <strong id="appVersionLabel">v1.4.15</strong>
+          </div>
+          <div class="version-item expiration-item">
+            <span class="version-label">Validade</span>
+            <strong id="appExpirationLabel">21/04/2026</strong>
+          </div>
         </div>
-        <div class="version-pill">
-          <span class="version-label">Atualizado em</span>
+        <div class="version-pill app-date-pill">
+          <span class="version-label">Hoje</span>
           <strong id="currentDate">--/--/----</strong>
         </div>
       </div>
@@ -66,50 +60,17 @@
       </div>
     </section>
 
-    <div class="mobile-drawer-backdrop" id="mobileDrawerBackdrop" hidden></div>
-    <aside class="mobile-options-drawer" id="mobileOptionsDrawer" hidden aria-label="Opções do aplicativo para celular">
-      <div class="mobile-drawer-header">
-        <div>
-          <span class="section-kicker">Acesso rápido</span>
-          <h2>Opções</h2>
-        </div>
-        <button type="button" class="mobile-drawer-close" id="closeMobileDrawerBtn" aria-label="Fechar opções">
-          X
-        </button>
+    <section class="notification-banner" id="notificationBanner" hidden aria-live="polite">
+      <div class="notification-banner-copy">
+        <span class="section-kicker">Lembretes</span>
+        <strong id="notificationBannerTitle">Ativar notificações de pagamento</strong>
+        <p id="notificationBannerMessage">Receba um aviso quando chegar o mês de pagar um compromisso ainda pendente.</p>
       </div>
-
-      <div class="mobile-drawer-section">
-        <span class="mobile-drawer-label">Atalhos</span>
-        <div class="mobile-drawer-actions">
-          <button type="button" class="mobile-action-btn mobile-action-btn-primary" data-mobile-action="add">
-            Adicionar compromisso
-          </button>
-          <button type="button" class="mobile-action-btn" data-mobile-action="reorder">
-            Reorganizar lista
-          </button>
-          <button type="button" class="mobile-action-btn" data-mobile-action="results">
-            Ver resultado atual
-          </button>
-          <button type="button" class="mobile-action-btn" data-mobile-action="top">
-            Ir para o topo
-          </button>
-        </div>
+      <div class="notification-banner-actions">
+        <button type="button" class="btn-primary" id="enableNotificationsBtn">Ativar notificações</button>
+        <button type="button" class="btn-secondary" id="dismissNotificationsBtn">Agora não</button>
       </div>
-
-      <div class="mobile-drawer-section">
-        <span class="mobile-drawer-label">Visão rápida</span>
-        <div class="mobile-drawer-pills">
-          <div class="mobile-drawer-pill">
-            <span>Versão</span>
-            <strong>v1.4.15</strong>
-          </div>
-          <div class="mobile-drawer-pill">
-            <span>Atualizado em</span>
-            <strong id="mobileCurrentDate">--/--/----</strong>
-          </div>
-        </div>
-      </div>
-    </aside>
+    </section>
 
     <main class="dashboard">
       <section class="calculator-card calculator-card-compact">

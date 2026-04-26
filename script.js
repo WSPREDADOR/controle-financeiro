@@ -6,18 +6,20 @@ const statusMessage = document.getElementById('statusMessage');
 const monthlyContainer = document.getElementById('monthlyContainer');
 const plansPanel = document.querySelector('.plans-panel');
 const currentDate = document.getElementById('currentDate');
-const mobileCurrentDate = document.getElementById('mobileCurrentDate');
+const appVersionLabel = document.getElementById('appVersionLabel');
+const appExpirationLabel = document.getElementById('appExpirationLabel');
 const updateBanner = document.getElementById('updateBanner');
 const updateBannerTitle = document.getElementById('updateBannerTitle');
 const updateBannerMessage = document.getElementById('updateBannerMessage');
 const updatePrimaryBtn = document.getElementById('updatePrimaryBtn');
+const notificationBanner = document.getElementById('notificationBanner');
+const notificationBannerTitle = document.getElementById('notificationBannerTitle');
+const notificationBannerMessage = document.getElementById('notificationBannerMessage');
+const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
+const dismissNotificationsBtn = document.getElementById('dismissNotificationsBtn');
 const plansList = document.getElementById('plansList');
 const selectedPlanTitle = document.getElementById('selectedPlanTitle');
 const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
-const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-const mobileDrawerBackdrop = document.getElementById('mobileDrawerBackdrop');
-const mobileOptionsDrawer = document.getElementById('mobileOptionsDrawer');
-const closeMobileDrawerBtn = document.getElementById('closeMobileDrawerBtn');
 const goToFormBtn = document.getElementById('goToFormBtn');
 const openCreateModalBtn = document.getElementById('openCreateModalBtn');
 const openReorderModalBtn = document.getElementById('openReorderModalBtn');
@@ -65,8 +67,15 @@ let availableUpdate = null;
 let updateCheckIntervalId = null;
 let isUpdateCheckInFlight = false;
 let updateBannerHoldUntil = 0;
+let notificationSyncTimeoutId = null;
+let paymentNotificationListenersRegistered = false;
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
+const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
+const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
+const NOTIFICATION_CHANNEL_ID = 'payment-reminders';
+const PAYMENT_NOTIFICATION_LIMIT = 120;
+const PAYMENT_NOTIFICATION_HOUR = 9;
 const defaultUpdateConfig = {
   currentVersion: '1.4.15',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
@@ -78,18 +87,17 @@ const defaultUpdateConfig = {
 };
 
 currentDate.textContent = formatDate(normalizeDate(new Date()));
-if (mobileCurrentDate) {
-  mobileCurrentDate.textContent = currentDate.textContent;
-}
+updateDisplayedAppVersion();
 renderPlansList();
 updateResultsNavigation();
 
 if (selectedPlanId) {
-  renderPlanDetails(getSelectedPlan());
+  renderPlanDetails(getSelectedPlan(), { resetTimelineScroll: true });
 }
 
 const installedUpdateVersion = announceInstalledUpdate();
 initializeUpdateCheck(installedUpdateVersion);
+initializePaymentNotifications();
 
 createForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -118,7 +126,7 @@ createForm.addEventListener('submit', (event) => {
   selectedPlanId = nextPlan.id;
   savePlans();
   renderPlansList();
-  renderPlanDetails(nextPlan);
+  renderPlanDetails(nextPlan, { resetTimelineScroll: true });
   closeCreateModal();
   setStatus(`Compromisso "${nextPlan.name}" cadastrado com sucesso. Para editar depois, use o botão Editar na lista.`, 'success');
   scrollToSection(plansPanel);
@@ -148,7 +156,7 @@ plansList.addEventListener('click', (event) => {
 
     selectedPlanId = planToEdit.id;
     renderPlansList();
-    renderPlanDetails(planToEdit);
+    renderPlanDetails(planToEdit, { resetTimelineScroll: true });
     openEditModal(planToEdit);
     return;
   }
@@ -167,7 +175,7 @@ plansList.addEventListener('click', (event) => {
   }
 
   renderPlansList();
-  renderPlanDetails(selectedPlan);
+  renderPlanDetails(selectedPlan, { resetTimelineScroll: true });
   setStatus(`Exibindo os cálculos de "${selectedPlan.name}".`, 'success');
   scrollToSection(resultsSection);
 });
@@ -301,7 +309,7 @@ editForm.addEventListener('submit', (event) => {
   selectedPlanId = updatedPlan.id;
   savePlans();
   renderPlansList();
-  renderPlanDetails(updatedPlan);
+  renderPlanDetails(updatedPlan, { resetTimelineScroll: true });
   closeEditModal();
   setStatus(`Compromisso "${updatedPlan.name}" atualizado com sucesso.`, 'success');
 });
@@ -399,9 +407,6 @@ document.addEventListener('keydown', (event) => {
     closeReorderModal();
   }
 
-  if (event.key === 'Escape' && mobileOptionsDrawer && !mobileOptionsDrawer.hidden) {
-    closeMobileDrawer();
-  }
 });
 
 goToFormBtn.addEventListener('click', () => {
@@ -422,63 +427,16 @@ updatePrimaryBtn?.addEventListener('click', () => {
   }
 });
 
-mobileMenuBtn?.addEventListener('click', () => {
-  openMobileDrawer();
+enableNotificationsBtn?.addEventListener('click', () => {
+  enablePaymentNotifications();
 });
 
-closeMobileDrawerBtn?.addEventListener('click', () => {
-  closeMobileDrawer();
+dismissNotificationsBtn?.addEventListener('click', () => {
+  localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'dismissed');
+  hideNotificationBanner();
 });
 
-mobileDrawerBackdrop?.addEventListener('click', () => {
-  closeMobileDrawer();
-});
-
-mobileOptionsDrawer?.addEventListener('click', (event) => {
-  const actionButton = event.target.closest('[data-mobile-action]');
-
-  if (!actionButton) {
-    return;
-  }
-
-  const { mobileAction } = actionButton.dataset;
-  closeMobileDrawer();
-
-  if (mobileAction === 'add') {
-    openCreateModal();
-    return;
-  }
-
-  if (mobileAction === 'reorder') {
-    if (plans.length === 0) {
-      setStatus('Cadastre pelo menos um compromisso para reorganizar a lista.', 'error');
-      return;
-    }
-
-    openReorderModal();
-    return;
-  }
-
-  if (mobileAction === 'results') {
-    const selectedPlan = getSelectedPlan();
-
-    if (!selectedPlan) {
-      setStatus('Selecione um compromisso para ver o resultado detalhado.', 'error');
-      return;
-    }
-
-    scrollToSection(resultsSection);
-    return;
-  }
-
-  if (mobileAction === 'top') {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return;
-  }
-
-});
-
-function renderPlanDetails(plan) {
+function renderPlanDetails(plan, options = {}) {
   if (!plan) {
     resultsSection.hidden = true;
     return;
@@ -510,7 +468,7 @@ function renderPlanDetails(plan) {
   document.getElementById('countModeLabel').textContent = getCountModeLabel(plan.countMode);
   document.getElementById('progressFill').style.width = `${percent}%`;
 
-  renderMonthlyTimeline(plan, effectiveStartDate, today);
+  renderMonthlyTimeline(plan, effectiveStartDate, today, options);
 
   setStatus(buildSummaryMessage(plan.name, completedMonths, plan.totalMonths), 'success');
   updateResultsNavigation();
@@ -593,7 +551,7 @@ function renderPlansList() {
   updateResultsNavigation();
 }
 
-function renderMonthlyTimeline(plan, startDate, today) {
+function renderMonthlyTimeline(plan, startDate, today, options = {}) {
   monthlyContainer.innerHTML = '';
   const paidMonths = new Set(getPaidMonths(plan));
 
@@ -646,6 +604,12 @@ function renderMonthlyTimeline(plan, startDate, today) {
     `;
 
     monthlyContainer.appendChild(card);
+  }
+
+  if (options.resetTimelineScroll) {
+    // On narrow screens the timeline becomes a horizontal scroller.
+    // Resetting it keeps the first visible card aligned with the plan start month.
+    monthlyContainer.scrollLeft = 0;
   }
 }
 
@@ -925,6 +889,7 @@ function createPlanId() {
 
 function savePlans() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+  queuePaymentNotificationSync();
 }
 
 function loadPlans() {
@@ -1037,7 +1002,7 @@ function deletePlan(planId) {
   const nextSelectedPlan = getSelectedPlan();
 
   if (nextSelectedPlan) {
-    renderPlanDetails(nextSelectedPlan);
+    renderPlanDetails(nextSelectedPlan, { resetTimelineScroll: true });
   } else {
     resultsSection.hidden = true;
     updateResultsNavigation();
@@ -1051,33 +1016,326 @@ function updateResultsNavigation() {
   const hasSelectedPlan = Boolean(selectedPlanId && getSelectedPlan());
 
   backToListBtn.disabled = !hasSelectedPlan;
-  const mobileResultsButton = mobileOptionsDrawer?.querySelector('[data-mobile-action="results"]');
-
-  if (mobileResultsButton) {
-    mobileResultsButton.disabled = !hasSelectedPlan;
-  }
 }
 
-function openMobileDrawer() {
-  if (!mobileOptionsDrawer || !mobileDrawerBackdrop || !mobileMenuBtn) {
+function updateDisplayedAppVersion() {
+  if (!appVersionLabel) {
     return;
   }
 
-  mobileOptionsDrawer.hidden = false;
-  mobileDrawerBackdrop.hidden = false;
-  document.body.classList.add('mobile-drawer-open');
-  mobileMenuBtn.setAttribute('aria-expanded', 'true');
+  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
+  const version = getCurrentAppVersion(config);
+  appVersionLabel.textContent = `v${version}`;
+
+  if (appExpirationLabel) {
+    const expiration = config.expirationDate || '21/04/2026';
+    appExpirationLabel.textContent = expiration;
+  }
 }
 
-function closeMobileDrawer() {
-  if (!mobileOptionsDrawer || !mobileDrawerBackdrop || !mobileMenuBtn) {
+async function initializePaymentNotifications() {
+  if (!notificationBanner || !enableNotificationsBtn || !dismissNotificationsBtn) {
     return;
   }
 
-  mobileOptionsDrawer.hidden = true;
-  mobileDrawerBackdrop.hidden = true;
-  document.body.classList.remove('mobile-drawer-open');
-  mobileMenuBtn.setAttribute('aria-expanded', 'false');
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin) {
+    hideNotificationBanner();
+    return;
+  }
+
+  try {
+    const permission = await getPaymentNotificationPermissionState();
+
+    if (permission === 'granted') {
+      localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'enabled');
+      hideNotificationBanner();
+      queuePaymentNotificationSync();
+      registerPaymentNotificationListeners();
+      return;
+    }
+
+    if (localStorage.getItem(NOTIFICATION_PREFERENCE_KEY) === 'dismissed') {
+      hideNotificationBanner();
+      return;
+    }
+
+    showNotificationBanner(
+      'Ativar notificações de pagamento',
+      'Receba um aviso quando chegar o mês de pagar um compromisso ainda pendente.',
+      true
+    );
+  } catch (_) {
+    hideNotificationBanner();
+  }
+}
+
+async function enablePaymentNotifications() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin) {
+    setStatus('Notificações locais não estão disponíveis neste dispositivo.', 'error');
+    return;
+  }
+
+  enableNotificationsBtn.disabled = true;
+  enableNotificationsBtn.textContent = 'Ativando...';
+
+  try {
+    const permission = await requestPaymentNotificationPermission();
+
+    if (permission !== 'granted') {
+      localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'denied');
+      showNotificationBanner(
+        'Permissão de notificação bloqueada',
+        'Ative as notificações nas configurações do app para receber lembretes de pagamento.',
+        true
+      );
+      setStatus('Não foi possível ativar os lembretes porque a permissão de notificação não foi concedida.', 'error');
+      return;
+    }
+
+    localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'enabled');
+    await createPaymentNotificationChannel();
+    const scheduledCount = await syncPaymentNotifications();
+    registerPaymentNotificationListeners();
+    showNotificationBanner(
+      'Notificações ativadas',
+      scheduledCount > 0
+        ? `${scheduledCount} lembretes de pagamento foram programados.`
+        : 'Tudo pronto. Os próximos compromissos pendentes serão lembrados automaticamente.',
+      false
+    );
+    setStatus('Notificações de pagamento ativadas com sucesso.', 'success');
+    window.setTimeout(() => hideNotificationBanner(), 3600);
+  } catch (_) {
+    setStatus('Não foi possível ativar as notificações agora. Tente novamente em alguns instantes.', 'error');
+  } finally {
+    enableNotificationsBtn.disabled = false;
+    enableNotificationsBtn.textContent = 'Ativar notificações';
+  }
+}
+
+function getLocalNotificationsPlugin() {
+  return window.Capacitor?.Plugins?.LocalNotifications ?? null;
+}
+
+async function getPaymentNotificationPermissionState() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin?.checkPermissions) {
+    return 'denied';
+  }
+
+  const permission = await plugin.checkPermissions();
+  return permission?.display ?? 'denied';
+}
+
+async function requestPaymentNotificationPermission() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin?.requestPermissions) {
+    return 'denied';
+  }
+
+  const permission = await plugin.requestPermissions();
+  return permission?.display ?? 'denied';
+}
+
+async function createPaymentNotificationChannel() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin?.createChannel) {
+    return;
+  }
+
+  try {
+    await plugin.createChannel({
+      id: NOTIFICATION_CHANNEL_ID,
+      name: 'Lembretes de pagamento',
+      description: 'Avisos mensais dos compromissos pendentes.',
+      importance: 4,
+      visibility: 1,
+      lights: true,
+      lightColor: '#55d4cb',
+      vibration: true
+    });
+  } catch (_) {}
+}
+
+function queuePaymentNotificationSync() {
+  if (localStorage.getItem(NOTIFICATION_PREFERENCE_KEY) !== 'enabled') {
+    return;
+  }
+
+  if (notificationSyncTimeoutId) {
+    window.clearTimeout(notificationSyncTimeoutId);
+  }
+
+  notificationSyncTimeoutId = window.setTimeout(() => {
+    syncPaymentNotifications().catch(() => {});
+  }, 250);
+}
+
+async function syncPaymentNotifications() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin || localStorage.getItem(NOTIFICATION_PREFERENCE_KEY) !== 'enabled') {
+    return 0;
+  }
+
+  const permission = await getPaymentNotificationPermissionState();
+
+  if (permission !== 'granted') {
+    return 0;
+  }
+
+  await createPaymentNotificationChannel();
+  await cancelScheduledPaymentNotifications();
+
+  const notifications = buildPaymentNotifications();
+
+  if (notifications.length === 0) {
+    storeScheduledNotificationIds([]);
+    return 0;
+  }
+
+  const result = await plugin.schedule({ notifications });
+  const scheduledIds = result?.notifications?.map((notification) => notification.id) ?? notifications.map((notification) => notification.id);
+  storeScheduledNotificationIds(scheduledIds);
+  return scheduledIds.length;
+}
+
+function buildPaymentNotifications() {
+  const now = new Date();
+  const notifications = [];
+
+  plans.forEach((plan) => {
+    const effectiveStartDate = getEffectiveStartDate(parseDateInput(plan.startDate), plan.countMode);
+    const paidMonths = new Set(getPaidMonths(plan));
+
+    for (let monthIndex = 1; monthIndex <= plan.totalMonths; monthIndex += 1) {
+      if (paidMonths.has(monthIndex)) {
+        continue;
+      }
+
+      const paymentDate = addMonths(effectiveStartDate, monthIndex - 1);
+      const notifyAt = new Date(paymentDate);
+      notifyAt.setHours(PAYMENT_NOTIFICATION_HOUR, 0, 0, 0);
+
+      if (notifyAt <= now) {
+        continue;
+      }
+
+      notifications.push({
+        id: createPaymentNotificationId(plan.id, monthIndex),
+        title: `Pagamento: ${plan.name}`,
+        body: `Chegou o mês de pagar "${plan.name}". Marque como pago no app quando concluir.`,
+        schedule: {
+          at: notifyAt,
+          allowWhileIdle: true
+        },
+        channelId: NOTIFICATION_CHANNEL_ID,
+        autoCancel: true,
+        extra: {
+          planId: plan.id,
+          monthIndex
+        }
+      });
+    }
+  });
+
+  return notifications
+    .sort((left, right) => left.schedule.at - right.schedule.at)
+    .slice(0, PAYMENT_NOTIFICATION_LIMIT);
+}
+
+async function cancelScheduledPaymentNotifications() {
+  const plugin = getLocalNotificationsPlugin();
+  const ids = loadScheduledNotificationIds();
+
+  if (!plugin?.cancel || ids.length === 0) {
+    return;
+  }
+
+  try {
+    await plugin.cancel({
+      notifications: ids.map((id) => ({ id }))
+    });
+  } catch (_) {}
+
+  storeScheduledNotificationIds([]);
+}
+
+function loadScheduledNotificationIds() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SCHEDULED_NOTIFICATION_IDS_KEY) || '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((id) => Number.isInteger(id))
+      : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function storeScheduledNotificationIds(ids) {
+  localStorage.setItem(SCHEDULED_NOTIFICATION_IDS_KEY, JSON.stringify(ids));
+}
+
+function createPaymentNotificationId(planId, monthIndex) {
+  const source = `${planId}:${monthIndex}`;
+  let hash = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash = ((hash << 5) - hash) + source.charCodeAt(index);
+    hash |= 0;
+  }
+
+  return 100000 + ((hash >>> 0) % 2000000000);
+}
+
+function registerPaymentNotificationListeners() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin?.addListener || paymentNotificationListenersRegistered) {
+    return;
+  }
+
+  paymentNotificationListenersRegistered = true;
+  plugin.addListener('localNotificationActionPerformed', (event) => {
+    const planId = event?.notification?.extra?.planId;
+    const plan = plans.find((item) => item.id === planId);
+
+    if (!plan) {
+      return;
+    }
+
+    selectedPlanId = plan.id;
+    renderPlansList();
+    renderPlanDetails(plan, { resetTimelineScroll: true });
+    scrollToSection(resultsSection);
+  });
+}
+
+function showNotificationBanner(title, message, canRequest) {
+  if (!notificationBanner || !notificationBannerTitle || !notificationBannerMessage || !enableNotificationsBtn || !dismissNotificationsBtn) {
+    return;
+  }
+
+  notificationBanner.hidden = false;
+  notificationBannerTitle.textContent = title;
+  notificationBannerMessage.textContent = message;
+  enableNotificationsBtn.hidden = !canRequest;
+  dismissNotificationsBtn.hidden = !canRequest;
+}
+
+function hideNotificationBanner() {
+  if (!notificationBanner) {
+    return;
+  }
+
+  notificationBanner.hidden = true;
 }
 
 function initializeUpdateCheck(installedVersion = null) {
@@ -1627,7 +1885,7 @@ function saveReorderFromDom() {
   const selectedPlan = getSelectedPlan();
 
   if (selectedPlan) {
-    renderPlanDetails(selectedPlan);
+    renderPlanDetails(selectedPlan, { resetTimelineScroll: true });
   }
 
   setStatus('Ordem dos compromissos atualizada automaticamente.', 'success');

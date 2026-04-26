@@ -1,6 +1,6 @@
 {
-  "version": "1.4.15",
+  "version": "1.4.16",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.2/app-release.apk",
-  "notes": "Corrige a checagem de atualizacao dentro do app removendo os headers que faziam o fetch falhar no WebView, restaurando o fluxo de update web para as proximas versoes.",
-  "publishedAt": "2026-04-21"
+  "notes": "Ajuste na largura dos modais e adição da data de validade no cabeçalho mobile.",
+  "publishedAt": "2026-04-26"
 }
