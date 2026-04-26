@@ -53,7 +53,8 @@ function inlineTopbarImage(bodyHtml, topbarImageDataUrl) {
 }
 
 function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topbarImageDataUrl }) {
-  const hydratedBodyHtml = inlineTopbarImage(bodyHtml, topbarImageDataUrl);
+  const hydratedBodyHtml = inlineTopbarImage(bodyHtml, topbarImageDataUrl)
+    .replace('class="app-shell"', 'class="app-shell app-bundle"'); // Marca o shell do bundle
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -73,7 +74,7 @@ function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs, topb
 ${styleCss}
   </style>
 </head>
-<body>
+<body class="is-ota-active">
 ${hydratedBodyHtml}
   <script>
     window.__CF_RUNTIME_ACTIVE__ = true;

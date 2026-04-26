@@ -96,6 +96,15 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Proteção contra duplicação OTA no Android */
+body.is-ota-active .app-shell:not(.app-bundle) {
+  display: none !important;
+}
+
+body.is-ota-active .page-background:not(:last-of-type) {
+  display: none !important;
+}
+
 body.modal-open {
   overflow: hidden;
 }
