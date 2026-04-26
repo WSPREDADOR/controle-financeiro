@@ -53,6 +53,8 @@
       return;
     }
 
+    window.__CF_RUNTIME_ACTIVE__ = true;
+    window.stop();
     document.open();
     document.write(bundle.html);
     document.close();
