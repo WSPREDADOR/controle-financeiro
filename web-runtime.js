@@ -55,9 +55,15 @@
 
     window.__CF_RUNTIME_ACTIVE__ = true;
     window.stop();
-    document.open();
-    document.write(bundle.html);
-    document.close();
+    
+    // Substituição agressiva para evitar duplicação no WebView
+    setTimeout(() => {
+      document.documentElement.innerHTML = bundle.html;
+      // Garante que o estado seja limpo
+      if (window.navigation && window.navigation.reload) {
+         // Opcional: lidar com navegação se necessário
+      }
+    }, 0);
   } catch (_) {
     localStorage.removeItem(STORAGE_KEY);
   }
