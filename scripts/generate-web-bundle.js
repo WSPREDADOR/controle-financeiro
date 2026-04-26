@@ -1,10 +1,9 @@
 /**
- * generate-web-bundle.js (v1.4.37)
+ * generate-web-bundle.js (v1.4.38)
  * 
- * SOLUÇÃO DEFINITIVA PARA OTA:
- * 1. Corrige o path das imagens (Controle Financeiro.png -> assets/...) para evitar que o ícone suma.
- * 2. Minifica o HTML/CSS/JS para reduzir o peso do document.write() no Android WebView.
- * 3. Inclui um script de auto-correção que tenta recuperar o ícone se o path primário falhar.
+ * BUNDLE HÍBRIDO DEFINITIVO:
+ * Produz tanto o formato 'html' (para APKs antigos) quanto 
+ * 'css/js' (para o novo runtime estável v1.4.37+).
  */
 const fs = require('fs');
 const path = require('path');
@@ -23,21 +22,27 @@ function minifyCss(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{:;,])\s*/g, '$1').trim();
 }
 
+function minifyJs(js) {
+  // Minificação básica: remove comentários e espaços desnecessários
+  return js
+    .replace(/\/\/.*/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function extractBodyHtml(indexHtml) {
   const match = indexHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   if (!match) throw new Error('Body não encontrado.');
   
   let body = match[1];
-  
-  // Remove scripts desnecessários no bundle
   body = body.replace(/\s*<script\s+src="web-runtime\.js"><\/script>\s*/gi, '\n');
   body = body.replace(/\s*<script\s+data-cf-original="[^"]*"\s+src="update-config\.js"><\/script>\s*/gi, '\n');
   body = body.replace(/\s*<script\s+data-cf-original="[^"]*"\s+src="script\.js"><\/script>\s*/gi, '\n');
   body = body.replace(/\s*<script\s+src="update-config\.js"><\/script>\s*/gi, '\n');
   body = body.replace(/\s*<script\s+src="script\.js"><\/script>\s*/gi, '\n');
   
-  // FIX: CORREÇÃO DE PATH DAS IMAGENS PARA O ANDROID
-  // No Android/Capacitor, as imagens ficam em assets/. No index.html da raiz, estão sem o prefixo.
+  // Fix imagem
   body = body.replace(/src="Controle Financeiro\.png"/g, 'src="assets/Controle Financeiro.png" data-fallback-src="Controle Financeiro.png"');
   
   return body.trim();
@@ -45,7 +50,6 @@ function extractBodyHtml(indexHtml) {
 
 function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs }) {
   const minifiedCss = minifyCss(styleCss);
-  
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -58,23 +62,19 @@ function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs }) {
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <style>${minifiedCss}</style>
   <script>
-    // SCRIPT DE AUTO-CORREÇÃO DE ASSETS
     window.addEventListener('error', function(e) {
       if (e.target && e.target.tagName === 'IMG') {
-        var fallback = e.target.getAttribute('data-fallback-src');
-        if (fallback && e.target.src.indexOf(fallback) === -1) {
-          console.log('Aplicando fallback para imagem:', fallback);
-          e.target.src = fallback;
-        }
+        var fb = e.target.getAttribute('data-fallback-src');
+        if (fb && e.target.src.indexOf(fb) === -1) e.target.src = fb;
       }
     }, true);
   </script>
 </head>
 <body>
 ${bodyHtml}
-  <script>window.__CF_RUNTIME_ACTIVE__ = true;</script>
-  <script>${updateConfigJs}</script>
-  <script>${appScriptJs}</script>
+  <script>window.__CF_RUNTIME_ACTIVE__=true;</script>
+  <script>${minifyJs(updateConfigJs)}</script>
+  <script>${minifyJs(appScriptJs)}</script>
 </body>
 </html>`;
 }
@@ -99,11 +99,19 @@ function main() {
     bundleFallbackUrl: `https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=${Date.now()}`
   };
 
-  const bundle = { version, html };
+  // BUNDLE HÍBRIDO
+  const bundle = { 
+    version, 
+    html,
+    css: minifyCss(styleCss),
+    js: minifyJs(appScriptJs),
+    updateConfig: minifyJs(updateConfigJs)
+  };
+
   fs.writeFileSync(manifestOutPath, JSON.stringify(manifest, null, 2), 'utf8');
   fs.writeFileSync(bundleOutPath, JSON.stringify(bundle), 'utf8');
 
-  console.log(`Bundle v${version} gerado com sucesso (${(JSON.stringify(bundle).length/1024).toFixed(1)} KB)`);
+  console.log(`Bundle Híbrido v${version} gerado (${(JSON.stringify(bundle).length/1024).toFixed(1)} KB)`);
 }
 
 main();
