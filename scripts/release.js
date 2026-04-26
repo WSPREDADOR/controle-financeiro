@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const https = require('https');
 
 const projectRoot = path.resolve(__dirname, '..');
 const packagePath = path.join(projectRoot, 'package.json');
@@ -75,7 +76,49 @@ function updateLegacyApkUrl(updateInfo, version) {
   );
 }
 
-function main() {
+/**
+ * Dispara o purge dos arquivos de update no CDN jsDelivr.
+ * Sem isso, o celular pode levar vários minutos para ver a nova versão.
+ */
+async function purgeJsDelivrCache() {
+  const filesToPurge = [
+    'WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
+    'WSPREDADOR/controle-financeiro@main/update/web-bundle.json',
+  ];
+
+  const results = await Promise.allSettled(
+    filesToPurge.map((file) => new Promise((resolve, reject) => {
+      const url = `https://purge.jsdelivr.net/gh/${file}`;
+      const req = https.get(url, { timeout: 10000 }, (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(body);
+            const status = parsed?.status || res.statusCode;
+            console.log(`  Purge ${status === 'finished' || res.statusCode === 200 ? 'OK' : 'enviado'}: ${file}`);
+          } catch (_) {
+            console.log(`  Purge enviado: ${file}`);
+          }
+          resolve();
+        });
+      });
+      req.on('error', (err) => {
+        console.log(`  Aviso: purge falhou para ${file} — ${err.message}`);
+        resolve(); // não bloqueia o release
+      });
+      req.on('timeout', () => {
+        console.log(`  Aviso: timeout no purge de ${file}`);
+        req.destroy();
+        resolve();
+      });
+    }))
+  );
+
+  return results;
+}
+
+async function main() {
   try {
     // 1. Ler e Incrementar Versão no package.json
     console.log('--- Iniciando processo de Release ---');
@@ -92,7 +135,7 @@ function main() {
     updatePackageLockVersion(newVersion);
     console.log(`Versão atualizada: ${oldVersion} -> ${newVersion}`);
 
-    // 2. Atualizar update-config.js
+    // 2. Atualizar todos os arquivos com a nova versão
     updateTextFile(updateConfigPath, (content) => replaceRequired(
       content,
       /currentVersion: '[^']+'/,
@@ -144,7 +187,12 @@ function main() {
     execSync(`git commit -m "Release v${newVersion}"`, { stdio: 'inherit' });
     execSync('git push', { stdio: 'inherit' });
 
+    // 6. Purge do CDN jsDelivr — garante que o botão apareça imediatamente no celular
+    console.log('Limpando cache do CDN (jsDelivr) para entrega imediata...');
+    await purgeJsDelivrCache();
+
     console.log(`\n--- SUCESSO: Versão ${newVersion} lançada! ---`);
+    console.log('O botão de atualizar deve aparecer no celular em instantes.');
   } catch (error) {
     console.error('\nErro durante o release:', error.message);
     process.exit(1);
