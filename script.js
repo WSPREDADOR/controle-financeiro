@@ -75,6 +75,7 @@ const reorderModal = document.getElementById('reorderModal');
 const reorderList = document.getElementById('reorderList');
 const closeReorderModalBtn = document.getElementById('closeReorderModalBtn');
 const cancelReorderModalBtn = document.getElementById('cancelReorderModalBtn');
+const confirmReorderModalBtn = document.getElementById('confirmReorderModalBtn');
 
 let plans = loadPlans();
 let selectedPlanId = plans[0]?.id ?? null;
@@ -95,6 +96,62 @@ const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
+
+// ─── Armazenamento Persistente (protegido contra limpeza do Android) ───────────
+// Usa Capacitor Preferences quando disponível (armazenamento nativo),
+// com fallback para localStorage (navegador/desktop).
+const Storage = {
+  _prefs: () => window.Capacitor?.Plugins?.Preferences ?? null,
+
+  async get(key) {
+    try {
+      const prefs = this._prefs();
+      if (prefs) {
+        const result = await prefs.get({ key });
+        return result?.value ?? null;
+      }
+    } catch (_) {}
+    return localStorage.getItem(key);
+  },
+
+  async set(key, value) {
+    try {
+      const prefs = this._prefs();
+      if (prefs) {
+        await prefs.set({ key, value });
+        // Mantém localStorage como espelho para compatibilidade
+        localStorage.setItem(key, value);
+        return;
+      }
+    } catch (_) {}
+    localStorage.setItem(key, value);
+  },
+
+  async remove(key) {
+    try {
+      const prefs = this._prefs();
+      if (prefs) {
+        await prefs.remove({ key });
+      }
+    } catch (_) {}
+    localStorage.removeItem(key);
+  },
+
+  // Migra dados do localStorage para Preferences (executa uma vez)
+  async migrate(key) {
+    try {
+      const prefs = this._prefs();
+      if (!prefs) return;
+      const existing = await prefs.get({ key });
+      if (!existing?.value) {
+        const local = localStorage.getItem(key);
+        if (local) {
+          await prefs.set({ key, value: local });
+        }
+      }
+    } catch (_) {}
+  }
+};
 const defaultUpdateConfig = {
   currentVersion: '1.4.15',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
@@ -109,6 +166,26 @@ currentDate.textContent = formatDate(normalizeDate(new Date()));
 updateDisplayedAppVersion();
 renderPlansList();
 updateResultsNavigation();
+
+// Migra dados do localStorage para armazenamento nativo (executa em background)
+(async () => {
+  await Storage.migrate(STORAGE_KEY);
+  await Storage.migrate(WEB_BUNDLE_STORAGE_KEY);
+  await Storage.migrate(NOTIFICATION_PREFERENCE_KEY);
+  await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
+
+  // Recarrega planos do armazenamento nativo (pode ter dados mais recentes)
+  const migratedPlans = await loadPlansAsync();
+  if (migratedPlans.length > 0 && plans.length === 0) {
+    plans = migratedPlans;
+    selectedPlanId = plans[0]?.id ?? null;
+    renderPlansList();
+    if (selectedPlanId) {
+      renderPlanDetails(getSelectedPlan(), { resetTimelineScroll: true });
+    }
+  }
+})();
+
 
 if (selectedPlanId) {
   renderPlanDetails(getSelectedPlan(), { resetTimelineScroll: true });
@@ -221,68 +298,78 @@ plansList.addEventListener('scroll', () => {
   updateFocusedPlanCard(visibleNumber);
 });
 
+function handleReorderStart(id, element) {
+  draggedReorderPlanId = id;
+  element.classList.add('is-dragging');
+  reorderList.classList.add('is-reordering');
+}
+
+function handleReorderMove(clientY) {
+  if (!draggedReorderPlanId) return;
+  const draggedItem = reorderList.querySelector(`.reorder-item[data-plan-id="${draggedReorderPlanId}"]`);
+  if (!draggedItem) return;
+
+  const nextItem = getReorderInsertTarget(clientY);
+  if (!nextItem) {
+    reorderList.appendChild(draggedItem);
+  } else if (nextItem !== draggedItem) {
+    reorderList.insertBefore(draggedItem, nextItem);
+  }
+  syncReorderNumbersFromDom();
+}
+
+function handleReorderEnd() {
+  if (!draggedReorderPlanId) return;
+  clearReorderDragState();
+}
+
 reorderList.addEventListener('dragstart', (event) => {
   const dragHandle = event.target.closest('[data-reorder-plan-id]');
-
-  if (!dragHandle) {
-    event.preventDefault();
-    return;
-  }
-
+  if (!dragHandle) return;
   const dragItem = dragHandle.closest('.reorder-item');
+  if (!dragItem) return;
 
-  if (!dragItem) {
-    event.preventDefault();
-    return;
-  }
-
-  draggedReorderPlanId = dragHandle.dataset.reorderPlanId;
-  dragItem.classList.add('is-dragging');
-  reorderList.classList.add('is-reordering');
+  handleReorderStart(dragHandle.dataset.reorderPlanId, dragItem);
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', draggedReorderPlanId);
-  event.dataTransfer.setDragImage(dragItem, 40, 24);
 });
 
 reorderList.addEventListener('dragover', (event) => {
-  if (!draggedReorderPlanId) {
-    return;
-  }
-
+  if (!draggedReorderPlanId) return;
   event.preventDefault();
-  const draggedItem = reorderList.querySelector(`.reorder-item[data-plan-id="${draggedReorderPlanId}"]`);
-
-  if (!draggedItem) {
-    return;
-  }
-
-  const nextItem = getReorderInsertTarget(event.clientY);
-
-  if (!nextItem) {
-    reorderList.appendChild(draggedItem);
-    syncReorderNumbersFromDom();
-    return;
-  }
-
-  if (nextItem !== draggedItem) {
-    reorderList.insertBefore(draggedItem, nextItem);
-    syncReorderNumbersFromDom();
-  }
+  handleReorderMove(event.clientY);
 });
 
 reorderList.addEventListener('drop', (event) => {
-  if (!draggedReorderPlanId) {
-    return;
-  }
-
   event.preventDefault();
-  saveReorderFromDom();
-  clearReorderDragState();
+  handleReorderEnd();
 });
 
 reorderList.addEventListener('dragend', () => {
   clearReorderDragState();
 });
+
+// Suporte para Touch (Mobile)
+reorderList.addEventListener('touchstart', (event) => {
+  const dragHandle = event.target.closest('[data-reorder-plan-id]');
+  if (!dragHandle) return;
+  const dragItem = dragHandle.closest('.reorder-item');
+  if (!dragItem) return;
+
+  handleReorderStart(dragHandle.dataset.reorderPlanId, dragItem);
+}, { passive: true });
+
+reorderList.addEventListener('touchmove', (event) => {
+  if (!draggedReorderPlanId) return;
+  const touch = event.touches[0];
+  handleReorderMove(touch.clientY);
+  if (event.cancelable) event.preventDefault();
+}, { passive: false });
+
+reorderList.addEventListener('touchend', (event) => {
+  handleReorderEnd();
+});
+
 
 openCreateModalBtn.addEventListener('click', () => {
   openCreateModal();
@@ -374,6 +461,11 @@ closeReorderModalBtn.addEventListener('click', () => {
 });
 
 cancelReorderModalBtn.addEventListener('click', () => {
+  closeReorderModal();
+});
+
+confirmReorderModalBtn.addEventListener('click', () => {
+  saveReorderFromDom();
   closeReorderModal();
 });
 
@@ -906,18 +998,28 @@ function createPlanId() {
 }
 
 function savePlans() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+  const data = JSON.stringify(plans);
+  Storage.set(STORAGE_KEY, data); // persiste nativamente no Android
   queuePaymentNotificationSync();
+}
+
+async function loadPlansAsync() {
+  try {
+    // Migra dados existentes do localStorage para Preferences
+    await Storage.migrate(STORAGE_KEY);
+    const raw = await Storage.get(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(isValidPlan) : [];
+  } catch {
+    return [];
+  }
 }
 
 function loadPlans() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    
-    return Array.isArray(parsed)
-      ? parsed.filter(isValidPlan)
-      : [];
+    return Array.isArray(parsed) ? parsed.filter(isValidPlan) : [];
   } catch {
     return [];
   }
@@ -1684,15 +1786,15 @@ async function startAppUpdate(update) {
     return;
   }
 
-  localStorage.setItem(PENDING_UPDATE_VERSION_KEY, update.version || '');
+  await Storage.set(PENDING_UPDATE_VERSION_KEY, update.version || '');
 
   try {
     const bundle = await fetchBundlePayload(update, window.APP_UPDATE_CONFIG?.currentVersion || defaultUpdateConfig.currentVersion);
 
-    localStorage.setItem(WEB_BUNDLE_STORAGE_KEY, JSON.stringify(bundle));
+    await Storage.set(WEB_BUNDLE_STORAGE_KEY, JSON.stringify(bundle));
     location.reload();
   } catch (error) {
-    localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+    await Storage.remove(PENDING_UPDATE_VERSION_KEY);
   }
 }
 

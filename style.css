@@ -430,11 +430,18 @@ button,
   background: linear-gradient(180deg, rgba(30, 39, 46, 0.96), rgba(18, 25, 31, 0.94));
   box-shadow: var(--shadow-soft);
   transition: transform 0.22s ease, border-color 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease;
+  position: relative;
+  touch-action: none;
+  user-select: none;
 }
 
 .reorder-item.is-dragging {
-  opacity: 0.42;
-  border-style: dashed;
+  opacity: 0.9;
+  border-color: #46c8be;
+  background: rgba(30, 39, 46, 0.98);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+  transform: scale(1.02);
+  z-index: 9999;
 }
 
 .reorder-item-number {
