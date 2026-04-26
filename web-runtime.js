@@ -4,7 +4,7 @@
   }
 
   const STORAGE_KEY = 'cf-active-web-bundle';
-  const bundledVersion = '1.4.31';
+  const bundledVersion = '1.4.32';
   const maxBundleChars = 1024 * 1024;
 
   function isNativeApp() {

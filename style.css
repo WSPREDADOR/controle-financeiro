@@ -371,7 +371,16 @@ button,
   width: min(100%, 680px);
 }
 
+.reorder-close-btn {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 18px);
+  right: max(18px, calc((100vw - 680px) / 2 + 28px));
+  z-index: 35;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.32);
+}
+
 .reorder-modal-header {
+  padding-right: 78px;
   background:
     linear-gradient(135deg, rgba(28, 42, 44, 0.96), rgba(17, 26, 31, 0.94));
   border-color: rgba(85, 212, 203, 0.12);
@@ -381,39 +390,10 @@ button,
   margin-top: 22px;
 }
 
-.reorder-modal-tip {
-  padding: 18px 20px;
-  border-radius: 22px;
-  border: 1px solid rgba(85, 212, 203, 0.1);
-  background:
-    linear-gradient(135deg, rgba(85, 212, 203, 0.08), rgba(24, 32, 38, 0.92));
-}
-
-.reorder-modal-tip p {
-  margin-top: 10px;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.reorder-tip-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: rgba(241, 182, 111, 0.16);
-  color: var(--accent);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .reorder-list {
   display: grid;
   gap: 14px;
-  margin-top: 18px;
+  margin-top: 0;
   max-height: min(52vh, 460px);
   overflow-y: auto;
   padding-right: 8px;
@@ -433,6 +413,7 @@ button,
   position: relative;
   touch-action: none;
   user-select: none;
+  cursor: grab;
 }
 
 .reorder-item.is-dragging {
@@ -442,6 +423,7 @@ button,
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
   transform: scale(1.02);
   z-index: 9999;
+  cursor: grabbing;
 }
 
 .reorder-item-number {
@@ -501,6 +483,7 @@ button,
   line-height: 1;
   transform: translateY(1px);
   transition: transform 0.2s ease, opacity 0.2s ease;
+  pointer-events: none;
 }
 
 .reorder-drag-handle span {
@@ -520,6 +503,10 @@ button,
 }
 
 .reorder-list.is-reordering {
+  cursor: grabbing;
+}
+
+.reorder-list.is-reordering .reorder-item {
   cursor: grabbing;
 }
 
@@ -1060,15 +1047,13 @@ button.version-pill {
   scrollbar-gutter: stable;
 }
 
-.panel-shortcuts,
-.results-toolbar {
+.panel-shortcuts {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.panel-shortcuts,
-.results-toolbar {
+.panel-shortcuts {
   margin-top: 14px;
 }
 
@@ -2198,8 +2183,7 @@ button.version-pill {
     scroll-snap-align: start;
   }
 
-  .panel-shortcuts,
-  .results-toolbar {
+  .panel-shortcuts {
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(164px, 1fr);
@@ -2210,13 +2194,11 @@ button.version-pill {
     scroll-snap-type: x proximity;
   }
 
-  .panel-shortcuts::-webkit-scrollbar,
-  .results-toolbar::-webkit-scrollbar {
+  .panel-shortcuts::-webkit-scrollbar {
     display: none;
   }
 
-  .panel-shortcuts .nav-chip,
-  .results-toolbar .nav-chip {
+  .panel-shortcuts .nav-chip {
     width: 100%;
     scroll-snap-align: start;
   }

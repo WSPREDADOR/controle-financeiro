@@ -35,7 +35,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v1.4.31</strong>
+            <strong id="appVersionLabel">v1.4.32</strong>
           </div>
           <div class="version-item expiration-item">
             <span class="version-label">Validade</span>
@@ -131,11 +131,6 @@
             <span class="section-kicker">Resultado</span>
             <h2 id="selectedPlanTitle">Painel do seu compromisso</h2>
             <p id="selectedPlanSubtitle">Uma visão elegante do início ao fim do período de pagamento.</p>
-          </div>
-
-          <div class="results-toolbar">
-            <button type="button" class="nav-chip" id="backToListBtn">Voltar para lista</button>
-            <button type="button" class="nav-chip" id="backToTopBtn">Ir para o topo</button>
           </div>
 
           <div class="summary-grid">
@@ -345,23 +340,18 @@
 
   <div class="modal-overlay" id="reorderModal" hidden>
     <section class="edit-modal reorder-modal" role="dialog" aria-modal="true" aria-labelledby="reorderModalTitle">
+      <button type="button" class="modal-close-btn reorder-close-btn" id="closeReorderModalBtn" aria-label="Fechar organização de compromissos" title="Fechar">
+        X
+      </button>
       <div class="modal-header reorder-modal-header">
         <div class="modal-heading">
           <span class="section-kicker">Organizar lista</span>
           <h2 id="reorderModalTitle">Reorganizar compromissos</h2>
           <p>Arraste os itens para definir a ordem da lista de compromissos. Ao soltar, a nova posição já fica salva.</p>
         </div>
-        <button type="button" class="modal-close-btn" id="closeReorderModalBtn" aria-label="Fechar organização de compromissos" title="Fechar">
-          X
-        </button>
       </div>
 
       <div class="reorder-modal-body">
-        <div class="reorder-modal-tip">
-          <span class="reorder-tip-badge">Arraste e solte</span>
-          <p>O primeiro item da lista será o compromisso exibido primeiro no painel lateral. A ordem é salva automaticamente.</p>
-        </div>
-
         <div class="reorder-list" id="reorderList" aria-label="Lista para reorganizar compromissos"></div>
       </div>
     </section>

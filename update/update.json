@@ -1,6 +1,6 @@
 {
-  "version": "1.4.31",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.31/app-release.apk",
-  "notes": "Correção do fluxo de atualização com aplicação direta, barra de progresso e porcentagem.",
+  "version": "1.4.32",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.32/app-release.apk",
+  "notes": "Correções no modal de reorganizar: botão X fixo, painel informativo removido e arraste dos cards funcionando pelo card inteiro.",
   "publishedAt": "2026-04-26"
 }

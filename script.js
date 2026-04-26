@@ -46,8 +46,6 @@ const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
 const goToFormBtn = document.getElementById('goToFormBtn');
 const openCreateModalBtn = document.getElementById('openCreateModalBtn');
 const openReorderModalBtn = document.getElementById('openReorderModalBtn');
-const backToListBtn = document.getElementById('backToListBtn');
-const backToTopBtn = document.getElementById('backToTopBtn');
 const plansTotalCount = document.getElementById('plansTotalCount');
 const plansVisibleCount = document.getElementById('plansVisibleCount');
 const plansSelectedCount = document.getElementById('plansSelectedCount');
@@ -85,6 +83,10 @@ let editingPlanId = null;
 let pendingDeletePlanId = null;
 let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
+let reorderActivePointerId = null;
+let reorderActiveDragItem = null;
+let reorderAutoScrollFrameId = null;
+let reorderAutoScrollPointerY = null;
 let reorderSavedOrderSignature = '';
 let planFocusFrameId = null;
 let availableUpdate = null;
@@ -159,7 +161,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.31',
+  currentVersion: '1.4.32',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -305,10 +307,78 @@ window.addEventListener('resize', () => {
   schedulePlanFocusUpdate();
 });
 
-function handleReorderStart(id, element) {
+const REORDER_AUTO_SCROLL_EDGE = 68;
+const REORDER_AUTO_SCROLL_MAX_STEP = 18;
+
+function handleReorderStart(id, element, pointerId = null) {
   draggedReorderPlanId = id;
+  reorderActivePointerId = pointerId;
+  reorderActiveDragItem = element;
   element.classList.add('is-dragging');
   reorderList.classList.add('is-reordering');
+}
+
+function getReorderDragItemFromTarget(target) {
+  return target instanceof Element
+    ? target.closest('.reorder-item')
+    : null;
+}
+
+function autoScrollReorderList(clientY) {
+  if (reorderList.scrollHeight <= reorderList.clientHeight) {
+    return 0;
+  }
+
+  const rect = reorderList.getBoundingClientRect();
+  let scrollStep = 0;
+
+  if (clientY < rect.top + REORDER_AUTO_SCROLL_EDGE) {
+    const distance = rect.top + REORDER_AUTO_SCROLL_EDGE - clientY;
+    scrollStep = -Math.ceil((distance / REORDER_AUTO_SCROLL_EDGE) * REORDER_AUTO_SCROLL_MAX_STEP);
+  } else if (clientY > rect.bottom - REORDER_AUTO_SCROLL_EDGE) {
+    const distance = clientY - (rect.bottom - REORDER_AUTO_SCROLL_EDGE);
+    scrollStep = Math.ceil((distance / REORDER_AUTO_SCROLL_EDGE) * REORDER_AUTO_SCROLL_MAX_STEP);
+  }
+
+  if (scrollStep !== 0) {
+    reorderList.scrollTop += scrollStep;
+  }
+
+  return scrollStep;
+}
+
+function scheduleReorderAutoScroll(clientY) {
+  reorderAutoScrollPointerY = clientY;
+
+  if (reorderAutoScrollFrameId) {
+    return;
+  }
+
+  const tick = () => {
+    reorderAutoScrollFrameId = null;
+
+    if (!draggedReorderPlanId || reorderAutoScrollPointerY === null) {
+      return;
+    }
+
+    const scrollStep = autoScrollReorderList(reorderAutoScrollPointerY);
+
+    if (scrollStep !== 0) {
+      handleReorderMove(reorderAutoScrollPointerY);
+      reorderAutoScrollFrameId = window.requestAnimationFrame(tick);
+    }
+  };
+
+  reorderAutoScrollFrameId = window.requestAnimationFrame(tick);
+}
+
+function stopReorderAutoScroll() {
+  if (reorderAutoScrollFrameId) {
+    window.cancelAnimationFrame(reorderAutoScrollFrameId);
+  }
+
+  reorderAutoScrollFrameId = null;
+  reorderAutoScrollPointerY = null;
 }
 
 function handleReorderMove(clientY) {
@@ -331,56 +401,39 @@ function handleReorderEnd() {
   clearReorderDragState();
 }
 
-reorderList.addEventListener('dragstart', (event) => {
-  const dragHandle = event.target.closest('[data-reorder-plan-id]');
-  if (!dragHandle) return;
-  const dragItem = dragHandle.closest('.reorder-item');
-  if (!dragItem) return;
+reorderList.addEventListener('pointerdown', (event) => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
 
-  handleReorderStart(dragHandle.dataset.reorderPlanId, dragItem);
-  event.dataTransfer.effectAllowed = 'move';
-  event.dataTransfer.setData('text/plain', draggedReorderPlanId);
+  const dragItem = getReorderDragItemFromTarget(event.target);
+  if (!dragItem?.dataset.planId) return;
+
+  handleReorderStart(dragItem.dataset.planId, dragItem, event.pointerId);
+  dragItem.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
 });
 
-reorderList.addEventListener('dragover', (event) => {
-  if (!draggedReorderPlanId) return;
-  event.preventDefault();
+reorderList.addEventListener('pointermove', (event) => {
+  if (event.pointerId !== reorderActivePointerId || !draggedReorderPlanId) return;
+
+  autoScrollReorderList(event.clientY);
+  scheduleReorderAutoScroll(event.clientY);
   handleReorderMove(event.clientY);
-});
-
-reorderList.addEventListener('drop', (event) => {
   event.preventDefault();
-  handleReorderEnd();
 });
 
-reorderList.addEventListener('dragend', () => {
+function finishReorderPointerDrag(event) {
+  if (event.pointerId !== reorderActivePointerId) return;
+
+  if (reorderActiveDragItem?.hasPointerCapture?.(event.pointerId)) {
+    reorderActiveDragItem.releasePointerCapture(event.pointerId);
+  }
+
   handleReorderEnd();
-});
+  event.preventDefault();
+}
 
-// Suporte para Touch (Mobile)
-reorderList.addEventListener('touchstart', (event) => {
-  const dragHandle = event.target.closest('[data-reorder-plan-id]');
-  if (!dragHandle) return;
-  const dragItem = dragHandle.closest('.reorder-item');
-  if (!dragItem) return;
-
-  handleReorderStart(dragHandle.dataset.reorderPlanId, dragItem);
-}, { passive: true });
-
-reorderList.addEventListener('touchmove', (event) => {
-  if (!draggedReorderPlanId) return;
-  const touch = event.touches[0];
-  handleReorderMove(touch.clientY);
-  if (event.cancelable) event.preventDefault();
-}, { passive: false });
-
-reorderList.addEventListener('touchend', (event) => {
-  handleReorderEnd();
-});
-
-reorderList.addEventListener('touchcancel', () => {
-  handleReorderEnd();
-});
+reorderList.addEventListener('pointerup', finishReorderPointerDrag);
+reorderList.addEventListener('pointercancel', finishReorderPointerDrag);
 
 
 openCreateModalBtn.addEventListener('click', () => {
@@ -525,14 +578,6 @@ document.addEventListener('keydown', (event) => {
 
 goToFormBtn.addEventListener('click', () => {
   openCreateModal();
-});
-
-backToListBtn.addEventListener('click', () => {
-  scrollToSection(plansList);
-});
-
-backToTopBtn.addEventListener('click', () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
 updatePrimaryBtn?.addEventListener('click', () => {
@@ -933,22 +978,16 @@ function renderReorderList() {
     reorderItem.className = 'reorder-item';
     reorderItem.dataset.planId = plan.id;
     reorderItem.dataset.planNumber = String(index + 1);
+    reorderItem.setAttribute('aria-label', `Arrastar para reordenar ${plan.name}`);
     reorderItem.innerHTML = `
-      <button
-        type="button"
-        class="reorder-drag-handle"
-        draggable="true"
-        data-reorder-plan-id="${plan.id}"
-        aria-label="Arrastar para reordenar ${escapeHtml(plan.name)}"
-        title="Arrastar para reordenar"
-      >
+      <span class="reorder-drag-handle" aria-hidden="true">
         <span></span>
         <span></span>
         <span></span>
         <span></span>
         <span></span>
         <span></span>
-      </button>
+      </span>
       <span class="reorder-item-number">${String(index + 1).padStart(2, '0')}</span>
       <div class="reorder-item-content">
         <strong class="reorder-item-name">${escapeHtml(plan.name)}</strong>
@@ -1139,9 +1178,6 @@ function deletePlan(planId) {
 }
 
 function updateResultsNavigation() {
-  const hasSelectedPlan = Boolean(selectedPlanId && getSelectedPlan());
-
-  backToListBtn.disabled = !hasSelectedPlan;
 }
 
 function updateDisplayedAppVersion() {
@@ -2227,7 +2263,10 @@ function saveReorderFromDom(options = {}) {
 }
 
 function clearReorderDragState() {
+  stopReorderAutoScroll();
   draggedReorderPlanId = null;
+  reorderActivePointerId = null;
+  reorderActiveDragItem = null;
   reorderList.classList.remove('is-reordering');
   [...reorderList.querySelectorAll('.reorder-item')].forEach((item) => {
     item.classList.remove('is-dragging');
