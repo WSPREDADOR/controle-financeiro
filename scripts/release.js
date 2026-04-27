@@ -32,6 +32,7 @@ function parseArgs(argv) {
     bump: 'patch',
     version: null,
     notes: null,
+    resume: false,
     skipRemoteVerify: false
   };
 
@@ -55,6 +56,11 @@ function parseArgs(argv) {
 
     if (arg === '--patch' || arg === 'patch') {
       options.bump = 'patch';
+      continue;
+    }
+
+    if (arg === '--resume') {
+      options.resume = true;
       continue;
     }
 
@@ -92,6 +98,7 @@ Uso:
   npm run release -- --minor
   npm run release -- 1.6.0
   npm run release -- 1.6.0 --notes "Texto da atualizacao"
+  npm run release -- --resume
 
 O comando sempre:
   - atualiza as versoes do web e Android
@@ -100,17 +107,38 @@ O comando sempre:
   - aponta o manifesto para a release versionada do GitHub
   - cria/atualiza a release e o asset app-release.apk
   - valida o APK remoto baixado da internet
+
+Use --resume somente para continuar uma versao que falhou no meio do release.
 `.trim());
 }
 
 function run(command, args, options = {}) {
   console.log(`> ${[command, ...args].join(' ')}`);
+  const needsCmd = process.platform === 'win32' && (
+    /\.cmd$|\.bat$/i.test(command) ||
+    ['npm', 'npx'].includes(command.toLowerCase())
+  );
 
-  const result = spawnSync(command, args, {
+  const result = needsCmd
+    ? spawnSync(
+      [
+        ['npm', 'npx'].includes(command.toLowerCase()) ? command : quoteCmdArg(command),
+        ...args.map(quoteCmdArg)
+      ].join(' '),
+      {
+        cwd: options.cwd || projectRoot,
+        stdio: 'inherit',
+        shell: true,
+        env: process.env,
+        windowsHide: true
+      }
+    )
+    : spawnSync(command, args, {
     cwd: options.cwd || projectRoot,
     stdio: 'inherit',
-    shell: process.platform === 'win32',
-    env: process.env
+    shell: false,
+    env: process.env,
+    windowsHide: true
   });
 
   if (result.status !== 0) {
@@ -184,7 +212,7 @@ function updatePackageLockVersion(version) {
   writeJson(packageLockPath, packageLock);
 }
 
-function updateAndroidVersion(version) {
+function updateAndroidVersion(version, options = {}) {
   updateTextFile(androidBuildPath, (content) => {
     const versionCodeMatch = content.match(/versionCode\s+(\d+)/);
 
@@ -192,7 +220,10 @@ function updateAndroidVersion(version) {
       throw new Error('Nao foi possivel localizar versionCode no build.gradle.');
     }
 
-    const nextVersionCode = Number.parseInt(versionCodeMatch[1], 10) + 1;
+    const currentVersionCode = Number.parseInt(versionCodeMatch[1], 10);
+    const nextVersionCode = options.incrementVersionCode === false
+      ? currentVersionCode
+      : currentVersionCode + 1;
 
     return replaceRequired(
       content.replace(/versionCode\s+\d+/, `versionCode ${nextVersionCode}`),
@@ -203,11 +234,12 @@ function updateAndroidVersion(version) {
   });
 }
 
-function updateVersionFiles(version, notes) {
+function updateVersionFiles(version, notes, options = {}) {
   const packageJson = readJson(packagePath);
   const oldVersion = packageJson.version;
+  const versionComparison = compareVersions(version, oldVersion);
 
-  if (compareVersions(version, oldVersion) <= 0) {
+  if (versionComparison < 0 || (versionComparison === 0 && !options.allowSameVersion)) {
     throw new Error(`A nova versao (${version}) precisa ser maior que a atual (${oldVersion}).`);
   }
 
@@ -250,7 +282,9 @@ function updateVersionFiles(version, notes) {
     'versao exibida no splash.html'
   ));
 
-  updateAndroidVersion(version);
+  updateAndroidVersion(version, {
+    incrementVersionCode: versionComparison > 0
+  });
 
   const updateInfo = readJson(updateInfoPath);
   updateInfo.version = version;
@@ -336,6 +370,34 @@ function findAndroidBuildTool(toolName) {
   return null;
 }
 
+function quoteCmdArg(value) {
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
+function runAndroidBuildTool(toolPath, args, options = {}) {
+  const isWindowsBatch = process.platform === 'win32' && /\.cmd$|\.bat$/i.test(toolPath);
+  const command = isWindowsBatch ? 'cmd.exe' : toolPath;
+  const commandArgs = isWindowsBatch
+    ? ['/d', '/c', ['call', quoteCmdArg(toolPath), ...args.map(quoteCmdArg)].join(' ')]
+    : args;
+
+  const result = spawnSync(command, commandArgs, {
+    cwd: options.cwd || projectRoot,
+    encoding: options.encoding || 'utf8',
+    stdio: options.stdio || 'pipe',
+    windowsHide: true
+  });
+
+  if (result.status !== 0) {
+    const stderr = result.stderr ? String(result.stderr).trim() : '';
+    const stdout = result.stdout ? String(result.stdout).trim() : '';
+    const details = stderr || stdout || `codigo ${result.status}`;
+    throw new Error(`Falha ao executar ${path.basename(toolPath)}: ${details}`);
+  }
+
+  return result.stdout ? String(result.stdout) : '';
+}
+
 function getApkPackageInfo(apkPath) {
   const aaptPath = findAndroidBuildTool('aapt');
 
@@ -343,11 +405,7 @@ function getApkPackageInfo(apkPath) {
     throw new Error('Nao encontrei o aapt no Android SDK para validar a versao do APK.');
   }
 
-  const output = execFileSync(aaptPath, ['dump', 'badging', apkPath], {
-    cwd: projectRoot,
-    encoding: 'utf8',
-    shell: process.platform === 'win32'
-  });
+  const output = runAndroidBuildTool(aaptPath, ['dump', 'badging', apkPath]);
   const packageLine = output.split(/\r?\n/).find((line) => line.startsWith('package:'));
 
   if (!packageLine) {
@@ -369,10 +427,21 @@ function verifyApkSignature(apkPath) {
     return;
   }
 
-  execFileSync(apksignerPath, ['verify', '--verbose', apkPath], {
-    cwd: projectRoot,
-    stdio: 'ignore',
-    shell: process.platform === 'win32'
+  const apksignerJarPath = path.join(path.dirname(apksignerPath), 'lib', 'apksigner.jar');
+
+  if (fs.existsSync(apksignerJarPath)) {
+    const javaCommand = process.env.JAVA_HOME
+      ? path.join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java')
+      : 'java';
+
+    runAndroidBuildTool(javaCommand, ['-jar', apksignerJarPath, 'verify', '--verbose', apkPath], {
+      stdio: 'ignore'
+    });
+    return;
+  }
+
+  runAndroidBuildTool(apksignerPath, ['verify', '--verbose', apkPath], {
+    stdio: 'ignore'
   });
 }
 
@@ -560,12 +629,14 @@ async function main() {
   }
 
   const packageJson = readJson(packagePath);
-  const newVersion = options.version || bumpVersion(packageJson.version, options.bump);
+  const newVersion = options.version || (options.resume ? packageJson.version : bumpVersion(packageJson.version, options.bump));
   const notes = options.notes || `Atualizacao do aplicativo Android via APK na versao ${newVersion}.`;
 
   console.log('--- Release Android do Controle Financeiro ---');
 
-  const { updateInfo } = updateVersionFiles(newVersion, notes);
+  const { updateInfo } = updateVersionFiles(newVersion, notes, {
+    allowSameVersion: options.resume
+  });
 
   console.log('Gerando bundle web, sincronizando Capacitor e assets Android...');
   run('npm', ['run', 'mobile:sync']);

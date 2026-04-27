@@ -1,8 +1,8 @@
 {
-  "version": "1.5.0",
-  "notes": "Atualizacao do aplicativo Android via APK na versao 1.5.0.",
+  "version": "1.5.1",
+  "notes": "Atualizacao do aplicativo Android via APK na versao 1.5.1.",
   "publishedAt": "2026-04-27",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777291839519",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777291839519",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.0/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777293996842",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777293996843",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.1/app-release.apk"
 }
