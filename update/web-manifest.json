@@ -1,8 +1,8 @@
 {
-  "version": "1.4.45",
+  "version": "1.4.46",
   "notes": "Correções no modal de reorganizar: botão X fixo, painel informativo removido e arraste dos cards funcionando pelo card inteiro.",
   "publishedAt": "2026-04-27",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777285861051",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777285861051",
-  "apkUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/app-release.apk?v=1777285861051"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777287151905",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777287151906",
+  "apkUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/app-release.apk?v=1777287151906"
 }

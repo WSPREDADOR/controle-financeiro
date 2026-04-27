@@ -19,5 +19,7 @@ android/*.keystore
 android/*.jks
 android/app/build/
 
+# Ignorar APKs por padrão, exceto o da pasta de update
 *.apk
+!update/*.apk
 *.aab
