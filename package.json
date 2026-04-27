@@ -15,7 +15,10 @@
                     "mobile:assets":  "node scripts/generate-android-assets.js",
                     "mobile:sync":  "npm run build:web \u0026\u0026 npx cap sync android \u0026\u0026 npm run mobile:assets",
                     "mobile:android":  "npm run mobile:sync \u0026\u0026 npx cap open android",
-                    "release":  "node scripts/release.js"
+                    "release":  "node scripts/release.js",
+                    "release:patch":  "node scripts/release.js --patch",
+                    "release:minor":  "node scripts/release.js --minor",
+                    "release:major":  "node scripts/release.js --major"
                 },
     "dependencies":  {
                          "@capacitor/android":  "^7.1.0",

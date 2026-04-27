@@ -4,13 +4,35 @@ O app continua funcionando offline normalmente. Quando houver internet, ele cons
 
 ### Fluxo recomendado
 
-1. Rode `npm run release` para incrementar a versao, atualizar os metadados e gerar o bundle web.
-2. Confirme que `update/web-bundle.json` ficou pequeno. Ele deve referenciar assets ja empacotados, nao embutir imagens grandes em base64.
-3. Publique o commit no GitHub. O app vai buscar o manifesto e aplicar o bundle quando o usuario tocar em atualizar.
+Use sempre o mesmo comando, tanto no VS Code quanto no Antigravity:
+
+```bash
+npm run release
+```
+
+Esse comando incrementa o patch, atualiza todos os metadados, gera o bundle web, sincroniza o Capacitor, compila o APK Android assinado, copia para `update/app-release.apk`, cria/atualiza a release do GitHub e valida baixando o APK remoto da internet.
+
+Atalhos:
+
+```bash
+npm run release:patch
+npm run release:minor
+npm run release:major
+npm run release -- 1.6.0
+npm run release -- 1.6.0 --notes "Resumo da atualizacao"
+```
+
+Regra importante: o `apkUrl` publicado no manifesto sempre deve apontar para a release versionada do GitHub, por exemplo:
+
+```text
+https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.0/app-release.apk
+```
+
+Nao use `cdn.jsdelivr.net/.../update/app-release.apk` para APK nativo. O CDN pode manter binario antigo e fazer o celular instalar a versao errada.
 
 ### APK nativo
 
-Quando precisar distribuir um APK novo, rode `npm run mobile:sync` e gere o build Android. O `versionName` e o `versionCode` ficam em `android/app/build.gradle`.
+Quando precisar distribuir um APK novo, rode `npm run release`. O `versionName` e o `versionCode` ficam em `android/app/build.gradle`, mas o script atualiza os dois automaticamente.
 
 O arquivo `update/update.json` fica apenas para compatibilidade com fluxos antigos de instalacao por APK. Se ele for usado, mantenha estes campos coerentes com a release:
 

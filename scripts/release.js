@@ -1,9 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const os = require('os');
 const https = require('https');
+const crypto = require('crypto');
+const { execFileSync, spawnSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..');
+const androidRoot = path.join(projectRoot, 'android');
 const packagePath = path.join(projectRoot, 'package.json');
 const packageLockPath = path.join(projectRoot, 'package-lock.json');
 const indexPath = path.join(projectRoot, 'index.html');
@@ -12,7 +15,116 @@ const splashPath = path.join(projectRoot, 'splash.html');
 const webRuntimePath = path.join(projectRoot, 'web-runtime.js');
 const updateConfigPath = path.join(projectRoot, 'update-config.js');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
-const androidBuildPath = path.join(projectRoot, 'android', 'app', 'build.gradle');
+const androidBuildPath = path.join(androidRoot, 'app', 'build.gradle');
+const localApkPath = path.join(projectRoot, 'update', 'app-release.apk');
+const builtApkPath = path.join(androidRoot, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
+
+const repoOwner = 'WSPREDADOR';
+const repoName = 'controle-financeiro';
+const releaseAssetName = 'app-release.apk';
+
+function getReleaseApkUrl(version) {
+  return `https://github.com/${repoOwner}/${repoName}/releases/download/v${version}/${releaseAssetName}`;
+}
+
+function parseArgs(argv) {
+  const options = {
+    bump: 'patch',
+    version: null,
+    notes: null,
+    skipRemoteVerify: false
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === '--help' || arg === '-h') {
+      options.help = true;
+      continue;
+    }
+
+    if (arg === '--major' || arg === 'major') {
+      options.bump = 'major';
+      continue;
+    }
+
+    if (arg === '--minor' || arg === 'minor') {
+      options.bump = 'minor';
+      continue;
+    }
+
+    if (arg === '--patch' || arg === 'patch') {
+      options.bump = 'patch';
+      continue;
+    }
+
+    if (arg === '--skip-remote-verify') {
+      options.skipRemoteVerify = true;
+      continue;
+    }
+
+    if (arg === '--notes') {
+      options.notes = argv[index + 1] || '';
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith('--notes=')) {
+      options.notes = arg.slice('--notes='.length);
+      continue;
+    }
+
+    if (/^\d+\.\d+\.\d+$/.test(arg)) {
+      options.version = arg;
+      continue;
+    }
+
+    throw new Error(`Argumento desconhecido: ${arg}`);
+  }
+
+  return options;
+}
+
+function printHelp() {
+  console.log(`
+Uso:
+  npm run release
+  npm run release -- --minor
+  npm run release -- 1.6.0
+  npm run release -- 1.6.0 --notes "Texto da atualizacao"
+
+O comando sempre:
+  - atualiza as versoes do web e Android
+  - gera o bundle web
+  - compila o APK release assinado
+  - aponta o manifesto para a release versionada do GitHub
+  - cria/atualiza a release e o asset app-release.apk
+  - valida o APK remoto baixado da internet
+`.trim());
+}
+
+function run(command, args, options = {}) {
+  console.log(`> ${[command, ...args].join(' ')}`);
+
+  const result = spawnSync(command, args, {
+    cwd: options.cwd || projectRoot,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    env: process.env
+  });
+
+  if (result.status !== 0) {
+    throw new Error(`Comando falhou: ${command} ${args.join(' ')}`);
+  }
+}
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function writeJson(filePath, value) {
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
 
 function replaceRequired(content, pattern, replacement, label) {
   if (!pattern.test(content)) {
@@ -22,31 +134,57 @@ function replaceRequired(content, pattern, replacement, label) {
   return content.replace(pattern, replacement);
 }
 
+function updateTextFile(filePath, updater) {
+  const content = fs.readFileSync(filePath, 'utf8');
+  fs.writeFileSync(filePath, updater(content), 'utf8');
+}
+
+function parseVersion(version) {
+  const match = String(version).match(/^(\d+)\.(\d+)\.(\d+)$/);
+
+  if (!match) {
+    throw new Error(`Versao invalida: ${version}. Use o formato 1.5.0.`);
+  }
+
+  return match.slice(1).map((part) => Number.parseInt(part, 10));
+}
+
+function compareVersions(left, right) {
+  const a = parseVersion(left);
+  const b = parseVersion(right);
+
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index] > b[index]) return 1;
+    if (a[index] < b[index]) return -1;
+  }
+
+  return 0;
+}
+
+function bumpVersion(version, bump) {
+  const [major, minor, patch] = parseVersion(version);
+
+  if (bump === 'major') return `${major + 1}.0.0`;
+  if (bump === 'minor') return `${major}.${minor + 1}.0`;
+  return `${major}.${minor}.${patch + 1}`;
+}
+
 function updatePackageLockVersion(version) {
   if (!fs.existsSync(packageLockPath)) {
     return;
   }
 
-  const packageLock = JSON.parse(fs.readFileSync(packageLockPath, 'utf8'));
+  const packageLock = readJson(packageLockPath);
   packageLock.version = version;
 
   if (packageLock.packages?.['']) {
     packageLock.packages[''].version = version;
   }
 
-  fs.writeFileSync(packageLockPath, JSON.stringify(packageLock, null, 2) + '\n');
-}
-
-function updateTextFile(filePath, updater) {
-  const content = fs.readFileSync(filePath, 'utf8');
-  fs.writeFileSync(filePath, updater(content), 'utf8');
+  writeJson(packageLockPath, packageLock);
 }
 
 function updateAndroidVersion(version) {
-  if (!fs.existsSync(androidBuildPath)) {
-    return;
-  }
-
   updateTextFile(androidBuildPath, (content) => {
     const versionCodeMatch = content.match(/versionCode\s+(\d+)/);
 
@@ -65,157 +203,408 @@ function updateAndroidVersion(version) {
   });
 }
 
-function updateLegacyApkUrl(updateInfo, version) {
-  updateInfo.apkUrl = `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${version}/app-release.apk`;
+function updateVersionFiles(version, notes) {
+  const packageJson = readJson(packagePath);
+  const oldVersion = packageJson.version;
+
+  if (compareVersions(version, oldVersion) <= 0) {
+    throw new Error(`A nova versao (${version}) precisa ser maior que a atual (${oldVersion}).`);
+  }
+
+  packageJson.version = version;
+  writeJson(packagePath, packageJson);
+  updatePackageLockVersion(version);
+
+  updateTextFile(updateConfigPath, (content) => replaceRequired(
+    content,
+    /currentVersion: '[^']+'/,
+    `currentVersion: '${version}'`,
+    'update-config.js'
+  ));
+
+  updateTextFile(scriptPath, (content) => replaceRequired(
+    content,
+    /(const defaultUpdateConfig = \{\r?\n\s*currentVersion: )'[^']+'/,
+    `$1'${version}'`,
+    'defaultUpdateConfig em script.js'
+  ));
+
+  updateTextFile(webRuntimePath, (content) => replaceRequired(
+    content,
+    /bundledVersion = '[^']+'/,
+    `bundledVersion = '${version}'`,
+    'web-runtime.js'
+  ));
+
+  updateTextFile(indexPath, (content) => replaceRequired(
+    content,
+    /id="appVersionLabel">v[^<]+</,
+    `id="appVersionLabel">v${version}<`,
+    'versao exibida no index.html'
+  ));
+
+  updateTextFile(splashPath, (content) => replaceRequired(
+    content,
+    /Versao [0-9]+\.[0-9]+\.[0-9]+/,
+    `Versao ${version}`,
+    'versao exibida no splash.html'
+  ));
+
+  updateAndroidVersion(version);
+
+  const updateInfo = readJson(updateInfoPath);
+  updateInfo.version = version;
+  updateInfo.apkUrl = getReleaseApkUrl(version);
+  updateInfo.notes = notes || `Atualizacao do aplicativo Android via APK na versao ${version}.`;
+  updateInfo.publishedAt = new Date().toISOString().split('T')[0];
+  writeJson(updateInfoPath, updateInfo);
+
+  console.log(`Versao atualizada: ${oldVersion} -> ${version}`);
+  return { oldVersion, updateInfo };
 }
 
-/**
- * Dispara o purge dos arquivos de update no CDN jsDelivr.
- * Sem isso, o celular pode levar vários minutos para ver a nova versão.
- */
+function parseLocalPropertiesSdkDir() {
+  const localPropertiesPath = path.join(androidRoot, 'local.properties');
+
+  if (!fs.existsSync(localPropertiesPath)) {
+    return null;
+  }
+
+  const content = fs.readFileSync(localPropertiesPath, 'utf8');
+  const match = content.match(/^sdk\.dir=(.+)$/m);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1].trim().replace(/\\:/g, ':').replace(/\\\\/g, '\\');
+}
+
+function getAndroidSdkDir() {
+  return parseLocalPropertiesSdkDir() || process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || null;
+}
+
+function compareBuildTools(left, right) {
+  const normalize = (value) => String(value).split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const a = normalize(left);
+  const b = normalize(right);
+  const length = Math.max(a.length, b.length);
+
+  for (let index = 0; index < length; index += 1) {
+    const av = a[index] || 0;
+    const bv = b[index] || 0;
+
+    if (av !== bv) {
+      return bv - av;
+    }
+  }
+
+  return 0;
+}
+
+function findAndroidBuildTool(toolName) {
+  const sdkDir = getAndroidSdkDir();
+
+  if (!sdkDir) {
+    return null;
+  }
+
+  const buildToolsDir = path.join(sdkDir, 'build-tools');
+
+  if (!fs.existsSync(buildToolsDir)) {
+    return null;
+  }
+
+  const executableNames = process.platform === 'win32'
+    ? [`${toolName}.bat`, `${toolName}.exe`, toolName]
+    : [toolName];
+
+  const versions = fs.readdirSync(buildToolsDir)
+    .filter((entry) => fs.statSync(path.join(buildToolsDir, entry)).isDirectory())
+    .sort(compareBuildTools);
+
+  for (const version of versions) {
+    for (const executableName of executableNames) {
+      const executablePath = path.join(buildToolsDir, version, executableName);
+
+      if (fs.existsSync(executablePath)) {
+        return executablePath;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getApkPackageInfo(apkPath) {
+  const aaptPath = findAndroidBuildTool('aapt');
+
+  if (!aaptPath) {
+    throw new Error('Nao encontrei o aapt no Android SDK para validar a versao do APK.');
+  }
+
+  const output = execFileSync(aaptPath, ['dump', 'badging', apkPath], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    shell: process.platform === 'win32'
+  });
+  const packageLine = output.split(/\r?\n/).find((line) => line.startsWith('package:'));
+
+  if (!packageLine) {
+    throw new Error('Nao foi possivel ler os metadados do APK.');
+  }
+
+  const versionCode = packageLine.match(/versionCode='([^']+)'/)?.[1];
+  const versionName = packageLine.match(/versionName='([^']+)'/)?.[1];
+  const packageName = packageLine.match(/name='([^']+)'/)?.[1];
+
+  return { packageName, versionCode, versionName, packageLine };
+}
+
+function verifyApkSignature(apkPath) {
+  const apksignerPath = findAndroidBuildTool('apksigner');
+
+  if (!apksignerPath) {
+    console.log('Aviso: apksigner nao encontrado; assinatura nao verificada localmente.');
+    return;
+  }
+
+  execFileSync(apksignerPath, ['verify', '--verbose', apkPath], {
+    cwd: projectRoot,
+    stdio: 'ignore',
+    shell: process.platform === 'win32'
+  });
+}
+
+function verifyLocalApk(version) {
+  const info = getApkPackageInfo(localApkPath);
+
+  if (info.versionName !== version) {
+    throw new Error(`APK local errado: esperado ${version}, encontrado ${info.versionName}.`);
+  }
+
+  verifyApkSignature(localApkPath);
+  console.log(`APK local validado: ${info.packageName} versionName=${info.versionName} versionCode=${info.versionCode}`);
+}
+
+function fileSha256(filePath) {
+  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
+
+function downloadFile(url, destinationPath, redirectCount = 0) {
+  if (redirectCount > 8) {
+    return Promise.reject(new Error(`Redirecionamentos demais ao baixar ${url}`));
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, {
+      headers: {
+        'User-Agent': 'controle-financeiro-release-script'
+      }
+    }, (response) => {
+      if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
+        response.resume();
+        const nextUrl = new URL(response.headers.location, url).toString();
+        downloadFile(nextUrl, destinationPath, redirectCount + 1).then(resolve, reject);
+        return;
+      }
+
+      if (response.statusCode !== 200) {
+        response.resume();
+        reject(new Error(`Download falhou (${response.statusCode}): ${url}`));
+        return;
+      }
+
+      fs.mkdirSync(path.dirname(destinationPath), { recursive: true });
+      const file = fs.createWriteStream(destinationPath);
+      response.pipe(file);
+      file.on('finish', () => file.close(resolve));
+      file.on('error', reject);
+    });
+
+    request.on('error', reject);
+    request.setTimeout(120000, () => {
+      request.destroy(new Error(`Timeout ao baixar ${url}`));
+    });
+  });
+}
+
+async function verifyRemoteApk(version) {
+  const remoteApkPath = path.join(os.tmpdir(), `controle-financeiro-${version}-remote.apk`);
+  await downloadFile(getReleaseApkUrl(version), remoteApkPath);
+
+  const remoteInfo = getApkPackageInfo(remoteApkPath);
+
+  if (remoteInfo.versionName !== version) {
+    throw new Error(`APK remoto errado: esperado ${version}, encontrado ${remoteInfo.versionName}.`);
+  }
+
+  const localHash = fileSha256(localApkPath);
+  const remoteHash = fileSha256(remoteApkPath);
+
+  if (localHash !== remoteHash) {
+    throw new Error(`Hash remoto diferente do local. Local=${localHash} Remoto=${remoteHash}`);
+  }
+
+  console.log(`APK remoto validado: versionName=${remoteInfo.versionName}, sha256=${remoteHash}`);
+}
+
+function getCurrentBranch() {
+  return execFileSync('git', ['branch', '--show-current'], {
+    cwd: projectRoot,
+    encoding: 'utf8'
+  }).trim() || 'main';
+}
+
+function ensureGhCli() {
+  run('gh', ['--version']);
+}
+
+function releaseExists(tag) {
+  const result = spawnSync('gh', ['release', 'view', tag], {
+    cwd: projectRoot,
+    stdio: 'ignore',
+    shell: process.platform === 'win32'
+  });
+
+  return result.status === 0;
+}
+
+function publishGitHubRelease(version, notes, branch) {
+  const tag = `v${version}`;
+  const title = `Controle Financeiro v${version}`;
+  const apkArg = path.relative(projectRoot, localApkPath);
+
+  ensureGhCli();
+
+  if (releaseExists(tag)) {
+    run('gh', ['release', 'edit', tag, '--title', title, '--notes', notes]);
+    run('gh', ['release', 'upload', tag, apkArg, '--clobber']);
+    return;
+  }
+
+  run('gh', [
+    'release',
+    'create',
+    tag,
+    apkArg,
+    '--target',
+    branch,
+    '--title',
+    title,
+    '--notes',
+    notes
+  ]);
+}
+
+function purgeUrl(url) {
+  return new Promise((resolve) => {
+    const request = https.get(url, { timeout: 20000 }, (response) => {
+      let body = '';
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          resolve(parsed?.status || response.statusCode);
+        } catch (_) {
+          resolve(response.statusCode);
+        }
+      });
+    });
+
+    request.on('error', (error) => resolve(`erro: ${error.message}`));
+    request.on('timeout', () => {
+      request.destroy();
+      resolve('timeout');
+    });
+  });
+}
+
 async function purgeJsDelivrCache() {
   const filesToPurge = [
-    'WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
-    'WSPREDADOR/controle-financeiro@main/update/web-bundle.json',
-    'WSPREDADOR/controle-financeiro@main/update/app-release.apk',
+    `${repoOwner}/${repoName}@main/update/web-manifest.json`,
+    `${repoOwner}/${repoName}@main/update/web-bundle.json`,
+    `${repoOwner}/${repoName}@main/update/app-release.apk`
   ];
 
-  const results = await Promise.allSettled(
-    filesToPurge.map((file) => new Promise((resolve, reject) => {
-      const url = `https://purge.jsdelivr.net/gh/${file}`;
-      const req = https.get(url, { timeout: 10000 }, (res) => {
-        let body = '';
-        res.on('data', (chunk) => { body += chunk; });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(body);
-            const status = parsed?.status || res.statusCode;
-            console.log(`  Purge ${status === 'finished' || res.statusCode === 200 ? 'OK' : 'enviado'}: ${file}`);
-          } catch (_) {
-            console.log(`  Purge enviado: ${file}`);
-          }
-          resolve();
-        });
-      });
-      req.on('error', (err) => {
-        console.log(`  Aviso: purge falhou para ${file} — ${err.message}`);
-        resolve(); // não bloqueia o release
-      });
-      req.on('timeout', () => {
-        console.log(`  Aviso: timeout no purge de ${file}`);
-        req.destroy();
-        resolve();
-      });
-    }))
-  );
-
-  return results;
-}
-
-async function main() {
-  try {
-    // 1. Ler e Incrementar Versão no package.json
-    console.log('--- Iniciando processo de Release ---');
-    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-    const oldVersion = packageJson.version;
-    
-    // Incrementa o último número (patch)
-    const parts = oldVersion.split('.');
-    parts[2] = parseInt(parts[2]) + 1;
-    const newVersion = parts.join('.');
-    
-    packageJson.version = newVersion;
-    fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n');
-    updatePackageLockVersion(newVersion);
-    console.log(`Versão atualizada: ${oldVersion} -> ${newVersion}`);
-
-    // 2. Atualizar todos os arquivos com a nova versão
-    updateTextFile(updateConfigPath, (content) => replaceRequired(
-      content,
-      /currentVersion: '[^']+'/,
-      `currentVersion: '${newVersion}'`,
-      'update-config.js'
-    ));
-    updateTextFile(scriptPath, (content) => replaceRequired(
-      content,
-      /(const defaultUpdateConfig = \{\r?\n\s*currentVersion: )'[^']+'/,
-      `$1'${newVersion}'`,
-      'defaultUpdateConfig em script.js'
-    ));
-    updateTextFile(webRuntimePath, (content) => replaceRequired(
-      content,
-      /bundledVersion = '[^']+'/,
-      `bundledVersion = '${newVersion}'`,
-      'web-runtime.js'
-    ));
-    updateTextFile(indexPath, (content) => replaceRequired(
-      content,
-      /id="appVersionLabel">v[^<]+</,
-      `id="appVersionLabel">v${newVersion}<`,
-      'versao exibida no index.html'
-    ));
-    updateTextFile(splashPath, (content) => replaceRequired(
-      content,
-      /Versao [0-9]+\.[0-9]+\.[0-9]+/,
-      `Versao ${newVersion}`,
-      'versao exibida no splash.html'
-    ));
-    updateAndroidVersion(newVersion);
-    console.log('Arquivos de versao atualizados.');
-
-    // 3. Atualizar update/update.json
-    const updateInfo = JSON.parse(fs.readFileSync(updateInfoPath, 'utf8'));
-    updateInfo.version = newVersion;
-    updateLegacyApkUrl(updateInfo, newVersion);
-    updateInfo.publishedAt = new Date().toISOString().split('T')[0];
-    fs.writeFileSync(updateInfoPath, JSON.stringify(updateInfo, null, 2) + '\n');
-    console.log('update/update.json atualizado.');
-
-    // 4. Gerar o Bundle Web
-    console.log('Gerando bundle web...');
-    execSync('node scripts/generate-web-bundle.js', { stdio: 'inherit' });
-
-    // 5. Sincronizar com a pasta 'mobile-web' (exigida pelo Capacitor)
-    console.log('Sincronizando arquivos com mobile-web...');
-    if (!fs.existsSync(path.join(projectRoot, 'mobile-web'))) {
-      fs.mkdirSync(path.join(projectRoot, 'mobile-web'));
-    }
-    const filesToCopy = [
-      'index.html', 'script.js', 'style.css', 'web-runtime.js', 
-      'update-config.js', 'manifest.webmanifest', 'Controle Financeiro.png'
-    ];
-    for (const file of filesToCopy) {
-      fs.copyFileSync(path.join(projectRoot, file), path.join(projectRoot, 'mobile-web', file));
-    }
-    // Copiar pasta assets
-    const srcAssets = path.join(projectRoot, 'assets');
-    const destAssets = path.join(projectRoot, 'mobile-web', 'assets');
-    if (fs.existsSync(srcAssets)) {
-      if (!fs.existsSync(destAssets)) fs.mkdirSync(destAssets, { recursive: true });
-      const assets = fs.readdirSync(srcAssets, { recursive: true });
-      // Para simplificar, usamos comando do sistema para cópia recursiva
-      execSync(`xcopy "${srcAssets}" "${destAssets}" /E /I /Y`, { stdio: 'ignore' });
-    }
-    
-    console.log('Sincronizando Capacitor...');
-    execSync('npx cap sync android', { stdio: 'inherit' });
-
-    // 6. Git Add, Commit e Push
-    console.log('Subindo para o GitHub...');
-    execSync('git add .', { stdio: 'inherit' });
-    execSync(`git commit -m "Release v${newVersion}"`, { stdio: 'inherit' });
-    execSync('git push', { stdio: 'inherit' });
-
-    // 6. Purge do CDN jsDelivr — garante que o botão apareça imediatamente no celular
-    console.log('Limpando cache do CDN (jsDelivr) para entrega imediata...');
-    await purgeJsDelivrCache();
-
-    console.log(`\n--- SUCESSO: Versão ${newVersion} lançada! ---`);
-    console.log('O botão de atualizar deve aparecer no celular em instantes.');
-  } catch (error) {
-    console.error('\nErro durante o release:', error.message);
-    process.exit(1);
+  for (const file of filesToPurge) {
+    const status = await purgeUrl(`https://purge.jsdelivr.net/gh/${file}`);
+    console.log(`Purge jsDelivr ${status}: ${file}`);
   }
 }
 
-main();
+async function verifyRemoteManifest(version) {
+  const manifestPath = path.join(os.tmpdir(), `controle-financeiro-${version}-manifest.json`);
+  const manifestUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/update/web-manifest.json?t=${Date.now()}`;
+  await downloadFile(manifestUrl, manifestPath);
+  const manifest = readJson(manifestPath);
+  const expectedApkUrl = getReleaseApkUrl(version);
+
+  if (manifest.version !== version) {
+    throw new Error(`Manifesto remoto errado: esperado ${version}, encontrado ${manifest.version}.`);
+  }
+
+  if (manifest.apkUrl !== expectedApkUrl) {
+    throw new Error(`Manifesto remoto aponta para APK errado: ${manifest.apkUrl}`);
+  }
+
+  console.log(`Manifesto remoto validado: ${manifest.version} -> ${manifest.apkUrl}`);
+}
+
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+
+  if (options.help) {
+    printHelp();
+    return;
+  }
+
+  const packageJson = readJson(packagePath);
+  const newVersion = options.version || bumpVersion(packageJson.version, options.bump);
+  const notes = options.notes || `Atualizacao do aplicativo Android via APK na versao ${newVersion}.`;
+
+  console.log('--- Release Android do Controle Financeiro ---');
+
+  const { updateInfo } = updateVersionFiles(newVersion, notes);
+
+  console.log('Gerando bundle web, sincronizando Capacitor e assets Android...');
+  run('npm', ['run', 'mobile:sync']);
+
+  console.log('Compilando APK release assinado...');
+  const gradleCommand = process.platform === 'win32' ? '.\\gradlew.bat' : './gradlew';
+  run(gradleCommand, ['assembleRelease'], { cwd: androidRoot });
+
+  if (!fs.existsSync(builtApkPath)) {
+    throw new Error(`APK gerado nao encontrado em: ${builtApkPath}`);
+  }
+
+  fs.copyFileSync(builtApkPath, localApkPath);
+  verifyLocalApk(newVersion);
+
+  const branch = getCurrentBranch();
+
+  console.log('Commitando e enviando para o GitHub...');
+  run('git', ['add', '-A']);
+  run('git', ['commit', '-m', `Release v${newVersion}`]);
+  run('git', ['push', 'origin', branch]);
+
+  console.log('Criando/atualizando release do GitHub com APK versionado...');
+  publishGitHubRelease(newVersion, updateInfo.notes, branch);
+
+  console.log('Limpando cache do jsDelivr...');
+  await purgeJsDelivrCache();
+
+  if (!options.skipRemoteVerify) {
+    console.log('Validando manifesto e APK remoto baixados da internet...');
+    await verifyRemoteManifest(newVersion);
+    await verifyRemoteApk(newVersion);
+  }
+
+  console.log(`\nSUCESSO: versao ${newVersion} publicada com APK correto.`);
+  console.log(`APK: ${getReleaseApkUrl(newVersion)}`);
+}
+
+main().catch((error) => {
+  console.error(`\nErro durante o release: ${error.message}`);
+  process.exit(1);
+});
