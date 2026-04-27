@@ -84,6 +84,7 @@ async function purgeJsDelivrCache() {
   const filesToPurge = [
     'WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
     'WSPREDADOR/controle-financeiro@main/update/web-bundle.json',
+    'WSPREDADOR/controle-financeiro@main/update/app-release.apk',
   ];
 
   const results = await Promise.allSettled(
