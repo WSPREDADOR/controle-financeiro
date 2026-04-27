@@ -97,7 +97,7 @@ function main() {
     publishedAt: new Date().toISOString().split('T')[0],
     bundleUrl: `https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=${Date.now()}`,
     bundleFallbackUrl: `https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=${Date.now()}`,
-    apkUrl: updateInfo.apkUrl || `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${version}/app-release.apk`
+    apkUrl: `https://github.com/WSPREDADOR/controle-financeiro/raw/main/update/app-release.apk?v=${Date.now()}`
   };
 
   // BUNDLE HÍBRIDO
