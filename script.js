@@ -13,6 +13,7 @@ const updateBanner = document.getElementById('updateBanner');
 const updateBannerTitle = document.getElementById('updateBannerTitle');
 const updateBannerMessage = document.getElementById('updateBannerMessage');
 const updatePrimaryBtn = document.getElementById('updatePrimaryBtn');
+const updateNativeBtn = document.getElementById('updateNativeBtn');
 const updateProgress = document.getElementById('updateProgress');
 const updateProgressLabel = document.getElementById('updateProgressLabel');
 const updateProgressPercent = document.getElementById('updateProgressPercent');
@@ -143,7 +144,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.39',
+  currentVersion: '1.4.40',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1561,7 +1562,8 @@ async function checkForUpdates(options = {}) {
       showUpdateBanner(
         `Atualizar interface para ${release.version}`,
         release.notes || 'Uma nova interface foi encontrada. Toque no botão verde para aplicar a atualização sem reinstalar o app.',
-        release.version
+        release.version,
+        release.apkUrl
       );
       return;
     }
@@ -1756,7 +1758,7 @@ function isRemoteVersionNewer(remoteVersion, currentVersion) {
   return false;
 }
 
-function showUpdateBanner(title, message, version) {
+function showUpdateBanner(title, message, version, apkUrl = null) {
   if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
     return;
   }
@@ -1764,9 +1766,22 @@ function showUpdateBanner(title, message, version) {
   updateBanner.hidden = false;
   updateBannerTitle.textContent = title;
   updateBannerMessage.textContent = message;
-  updatePrimaryBtn.hidden = false;
-  updatePrimaryBtn.disabled = false;
-  updatePrimaryBtn.textContent = `Atualizar para ${version}`;
+  
+  if (version) {
+    updatePrimaryBtn.hidden = false;
+    updatePrimaryBtn.disabled = false;
+    updatePrimaryBtn.textContent = `Atualizar para ${version}`;
+  } else {
+    updatePrimaryBtn.hidden = true;
+  }
+
+  if (apkUrl && updateNativeBtn) {
+    updateNativeBtn.hidden = false;
+    updateNativeBtn.onclick = () => openUpdateUrl(apkUrl);
+  } else if (updateNativeBtn) {
+    updateNativeBtn.hidden = true;
+  }
+  
   resetUpdateProgress();
 }
 
