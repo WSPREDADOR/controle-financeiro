@@ -1,6 +1,6 @@
 {
-  "version": "1.4.51",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.4.49/app-release.apk",
-  "notes": "Correções no modal de reorganizar: botão X fixo, painel informativo removido e arraste dos cards funcionando pelo card inteiro.",
+  "version": "1.5.0",
+  "apkUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/app-release.apk",
+  "notes": "Atualizacao do aplicativo Android via APK na versao 1.5.0.",
   "publishedAt": "2026-04-27"
 }
