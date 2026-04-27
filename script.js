@@ -565,8 +565,12 @@ goToFormBtn.addEventListener('click', () => {
 
 updatePrimaryBtn?.addEventListener('click', () => {
   if (availableUpdate?.apkUrl) {
-    openUpdateUrl(availableUpdate.apkUrl);
-    hideUpdateBanner();
+    startApkUpdate(availableUpdate);
+    return;
+  }
+
+  if (availableUpdate?.bundleUrl) {
+    startAppUpdate(availableUpdate);
   }
 });
 
@@ -1631,10 +1635,37 @@ async function fetchLatestAvailableUpdate(config, currentVersion) {
       return candidate;
     }
 
-    return isRemoteVersionNewer(candidate.version, latest.version)
-      ? candidate
-      : latest;
+    if (isRemoteVersionNewer(candidate.version, latest.version)) {
+      return candidate;
+    }
+
+    if (
+      candidate.version === latest.version &&
+      getUpdateCandidateScore(candidate) > getUpdateCandidateScore(latest)
+    ) {
+      return candidate;
+    }
+
+    return latest;
   }, null);
+}
+
+function getUpdateCandidateScore(candidate) {
+  const apkUrl = String(candidate?.apkUrl || '');
+
+  if (/github\.com\/[^/]+\/[^/]+\/releases\/download\/v/i.test(apkUrl)) {
+    return 3;
+  }
+
+  if (apkUrl.includes('raw.githubusercontent.com')) {
+    return 2;
+  }
+
+  if (apkUrl.includes('cdn.jsdelivr.net')) {
+    return 1;
+  }
+
+  return 0;
 }
 
 async function fetchBundleManifest(urls, timeoutMs, currentVersion) {
@@ -1820,6 +1851,45 @@ function showUpdateError(message) {
     ? `Tentar ${availableUpdate.version} novamente`
     : 'Tentar novamente';
   setUpdateProgress('Falha na atualização', 0);
+}
+
+async function startApkUpdate(update) {
+  const apkUrl = update?.apkUrl;
+
+  if (!apkUrl) {
+    return;
+  }
+
+  const installer = window.Capacitor?.Plugins?.UpdateInstaller;
+
+  if (!installer?.downloadAndInstall) {
+    openUpdateUrl(apkUrl);
+    hideUpdateBanner();
+    return;
+  }
+
+  setUpdateProgress('Iniciando download do APK...', 1);
+
+  try {
+    const result = await installer.downloadAndInstall({
+      apkUrl,
+      version: update.version || ''
+    });
+
+    if (result?.requiresPermission) {
+      showUpdateError('Permita a instalacao por fontes desconhecidas para este app e toque em atualizar novamente.');
+      return;
+    }
+
+    setUpdateProgress('Download iniciado pelo Android', 12);
+
+    if (updateBannerMessage) {
+      updateBannerMessage.textContent = 'Quando o download terminar, confirme a instalacao do APK na tela do Android.';
+    }
+  } catch (_) {
+    openUpdateUrl(apkUrl);
+    hideUpdateBanner();
+  }
 }
 
 function resetUpdateProgress() {

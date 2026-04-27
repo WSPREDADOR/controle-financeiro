@@ -23,12 +23,8 @@ function minifyCss(css) {
 }
 
 function minifyJs(js) {
-  // Minificação básica: remove comentários e espaços desnecessários
-  return js
-    .replace(/\/\/.*/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // Mantem quebras de linha para nao corromper URLs como https:// em strings.
+  return js.trim();
 }
 
 function extractBodyHtml(indexHtml) {
@@ -97,7 +93,7 @@ function main() {
     publishedAt: new Date().toISOString().split('T')[0],
     bundleUrl: `https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=${Date.now()}`,
     bundleFallbackUrl: `https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=${Date.now()}`,
-    apkUrl: `https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/app-release.apk?v=${Date.now()}`
+    apkUrl: `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${version}/app-release.apk`
   };
 
   // BUNDLE HÍBRIDO

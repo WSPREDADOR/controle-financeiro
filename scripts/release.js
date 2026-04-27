@@ -66,14 +66,7 @@ function updateAndroidVersion(version) {
 }
 
 function updateLegacyApkUrl(updateInfo, version) {
-  if (!updateInfo.apkUrl) {
-    return;
-  }
-
-  updateInfo.apkUrl = String(updateInfo.apkUrl).replace(
-    /\/releases\/download\/v[^/]+\//,
-    `/releases/download/v${version}/`
-  );
+  updateInfo.apkUrl = `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${version}/app-release.apk`;
 }
 
 /**
