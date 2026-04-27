@@ -145,7 +145,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.5.3',
+  currentVersion: '1.5.4',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -570,6 +570,24 @@ document.addEventListener('keydown', (event) => {
   }
 
 });
+
+if (window.Capacitor?.Plugins?.App) {
+  window.Capacitor.Plugins.App.addListener('backButton', () => {
+    if (!createModal.hidden) {
+      closeCreateModal();
+    } else if (!editModal.hidden) {
+      closeEditModal();
+    } else if (!deleteModal.hidden) {
+      closeDeleteModal();
+    } else if (!reorderModal.hidden) {
+      closeReorderModal();
+    } else if (!resultsSection.hidden) {
+      closeDetailsModal();
+    } else {
+      window.Capacitor.Plugins.App.exitApp();
+    }
+  });
+}
 
 goToFormBtn.addEventListener('click', () => {
   openCreateModal();

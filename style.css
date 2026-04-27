@@ -934,12 +934,11 @@ button.version-pill {
 }
 
 .details-close-btn {
-  position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 30px);
-  right: max(28px, calc((100vw - 1120px) / 2 + 38px));
+  position: sticky;
+  top: 10px; /* Margem do topo para ficar flutuante */
   z-index: 40;
   display: grid;
-  margin: 0;
+  margin: 0 0 -50px auto; /* Puxa para a direita e compensa o próprio tamanho */
   box-shadow: 0 22px 48px rgba(0, 0, 0, 0.48), 0 0 20px rgba(0, 0, 0, 0.15);
   background: linear-gradient(135deg, #1e2930 0%, #11181d 100%);
   border-color: rgba(241, 182, 111, 0.25);
@@ -2106,7 +2105,8 @@ button.version-pill {
 
   .details-close-btn {
     top: calc(env(safe-area-inset-top, 0px) + 12px);
-    right: 14px;
+    margin: 0 0 -46px auto;
+    right: auto;
     width: 44px;
     height: 44px;
     min-width: 44px;
