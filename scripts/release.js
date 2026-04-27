@@ -247,12 +247,23 @@ function updateVersionFiles(version, notes, options = {}) {
   writeJson(packagePath, packageJson);
   updatePackageLockVersion(version);
 
-  updateTextFile(updateConfigPath, (content) => replaceRequired(
-    content,
-    /currentVersion: '[^']+'/,
-    `currentVersion: '${version}'`,
-    'update-config.js'
-  ));
+  const today = new Date();
+  const formattedDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+
+  updateTextFile(updateConfigPath, (content) => {
+    let updated = replaceRequired(
+      content,
+      /currentVersion: '[^']+'/,
+      `currentVersion: '${version}'`,
+      'update-config.js (version)'
+    );
+    return replaceRequired(
+      updated,
+      /expirationDate: '[^']+'/,
+      `expirationDate: '${formattedDate}'`,
+      'update-config.js (date)'
+    );
+  });
 
   updateTextFile(scriptPath, (content) => replaceRequired(
     content,
@@ -268,12 +279,20 @@ function updateVersionFiles(version, notes, options = {}) {
     'web-runtime.js'
   ));
 
-  updateTextFile(indexPath, (content) => replaceRequired(
-    content,
-    /id="appVersionLabel">v[^<]+</,
-    `id="appVersionLabel">v${version}<`,
-    'versao exibida no index.html'
-  ));
+  updateTextFile(indexPath, (content) => {
+    let updated = replaceRequired(
+      content,
+      /id="appVersionLabel">v[^<]+</,
+      `id="appVersionLabel">v${version}<`,
+      'versao exibida no index.html'
+    );
+    return replaceRequired(
+      updated,
+      /id="appReleaseDateLabel">[^<]+</,
+      `id="appReleaseDateLabel">${formattedDate}<`,
+      'data exibida no index.html'
+    );
+  });
 
   updateTextFile(splashPath, (content) => replaceRequired(
     content,
@@ -541,7 +560,7 @@ function releaseExists(tag) {
 
 function publishGitHubRelease(version, notes, branch) {
   const tag = `v${version}`;
-  const title = `Controle Financeiro v${version}`;
+  const title = `Controle de Dívidas v${version}`;
   const apkArg = path.relative(projectRoot, localApkPath);
 
   ensureGhCli();
@@ -632,7 +651,7 @@ async function main() {
   const newVersion = options.version || (options.resume ? packageJson.version : bumpVersion(packageJson.version, options.bump));
   const notes = options.notes || `Atualizacao do aplicativo Android via APK na versao ${newVersion}.`;
 
-  console.log('--- Release Android do Controle Financeiro ---');
+  console.log('--- Release Android do Controle de Dívidas ---');
 
   const { updateInfo } = updateVersionFiles(newVersion, notes, {
     allowSameVersion: options.resume

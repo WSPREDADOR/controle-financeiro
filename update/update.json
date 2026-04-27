@@ -1,6 +1,6 @@
 {
-  "version": "1.5.2",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.2/app-release.apk",
-  "notes": "Melhorias visuais no modal de detalhes e ajustes de responsividade mobile.",
+  "version": "1.5.3",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.3/app-release.apk",
+  "notes": "Atualizacao do aplicativo Android via APK na versao 1.5.3.",
   "publishedAt": "2026-04-27"
 }

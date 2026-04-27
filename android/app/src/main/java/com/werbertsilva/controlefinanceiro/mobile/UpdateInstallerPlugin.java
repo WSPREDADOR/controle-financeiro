@@ -27,7 +27,7 @@ import java.io.File;
 public class UpdateInstallerPlugin extends Plugin {
     private DownloadManager downloadManager;
     private long activeDownloadId = -1L;
-    private String activeFileName = "controle-financeiro-update.apk";
+    private String activeFileName = "controle-de-dividas-update.apk";
     private BroadcastReceiver downloadReceiver;
 
     @Override
@@ -91,11 +91,11 @@ public class UpdateInstallerPlugin extends Plugin {
         }
 
         activeFileName = version.isEmpty()
-            ? "controle-financeiro-update.apk"
-            : "controle-financeiro-" + version + ".apk";
+            ? "controle-de-dividas-update.apk"
+            : "controle-de-dividas-" + version + ".apk";
 
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
-        request.setTitle("Atualização do Controle Financeiro");
+        request.setTitle("Atualização do Controle de Dívidas");
         request.setDescription("Baixando a versão " + (version.isEmpty() ? "mais recente" : version));
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
         request.setMimeType("application/vnd.android.package-archive");

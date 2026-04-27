@@ -145,7 +145,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.5.2',
+  currentVersion: '1.5.3',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',

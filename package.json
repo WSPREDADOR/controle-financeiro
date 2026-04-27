@@ -1,6 +1,6 @@
 {
   "name": "controle-financeiro",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Aplicativo desktop para controle de compromissos e pagamentos.",
   "main": "main.js",
   "author": {
@@ -35,7 +35,7 @@
   },
   "build": {
     "appId": "com.werbertsilva.controlefinanceiro",
-    "productName": "Controle Financeiro",
+    "productName": "Controle de Dívidas",
     "copyright": "Copyright © 2026 Werbert Silva",
     "artifactName": "${productName} Setup ${version}.${ext}",
     "directories": {
@@ -52,7 +52,7 @@
       "package.json"
     ],
     "win": {
-      "executableName": "Controle Financeiro",
+      "executableName": "Controle de Dívidas",
       "target": [
         {
           "target": "nsis",
@@ -68,7 +68,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Controle Financeiro",
+      "shortcutName": "Controle de Dívidas",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico"

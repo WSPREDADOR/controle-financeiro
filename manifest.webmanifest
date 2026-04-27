@@ -1,6 +1,6 @@
 {
-  "name": "Controle Financeiro",
-  "short_name": "Controle",
+  "name": "Controle de Dívidas",
+  "short_name": "Dívidas",
   "description": "Aplicativo para controle de compromissos e pagamentos.",
   "start_url": ".",
   "display": "standalone",

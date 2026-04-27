@@ -31,7 +31,7 @@ function createWindow() {
     show: false,
     autoHideMenuBar: true,
     icon: path.join(__dirname, 'build', 'icon.png'),
-    title: 'Controle Financeiro',
+    title: 'Controle de Dívidas',
     webPreferences: {
       contextIsolation: true,
       sandbox: true

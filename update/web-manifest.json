@@ -1,8 +1,8 @@
 {
-  "version": "1.5.2",
-  "notes": "Melhorias visuais no modal de detalhes e ajustes de responsividade mobile.",
+  "version": "1.5.3",
+  "notes": "Atualizacao do aplicativo Android via APK na versao 1.5.3.",
   "publishedAt": "2026-04-27",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777299433015",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777299433015",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.2/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777328301747",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777328301747",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.3/app-release.apk"
 }

@@ -1,6 +1,6 @@
 {
   "appId": "com.werbertsilva.controlefinanceiro.mobile",
-  "appName": "Controle Financeiro",
+  "appName": "Controle de Dívidas",
   "webDir": "mobile-web",
   "bundledWebRuntime": false,
   "server": {
