@@ -59,6 +59,7 @@ const confirmDeleteModalBtn = document.getElementById('confirmDeleteModalBtn');
 const reorderModal = document.getElementById('reorderModal');
 const reorderList = document.getElementById('reorderList');
 const closeReorderModalBtn = document.getElementById('closeReorderModalBtn');
+const closeDetailsModalBtn = document.getElementById('closeDetailsModalBtn');
 
 let plans = loadPlans();
 let selectedPlanId = plans[0]?.id ?? null;
@@ -144,7 +145,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.5.1',
+  currentVersion: '1.5.2',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -261,9 +262,8 @@ plansList.addEventListener('click', (event) => {
   }
 
   renderPlansList();
-  renderPlanDetails(selectedPlan, { resetTimelineScroll: true });
+  openDetailsModal(selectedPlan, { resetTimelineScroll: true });
   setStatus(`Exibindo os cálculos de "${selectedPlan.name}".`, 'success');
-  scrollToSection(resultsSection);
 });
 
 monthlyContainer.addEventListener('click', (event) => {
@@ -508,6 +508,10 @@ closeReorderModalBtn.addEventListener('click', () => {
   closeReorderModal();
 });
 
+closeDetailsModalBtn.addEventListener('click', () => {
+  closeDetailsModal();
+});
+
 closeCreateModalBtn.addEventListener('click', () => {
   closeCreateModal();
 });
@@ -543,18 +547,26 @@ reorderModal.addEventListener('click', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !createModal.hidden) {
     closeCreateModal();
+    return;
   }
 
   if (event.key === 'Escape' && !editModal.hidden) {
     closeEditModal();
+    return;
   }
 
   if (event.key === 'Escape' && !deleteModal.hidden) {
     closeDeleteModal();
+    return;
   }
 
   if (event.key === 'Escape' && !reorderModal.hidden) {
     closeReorderModal();
+    return;
+  }
+
+  if (event.key === 'Escape' && !resultsSection.hidden) {
+    closeDetailsModal();
   }
 
 });
@@ -585,10 +597,11 @@ dismissNotificationsBtn?.addEventListener('click', () => {
 
 function renderPlanDetails(plan, options = {}) {
   if (!plan) {
-    resultsSection.hidden = true;
+    closeDetailsModal();
     return;
   }
 
+  const shouldShowDetails = Boolean(options.openDetails || !resultsSection.hidden);
   const today = normalizeDate(new Date());
   const startDate = parseDateInput(plan.startDate);
   const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
@@ -602,7 +615,7 @@ function renderPlanDetails(plan, options = {}) {
 
   selectedPlanTitle.textContent = plan.name;
   selectedPlanSubtitle.textContent = `Cálculo individual do compromisso "${plan.name}".`;
-  resultsSection.hidden = false;
+  resultsSection.hidden = !shouldShowDetails;
 
   document.getElementById('percentage').textContent = `${percent}%`;
   document.getElementById('remainingTime').textContent = remainingLabel;
@@ -618,6 +631,10 @@ function renderPlanDetails(plan, options = {}) {
   renderMonthlyTimeline(plan, effectiveStartDate, today, options);
 
   updateResultsNavigation();
+
+  if (shouldShowDetails) {
+    syncModalBodyState();
+  }
 }
 
 function renderPlansList() {
@@ -629,7 +646,7 @@ function renderPlansList() {
         Nenhum compromisso salvo ainda. Cadastre algo como parcelas da moto, do carro ou da casa.
       </div>
     `;
-    resultsSection.hidden = true;
+    closeDetailsModal();
     updatePlansSummary(0);
     updateResultsNavigation();
     return;
@@ -891,6 +908,25 @@ function closeCreateModal() {
   syncModalBodyState();
 }
 
+function openDetailsModal(plan, options = {}) {
+  if (!plan) {
+    return;
+  }
+
+  renderPlanDetails(plan, { ...options, openDetails: true });
+  resultsSection.hidden = false;
+  syncModalBodyState();
+
+  window.setTimeout(() => {
+    closeDetailsModalBtn?.focus();
+  }, 20);
+}
+
+function closeDetailsModal() {
+  resultsSection.hidden = true;
+  syncModalBodyState();
+}
+
 function openEditModal(plan) {
   editingPlanId = plan.id;
   editPlanNameInput.value = plan.name;
@@ -987,7 +1023,14 @@ function renderReorderList() {
 }
 
 function syncModalBodyState() {
-  document.body.classList.toggle('modal-open', !createModal.hidden || !editModal.hidden || !deleteModal.hidden || !reorderModal.hidden);
+  document.body.classList.toggle(
+    'modal-open',
+    !createModal.hidden ||
+      !editModal.hidden ||
+      !deleteModal.hidden ||
+      !reorderModal.hidden ||
+      !resultsSection.hidden
+  );
 }
 
 function setCreateStatus(message, type) {
@@ -1139,6 +1182,7 @@ function deletePlan(planId) {
     return;
   }
 
+  const wasDetailsOpen = !resultsSection.hidden;
   plans = plans.filter((plan) => plan.id !== planId);
 
   if (selectedPlanId === planId) {
@@ -1155,9 +1199,12 @@ function deletePlan(planId) {
   const nextSelectedPlan = getSelectedPlan();
 
   if (nextSelectedPlan) {
-    renderPlanDetails(nextSelectedPlan, { resetTimelineScroll: true });
+    renderPlanDetails(nextSelectedPlan, {
+      resetTimelineScroll: true,
+      openDetails: wasDetailsOpen
+    });
   } else {
-    resultsSection.hidden = true;
+    closeDetailsModal();
     updateResultsNavigation();
   }
 
@@ -1463,8 +1510,7 @@ function registerPaymentNotificationListeners() {
 
     selectedPlanId = plan.id;
     renderPlansList();
-    renderPlanDetails(plan, { resetTimelineScroll: true });
-    scrollToSection(resultsSection);
+    openDetailsModal(plan, { resetTimelineScroll: true });
   });
 }
 

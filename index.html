@@ -35,7 +35,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v1.5.1</strong>
+            <strong id="appVersionLabel">v1.5.2</strong>
           </div>
           <div class="version-item expiration-item">
             <span class="version-label">Validade</span>
@@ -126,7 +126,10 @@
           <div class="plans-list" id="plansList"></div>
         </aside>
 
-        <section class="results-section" id="resultsSection" hidden>
+        <section class="results-section details-modal" id="resultsSection" role="dialog" aria-modal="true" aria-labelledby="selectedPlanTitle" hidden>
+          <button type="button" class="modal-close-btn details-close-btn" id="closeDetailsModalBtn" aria-label="Voltar para a tela inicial" title="Voltar">
+            X
+          </button>
           <div class="section-heading">
             <span class="section-kicker">Resultado</span>
             <h2 id="selectedPlanTitle">Painel do seu compromisso</h2>
