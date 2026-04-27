@@ -144,7 +144,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.41',
+  currentVersion: '1.4.43',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -566,8 +566,7 @@ goToFormBtn.addEventListener('click', () => {
 updatePrimaryBtn?.addEventListener('click', () => {
   if (availableUpdate?.apkUrl) {
     openUpdateUrl(availableUpdate.apkUrl);
-  } else if (availableUpdate?.bundleUrl) {
-    startAppUpdate(availableUpdate);
+    hideUpdateBanner();
   }
 });
 
@@ -1710,7 +1709,8 @@ async function fetchReleaseApiCandidate(url, timeoutMs) {
       version: tagName,
       notes: String(release?.body || '').trim() || 'Uma nova interface foi encontrada. Toque no botao verde para aplicar a atualização sem reinstalar o app.',
       bundleUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json',
-      bundleFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json'
+      bundleFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json',
+      apkUrl: `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${tagName}/app-release.apk`
     };
   } finally {
     clearTimeout(timeoutId);
