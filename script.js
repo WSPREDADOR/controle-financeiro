@@ -144,7 +144,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.4.40',
+  currentVersion: '1.4.41',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -564,7 +564,9 @@ goToFormBtn.addEventListener('click', () => {
 });
 
 updatePrimaryBtn?.addEventListener('click', () => {
-  if (availableUpdate?.bundleUrl) {
+  if (availableUpdate?.apkUrl) {
+    openUpdateUrl(availableUpdate.apkUrl);
+  } else if (availableUpdate?.bundleUrl) {
     startAppUpdate(availableUpdate);
   }
 });
@@ -1560,8 +1562,8 @@ async function checkForUpdates(options = {}) {
     if (release?.version && isRemoteVersionNewer(release.version, currentVersion)) {
       availableUpdate = release;
       showUpdateBanner(
-        `Atualizar interface para ${release.version}`,
-        release.notes || 'Uma nova interface foi encontrada. Toque no botão verde para aplicar a atualização sem reinstalar o app.',
+        `Nova versão v${release.version} disponível`,
+        release.notes || 'Uma nova versão do aplicativo está disponível para download. Toque no botão abaixo para baixar o instalador (APK) e atualizar.',
         release.version,
         release.apkUrl
       );
@@ -1767,18 +1769,11 @@ function showUpdateBanner(title, message, version, apkUrl = null) {
   updateBannerTitle.textContent = title;
   updateBannerMessage.textContent = message;
   
-  if (version) {
-    updatePrimaryBtn.hidden = false;
-    updatePrimaryBtn.disabled = false;
-    updatePrimaryBtn.textContent = `Atualizar para ${version}`;
-  } else {
-    updatePrimaryBtn.hidden = true;
-  }
+  updatePrimaryBtn.hidden = false;
+  updatePrimaryBtn.disabled = false;
+  updatePrimaryBtn.textContent = apkUrl ? 'Baixar Atualização (APK)' : `Atualizar para ${version}`;
 
-  if (apkUrl && updateNativeBtn) {
-    updateNativeBtn.hidden = false;
-    updateNativeBtn.onclick = () => openUpdateUrl(apkUrl);
-  } else if (updateNativeBtn) {
+  if (updateNativeBtn) {
     updateNativeBtn.hidden = true;
   }
   
