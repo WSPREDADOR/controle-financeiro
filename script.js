@@ -87,6 +87,8 @@ const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
 const NOTIFICATION_RELIABILITY_PROMPT_KEY = 'payment-notifications-reliability-dismissed-v1';
+const NOTIFICATION_EXACT_PROMPTED_KEY = 'payment-notifications-exact-prompted-v1';
+const NOTIFICATION_BATTERY_PROMPTED_KEY = 'payment-notifications-battery-prompted-v1';
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
 const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
@@ -149,7 +151,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.6.2',
+  currentVersion: '1.6.3',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1488,8 +1490,16 @@ async function createPaymentNotificationChannel() {
 }
 
 async function requestPaymentReliabilityAccess(plugin) {
-  await requestExactNotificationAccess(plugin);
-  await requestBatteryOptimizationAccess();
+  const needs = await getPaymentReliabilityNeeds(plugin);
+
+  if (needs.exactAlarm) {
+    await requestExactNotificationAccess(plugin);
+    return;
+  }
+
+  if (needs.batteryOptimization) {
+    await requestBatteryOptimizationAccess();
+  }
 }
 
 async function requestAndSyncPaymentReliabilityAccess() {
@@ -1565,7 +1575,7 @@ async function getPaymentReliabilityNeeds(plugin) {
   try {
     if (plugin?.checkExactNotificationSetting) {
       const exactStatus = await plugin.checkExactNotificationSetting();
-      needs.exactAlarm = exactStatus?.exact_alarm !== 'granted';
+      needs.exactAlarm = exactStatus?.exact_alarm !== 'granted' && localStorage.getItem(NOTIFICATION_EXACT_PROMPTED_KEY) !== 'done';
     }
   } catch (_) {}
 
@@ -1574,7 +1584,7 @@ async function getPaymentReliabilityNeeds(plugin) {
   try {
     if (nativePermissions?.getStatus) {
       const nativeStatus = await nativePermissions.getStatus();
-      needs.batteryOptimization = nativeStatus?.batteryOptimizationIgnored === false;
+      needs.batteryOptimization = nativeStatus?.batteryOptimizationIgnored === false && localStorage.getItem(NOTIFICATION_BATTERY_PROMPTED_KEY) !== 'done';
     }
   } catch (_) {}
 
@@ -1593,10 +1603,13 @@ async function requestExactNotificationAccess(plugin) {
       return 'granted';
     }
 
-    setStatus('O Android vai abrir a tela de Alarmes e lembretes. Permita para melhorar a pontualidade dos avisos.', 'success');
+    localStorage.setItem(NOTIFICATION_EXACT_PROMPTED_KEY, 'done');
+    setStatus('O Android vai abrir Alarmes e lembretes. Se não houver opção para ativar, volte ao app para continuar.', 'success');
     const nextStatus = await plugin.changeExactNotificationSetting();
     return nextStatus?.exact_alarm ?? 'denied';
   } catch (_) {
+    const nativePermissions = getNotificationPermissionsPlugin();
+    await nativePermissions?.openExactAlarmSettings?.();
     return 'denied';
   }
 }
@@ -1615,8 +1628,13 @@ async function requestBatteryOptimizationAccess() {
       return;
     }
 
-    setStatus('Permita o funcionamento em segundo plano para os lembretes não serem atrasados pela economia de bateria.', 'success');
-    await plugin.requestBatteryOptimizationExemption();
+    localStorage.setItem(NOTIFICATION_BATTERY_PROMPTED_KEY, 'done');
+    setStatus('Permita o funcionamento em segundo plano. Se não aparecer um botão, abra Bateria nos detalhes do app e escolha Sem restrições.', 'success');
+    const nextStatus = await plugin.requestBatteryOptimizationExemption();
+
+    if (nextStatus?.batteryOptimizationIgnored === false) {
+      await plugin.openAppSettings?.();
+    }
   } catch (_) {}
 }
 

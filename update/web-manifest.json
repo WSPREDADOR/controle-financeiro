@@ -1,8 +1,8 @@
 {
-  "version": "1.6.2",
-  "notes": "Corrige exibição das solicitações de permissões avançadas de lembrete.",
+  "version": "1.6.3",
+  "notes": "Ajusta fluxo de permissões avançadas em etapas no Android.",
   "publishedAt": "2026-04-28",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777380659400",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777380659400",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.2/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777381053615",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777381053615",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.3/app-release.apk"
 }

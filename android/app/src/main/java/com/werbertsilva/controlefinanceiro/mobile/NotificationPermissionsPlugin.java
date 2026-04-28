@@ -39,9 +39,30 @@ public class NotificationPermissionsPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openExactAlarmSettings(PluginCall call) {
+        Intent intent;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                .setData(Uri.parse("package:" + getContext().getPackageName()));
+        } else {
+            intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:" + getContext().getPackageName()));
+        }
+
+        openAndResolve(call, intent);
+    }
+
+    @PluginMethod
     public void openBatteryOptimizationSettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
         openAndResolve(call, intent);
+    }
+
+    @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        openAppSettingsInternal();
+        call.resolve(buildStatus());
     }
 
     @PluginMethod
@@ -110,7 +131,7 @@ public class NotificationPermissionsPlugin extends Plugin {
         try {
             startActivityForResult(call, intent, callbackName);
         } catch (ActivityNotFoundException error) {
-            openAppSettings();
+            openAppSettingsInternal();
             call.resolve(buildStatus());
         }
     }
@@ -119,13 +140,13 @@ public class NotificationPermissionsPlugin extends Plugin {
         try {
             getActivity().startActivity(intent);
         } catch (ActivityNotFoundException error) {
-            openAppSettings();
+            openAppSettingsInternal();
         }
 
         call.resolve(buildStatus());
     }
 
-    private void openAppSettings() {
+    private void openAppSettingsInternal() {
         Intent fallbackIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             .setData(Uri.parse("package:" + getContext().getPackageName()));
         getActivity().startActivity(fallbackIntent);
