@@ -87,8 +87,10 @@ const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
 const NOTIFICATION_RELIABILITY_PROMPT_KEY = 'payment-notifications-reliability-dismissed-v1';
-const NOTIFICATION_EXACT_PROMPTED_KEY = 'payment-notifications-exact-prompted-v1';
-const NOTIFICATION_BATTERY_PROMPTED_KEY = 'payment-notifications-battery-prompted-v1';
+const NOTIFICATION_EXACT_SCREEN_OPENED_KEY = 'payment-notifications-exact-screen-opened-v1';
+const NOTIFICATION_BATTERY_SCREEN_OPENED_KEY = 'payment-notifications-battery-screen-opened-v1';
+const NOTIFICATION_VENDOR_AUTOSTART_KEY = 'payment-notifications-vendor-autostart-opened-v1';
+const NOTIFICATION_VENDOR_LOCKSCREEN_KEY = 'payment-notifications-vendor-lockscreen-opened-v1';
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
 const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
@@ -151,7 +153,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.6.3',
+  currentVersion: '1.6.4',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1499,6 +1501,16 @@ async function requestPaymentReliabilityAccess(plugin) {
 
   if (needs.batteryOptimization) {
     await requestBatteryOptimizationAccess();
+    return;
+  }
+
+  if (needs.vendorAutostart) {
+    await requestVendorAutostartAccess();
+    return;
+  }
+
+  if (needs.vendorLockScreen) {
+    await requestVendorLockScreenAccess();
   }
 }
 
@@ -1541,7 +1553,7 @@ async function showPaymentReliabilityPromptIfNeeded(plugin) {
 
   const needs = await getPaymentReliabilityNeeds(plugin);
 
-  if (!needs.exactAlarm && !needs.batteryOptimization) {
+  if (!needs.exactAlarm && !needs.batteryOptimization && !needs.vendorAutostart && !needs.vendorLockScreen) {
     hideNotificationBanner();
     return false;
   }
@@ -1553,12 +1565,20 @@ async function showPaymentReliabilityPromptIfNeeded(plugin) {
   }
 
   if (needs.batteryOptimization) {
-    pendingLabels.push('segundo plano');
+    pendingLabels.push('bateria em segundo plano');
+  }
+
+  if (needs.vendorAutostart) {
+    pendingLabels.push('início automático');
+  }
+
+  if (needs.vendorLockScreen) {
+    pendingLabels.push('tela de bloqueio');
   }
 
   showNotificationBanner(
     'Concluir permissões de lembrete',
-    `Para avisar melhor no vencimento, permita ${pendingLabels.join(' e ')} nas telas do Android.`,
+    `Para avisar melhor no vencimento, abra ${pendingLabels.join(' e ')} e habilite o Controle de Dívidas quando a tela aparecer.`,
     true,
     'reliability',
     'Ajustar permissões'
@@ -1569,13 +1589,16 @@ async function showPaymentReliabilityPromptIfNeeded(plugin) {
 async function getPaymentReliabilityNeeds(plugin) {
   const needs = {
     exactAlarm: false,
-    batteryOptimization: false
+    batteryOptimization: false,
+    vendorAutostart: false,
+    vendorLockScreen: false
   };
 
   try {
     if (plugin?.checkExactNotificationSetting) {
       const exactStatus = await plugin.checkExactNotificationSetting();
-      needs.exactAlarm = exactStatus?.exact_alarm !== 'granted' && localStorage.getItem(NOTIFICATION_EXACT_PROMPTED_KEY) !== 'done';
+      needs.exactAlarm = exactStatus?.exact_alarm !== 'granted'
+        && localStorage.getItem(NOTIFICATION_EXACT_SCREEN_OPENED_KEY) !== 'opened';
     }
   } catch (_) {}
 
@@ -1584,7 +1607,12 @@ async function getPaymentReliabilityNeeds(plugin) {
   try {
     if (nativePermissions?.getStatus) {
       const nativeStatus = await nativePermissions.getStatus();
-      needs.batteryOptimization = nativeStatus?.batteryOptimizationIgnored === false && localStorage.getItem(NOTIFICATION_BATTERY_PROMPTED_KEY) !== 'done';
+      needs.batteryOptimization = nativeStatus?.batteryOptimizationIgnored === false
+        && localStorage.getItem(NOTIFICATION_BATTERY_SCREEN_OPENED_KEY) !== 'opened';
+      needs.vendorAutostart = Boolean(nativeStatus?.hasManufacturerPermissionScreens)
+        && localStorage.getItem(NOTIFICATION_VENDOR_AUTOSTART_KEY) !== 'opened';
+      needs.vendorLockScreen = Boolean(nativeStatus?.hasManufacturerPermissionScreens)
+        && localStorage.getItem(NOTIFICATION_VENDOR_LOCKSCREEN_KEY) !== 'opened';
     }
   } catch (_) {}
 
@@ -1603,7 +1631,7 @@ async function requestExactNotificationAccess(plugin) {
       return 'granted';
     }
 
-    localStorage.setItem(NOTIFICATION_EXACT_PROMPTED_KEY, 'done');
+    localStorage.setItem(NOTIFICATION_EXACT_SCREEN_OPENED_KEY, 'opened');
     setStatus('O Android vai abrir Alarmes e lembretes. Se não houver opção para ativar, volte ao app para continuar.', 'success');
     const nextStatus = await plugin.changeExactNotificationSetting();
     return nextStatus?.exact_alarm ?? 'denied';
@@ -1628,14 +1656,44 @@ async function requestBatteryOptimizationAccess() {
       return;
     }
 
-    localStorage.setItem(NOTIFICATION_BATTERY_PROMPTED_KEY, 'done');
+    localStorage.setItem(NOTIFICATION_BATTERY_SCREEN_OPENED_KEY, 'opened');
     setStatus('Permita o funcionamento em segundo plano. Se não aparecer um botão, abra Bateria nos detalhes do app e escolha Sem restrições.', 'success');
     const nextStatus = await plugin.requestBatteryOptimizationExemption();
 
     if (nextStatus?.batteryOptimizationIgnored === false) {
-      await plugin.openAppSettings?.();
+      await plugin.openManufacturerBatterySettings?.();
     }
   } catch (_) {}
+}
+
+async function requestVendorAutostartAccess() {
+  const plugin = getNotificationPermissionsPlugin();
+
+  if (!plugin?.openManufacturerAutostartSettings) {
+    return;
+  }
+
+  localStorage.setItem(NOTIFICATION_VENDOR_AUTOSTART_KEY, 'opened');
+  setStatus('Na tela do sistema, ative o início automático do Controle de Dívidas, se essa opção aparecer.', 'success');
+  await plugin.openManufacturerAutostartSettings();
+}
+
+async function requestVendorLockScreenAccess() {
+  const plugin = getNotificationPermissionsPlugin();
+
+  if (!plugin?.openManufacturerAppPermissionsSettings) {
+    return;
+  }
+
+  localStorage.setItem(NOTIFICATION_VENDOR_LOCKSCREEN_KEY, 'opened');
+  setStatus('Na tela de notificações, confira som, pop-up e tela de bloqueio. Se não aparecer, volte e ajuste nas permissões especiais.', 'success');
+
+  if (plugin.openNotificationChannelSettings) {
+    await plugin.openNotificationChannelSettings({ channelId: NOTIFICATION_CHANNEL_ID });
+    return;
+  }
+
+  await plugin.openManufacturerAppPermissionsSettings();
 }
 
 function queuePaymentNotificationSync() {

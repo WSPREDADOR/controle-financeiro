@@ -2,6 +2,7 @@ package com.werbertsilva.controlefinanceiro.mobile;
 
 import android.app.AlarmManager;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -60,6 +61,42 @@ public class NotificationPermissionsPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openManufacturerBatterySettings(PluginCall call) {
+        Intent appBatteryIntent = new Intent()
+            .setComponent(new ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"))
+            .putExtra("package_name", getContext().getPackageName())
+            .putExtra("package_label", getAppLabel());
+
+        Intent batteryListIntent = new Intent()
+            .setComponent(new ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsContainerManagementActivity"));
+
+        Intent batteryOptimizationIntent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+
+        openFirstAvailable(call, appBatteryIntent, batteryListIntent, batteryOptimizationIntent, buildAppSettingsIntent());
+    }
+
+    @PluginMethod
+    public void openManufacturerAutostartSettings(PluginCall call) {
+        Intent miuiAutostartIntent = new Intent()
+            .setComponent(new ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"));
+
+        openFirstAvailable(call, miuiAutostartIntent, buildAppSettingsIntent());
+    }
+
+    @PluginMethod
+    public void openManufacturerAppPermissionsSettings(PluginCall call) {
+        Intent miuiPermissionsIntent = new Intent()
+            .setComponent(new ComponentName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity"))
+            .putExtra("extra_pkgname", getContext().getPackageName());
+
+        Intent miuiAppPermissionsIntent = new Intent()
+            .setComponent(new ComponentName("com.miui.securitycenter", "com.miui.permcenter.permissions.AppPermissionsEditorActivity"))
+            .putExtra("extra_pkgname", getContext().getPackageName());
+
+        openFirstAvailable(call, miuiPermissionsIntent, miuiAppPermissionsIntent, buildAppSettingsIntent());
+    }
+
+    @PluginMethod
     public void openAppSettings(PluginCall call) {
         openAppSettingsInternal();
         call.resolve(buildStatus());
@@ -106,6 +143,10 @@ public class NotificationPermissionsPlugin extends Plugin {
         result.put("batteryOptimizationIgnored", isIgnoringBatteryOptimizations());
         result.put("exactAlarmsAllowed", canScheduleExactAlarms());
         result.put("sdkVersion", Build.VERSION.SDK_INT);
+        result.put("manufacturer", Build.MANUFACTURER);
+        result.put("brand", Build.BRAND);
+        result.put("model", Build.MODEL);
+        result.put("hasManufacturerPermissionScreens", hasManufacturerPermissionScreens());
         return result;
     }
 
@@ -146,9 +187,43 @@ public class NotificationPermissionsPlugin extends Plugin {
         call.resolve(buildStatus());
     }
 
-    private void openAppSettingsInternal() {
-        Intent fallbackIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+    private void openFirstAvailable(PluginCall call, Intent... intents) {
+        for (Intent intent : intents) {
+            if (intent == null) {
+                continue;
+            }
+
+            try {
+                getActivity().startActivity(intent);
+                call.resolve(buildStatus());
+                return;
+            } catch (ActivityNotFoundException ignored) {
+            }
+        }
+
+        openAppSettingsInternal();
+        call.resolve(buildStatus());
+    }
+
+    private Intent buildAppSettingsIntent() {
+        return new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             .setData(Uri.parse("package:" + getContext().getPackageName()));
-        getActivity().startActivity(fallbackIntent);
+    }
+
+    private void openAppSettingsInternal() {
+        getActivity().startActivity(buildAppSettingsIntent());
+    }
+
+    private boolean hasManufacturerPermissionScreens() {
+        String maker = (Build.MANUFACTURER + " " + Build.BRAND).toLowerCase();
+        return maker.contains("xiaomi") || maker.contains("redmi") || maker.contains("poco");
+    }
+
+    private String getAppLabel() {
+        try {
+            return getContext().getApplicationInfo().loadLabel(getContext().getPackageManager()).toString();
+        } catch (Exception ignored) {
+            return "Controle de Dívidas";
+        }
     }
 }
