@@ -184,7 +184,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.8.0',
+  currentVersion: '1.9.0',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -3219,6 +3219,29 @@ function initFinancialLogic() {
 
       if (!isNaN(instVal) && instVal > 0 && months > 0 && !isSinglePaymentMode) {
         totalInput.value = formatCurrencyRaw(instVal * months);
+      }
+    });
+  });
+
+  // Cálculo automático ao mudar os meses
+  [createTotalMonthsInput, editTotalMonthsInput].forEach(input => {
+    input?.addEventListener('input', (e) => {
+      const isEdit = e.target === editTotalMonthsInput;
+      const totalInput = isEdit ? editTotalValueInput : createTotalValueInput;
+      const installmentInput = isEdit ? editInstallmentValueInput : createInstallmentValueInput;
+      const months = parseInt(e.target.value) || 0;
+      
+      const totalVal = parseCurrencyToNumber(totalInput.value);
+      const instVal = parseCurrencyToNumber(installmentInput.value);
+
+      if (months > 0 && !isSinglePaymentMode) {
+        if (totalVal > 0) {
+          // Se tem total, ajusta a parcela
+          installmentInput.value = formatCurrencyRaw(totalVal / months);
+        } else if (instVal > 0) {
+          // Se não tem total mas tem parcela, ajusta o total
+          totalInput.value = formatCurrencyRaw(instVal * months);
+        }
       }
     });
   });
