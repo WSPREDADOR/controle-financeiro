@@ -36,7 +36,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v1.5.6</strong>
+            <strong id="appVersionLabel">v1.5.7</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -56,12 +56,16 @@
         <strong id="updateBannerTitle">Nova versão disponível</strong>
         <p id="updateBannerMessage">Uma nova versão do app foi encontrada. Toque no botão abaixo para atualizar.</p>
         <div class="update-progress" id="updateProgress" hidden>
-          <div class="update-progress-top">
-            <span id="updateProgressLabel">Preparando atualização</span>
-            <strong id="updateProgressPercent">0%</strong>
-          </div>
-          <div class="update-progress-track" aria-hidden="true">
-            <span id="updateProgressBar"></span>
+          <div class="downloading-animation">
+            <div class="download-arrow-wrapper">
+              <svg class="download-arrow delay" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M19 12l-7 7-7-7"/>
+              </svg>
+              <svg class="download-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M19 12l-7 7-7-7"/>
+              </svg>
+            </div>
+            <span id="updateProgressLabel">Baixando...</span>
           </div>
         </div>
       </div>

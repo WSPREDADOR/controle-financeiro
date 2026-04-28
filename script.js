@@ -145,7 +145,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.5.6',
+  currentVersion: '1.5.7',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1957,41 +1957,27 @@ async function startApkUpdate(update) {
 }
 
 function resetUpdateProgress() {
-  if (!updateProgress || !updateProgressLabel || !updateProgressPercent || !updateProgressBar) {
+  if (!updateProgress || !updateProgressLabel) {
     return;
   }
 
   updateProgress.hidden = true;
-  updateProgressLabel.textContent = 'Preparando atualização';
-  updateProgressPercent.textContent = '0%';
-  updateProgressBar.style.width = '0%';
+  updateProgressLabel.textContent = 'Baixando...';
 }
 
 function setUpdateProgress(message, percent = null) {
   if (updatePrimaryBtn) {
     updatePrimaryBtn.hidden = false;
     updatePrimaryBtn.disabled = true;
-    updatePrimaryBtn.textContent = message;
+    updatePrimaryBtn.textContent = 'Baixando atualização...';
   }
 
-  if (!updateProgress || !updateProgressLabel || !updateProgressPercent || !updateProgressBar) {
+  if (!updateProgress || !updateProgressLabel) {
     return;
   }
-
-  const normalizedPercent = Number.isFinite(percent)
-    ? clamp(Math.round(percent), 0, 100)
-    : null;
 
   updateProgress.hidden = false;
-  updateProgressLabel.textContent = message;
-
-  if (normalizedPercent !== null) {
-    updateProgressPercent.textContent = `${normalizedPercent}%`;
-    updateProgressBar.style.width = `${normalizedPercent}%`;
-    return;
-  }
-
-  updateProgressPercent.textContent = '--%';
+  updateProgressLabel.textContent = 'Baixando...';
 }
 
 function announceInstalledUpdate() {
