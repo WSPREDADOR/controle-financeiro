@@ -731,17 +731,44 @@ button.version-pill {
 }
 
 .update-banner {
-  margin-bottom: 18px;
-  padding: 18px 20px;
-  border-radius: 24px;
-  border: 1px solid rgba(89, 218, 174, 0.2);
+  margin-bottom: 22px;
+  padding: 24px 28px;
+  border-radius: 28px;
+  border: 1px solid rgba(115, 255, 200, 0.25);
   background:
-    linear-gradient(135deg, rgba(74, 181, 141, 0.18), rgba(18, 27, 33, 0.96));
-  box-shadow: var(--shadow-soft);
+    linear-gradient(135deg, rgba(20, 36, 32, 0.9), rgba(12, 18, 23, 0.95)),
+    radial-gradient(circle at top left, rgba(74, 181, 141, 0.2), transparent 60%);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+  animation: update-banner-pulse 4s ease-in-out infinite;
+}
+
+.update-banner::after {
+  content: "";
+  position: absolute;
+  top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  transform: skewX(-20deg);
+  animation: update-banner-shimmer 6s infinite;
+  pointer-events: none;
+}
+
+@keyframes update-banner-shimmer {
+  0% { left: -100%; }
+  20% { left: 200%; }
+  100% { left: 200%; }
+}
+
+@keyframes update-banner-pulse {
+  0%, 100% { box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1); border-color: rgba(115, 255, 200, 0.25); }
+  50% { box-shadow: 0 24px 50px rgba(74, 181, 141, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2); border-color: rgba(115, 255, 200, 0.45); }
 }
 
 .notification-banner {
@@ -770,7 +797,9 @@ button.version-pill {
   display: block;
   margin-top: 8px;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
-  font-size: 1.1rem;
+  font-size: 1.35rem;
+  color: #fff;
+  letter-spacing: -0.02em;
 }
 
 .notification-banner-copy strong {
@@ -782,8 +811,9 @@ button.version-pill {
 
 .update-banner-copy p {
   margin-top: 8px;
-  color: var(--muted);
-  line-height: 1.55;
+  color: #c4d6df;
+  line-height: 1.6;
+  font-size: 1.05rem;
 }
 
 .update-progress {
@@ -855,9 +885,26 @@ button.version-pill {
 
 .update-banner .btn-primary {
   min-width: 220px;
-  background: linear-gradient(135deg, #5ce0a2, #7af7cf);
-  color: #07251d;
-  box-shadow: 0 18px 36px rgba(92, 224, 162, 0.22);
+  padding: 16px 28px;
+  font-size: 1.05rem;
+  background: linear-gradient(135deg, #46c8be 0%, #69e0d6 55%, #98f4ec 100%);
+  color: #04201c;
+  box-shadow: 0 18px 36px rgba(92, 224, 162, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: update-btn-pulse 2.5s infinite;
+}
+
+@keyframes update-btn-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 18px 36px rgba(92, 224, 162, 0.3); }
+  50% { transform: scale(1.03); box-shadow: 0 24px 44px rgba(92, 224, 162, 0.5); }
+}
+
+.update-banner .btn-primary:hover {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 22px 44px rgba(92, 224, 162, 0.4), 0 0 20px rgba(115, 255, 200, 0.4);
+  border-color: #fff;
+  animation: none;
 }
 
 .notification-banner .btn-primary {
