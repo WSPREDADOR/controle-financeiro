@@ -86,7 +86,8 @@ const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
-const NOTIFICATION_CHANNEL_ID = 'payment-reminders';
+const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
+const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
 
@@ -146,7 +147,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.6.0',
+  currentVersion: '1.6.1',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -601,6 +602,12 @@ if (window.Capacitor?.Plugins?.App) {
       closeDetailsModal();
     } else {
       window.Capacitor.Plugins.App.exitApp();
+    }
+  });
+
+  window.Capacitor.Plugins.App.addListener('appStateChange', (state) => {
+    if (state?.isActive) {
+      queuePaymentNotificationSync();
     }
   });
 }
@@ -1386,6 +1393,7 @@ async function enablePaymentNotifications() {
 
     localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'enabled');
     await createPaymentNotificationChannel();
+    await requestPaymentReliabilityAccess(plugin);
     const scheduledCount = await syncPaymentNotifications();
     registerPaymentNotificationListeners();
     showNotificationBanner(
@@ -1407,6 +1415,10 @@ async function enablePaymentNotifications() {
 
 function getLocalNotificationsPlugin() {
   return window.Capacitor?.Plugins?.LocalNotifications ?? null;
+}
+
+function getNotificationPermissionsPlugin() {
+  return window.Capacitor?.Plugins?.NotificationPermissions ?? null;
 }
 
 async function getPaymentNotificationPermissionState() {
@@ -1442,13 +1454,58 @@ async function createPaymentNotificationChannel() {
     await plugin.createChannel({
       id: NOTIFICATION_CHANNEL_ID,
       name: 'Lembretes de pagamento',
-      description: 'Avisos mensais dos compromissos pendentes.',
+      description: 'Avisos sonoros mensais dos compromissos pendentes.',
       importance: 4,
       visibility: 1,
+      sound: NOTIFICATION_SOUND_FILE,
       lights: true,
       lightColor: '#55d4cb',
       vibration: true
     });
+  } catch (_) {}
+}
+
+async function requestPaymentReliabilityAccess(plugin) {
+  await requestExactNotificationAccess(plugin);
+  await requestBatteryOptimizationAccess();
+}
+
+async function requestExactNotificationAccess(plugin) {
+  if (!plugin?.checkExactNotificationSetting || !plugin?.changeExactNotificationSetting) {
+    return 'granted';
+  }
+
+  try {
+    const currentStatus = await plugin.checkExactNotificationSetting();
+
+    if (currentStatus?.exact_alarm === 'granted') {
+      return 'granted';
+    }
+
+    setStatus('O Android vai abrir a tela de Alarmes e lembretes. Permita para melhorar a pontualidade dos avisos.', 'success');
+    const nextStatus = await plugin.changeExactNotificationSetting();
+    return nextStatus?.exact_alarm ?? 'denied';
+  } catch (_) {
+    return 'denied';
+  }
+}
+
+async function requestBatteryOptimizationAccess() {
+  const plugin = getNotificationPermissionsPlugin();
+
+  if (!plugin?.getStatus || !plugin?.requestBatteryOptimizationExemption) {
+    return;
+  }
+
+  try {
+    const status = await plugin.getStatus();
+
+    if (status?.batteryOptimizationIgnored) {
+      return;
+    }
+
+    setStatus('Permita o funcionamento em segundo plano para os lembretes não serem atrasados pela economia de bateria.', 'success');
+    await plugin.requestBatteryOptimizationExemption();
   } catch (_) {}
 }
 
@@ -1520,11 +1577,14 @@ function buildPaymentNotifications() {
         id: createPaymentNotificationId(plan.id, monthIndex),
         title: `Pagamento: ${plan.name}`,
         body: `Chegou o mês de pagar "${plan.name}". Marque como pago no app quando concluir.`,
+        largeBody: `Chegou o mês de pagar "${plan.name}". Abra o Controle de Dívidas para marcar como pago e manter seus compromissos atualizados.`,
+        summaryText: 'Lembrete de pagamento',
         schedule: {
           at: notifyAt,
           allowWhileIdle: true
         },
         channelId: NOTIFICATION_CHANNEL_ID,
+        sound: NOTIFICATION_SOUND_FILE,
         autoCancel: true,
         extra: {
           planId: plan.id,

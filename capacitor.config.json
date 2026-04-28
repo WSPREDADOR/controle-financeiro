@@ -3,6 +3,12 @@
   "appName": "Controle de Dívidas",
   "webDir": "mobile-web",
   "bundledWebRuntime": false,
+  "plugins": {
+    "LocalNotifications": {
+      "sound": "payment_reminder.wav",
+      "iconColor": "#55d4cb"
+    }
+  },
   "server": {
     "androidScheme": "https"
   }

@@ -1,8 +1,8 @@
 {
-  "version": "1.6.0",
-  "notes": "Resumo de compromissos agora acompanha os filtros Todos, Dívidas e Despesas.",
+  "version": "1.6.1",
+  "notes": "Melhora permissões e confiabilidade dos lembretes de pagamento no Android.",
   "publishedAt": "2026-04-28",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777376040407",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777376040407",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.0/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777378425228",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777378425228",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.1/app-release.apk"
 }
