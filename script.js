@@ -81,10 +81,12 @@ let isUpdateInstallInFlight = false;
 let updateBannerHoldUntil = 0;
 let notificationSyncTimeoutId = null;
 let paymentNotificationListenersRegistered = false;
+let notificationBannerMode = 'notification';
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
+const NOTIFICATION_RELIABILITY_PROMPT_KEY = 'payment-notifications-reliability-dismissed-v1';
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
 const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
@@ -147,7 +149,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.6.1',
+  currentVersion: '1.6.2',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -653,11 +655,16 @@ updatePrimaryBtn?.addEventListener('click', () => {
 });
 
 enableNotificationsBtn?.addEventListener('click', () => {
-  enablePaymentNotifications();
+  handleNotificationBannerPrimaryAction();
 });
 
 dismissNotificationsBtn?.addEventListener('click', () => {
-  localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'dismissed');
+  if (notificationBannerMode === 'reliability') {
+    localStorage.setItem(NOTIFICATION_RELIABILITY_PROMPT_KEY, 'dismissed');
+  } else {
+    localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'dismissed');
+  }
+
   hideNotificationBanner();
 });
 
@@ -1345,7 +1352,8 @@ async function initializePaymentNotifications() {
 
     if (permission === 'granted') {
       localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'enabled');
-      hideNotificationBanner();
+      await createPaymentNotificationChannel();
+      await showPaymentReliabilityPromptIfNeeded(plugin);
       queuePaymentNotificationSync();
       registerPaymentNotificationListeners();
       return;
@@ -1359,11 +1367,22 @@ async function initializePaymentNotifications() {
     showNotificationBanner(
       'Ativar notificações de pagamento',
       'Receba um aviso quando chegar o mês de pagar um compromisso ainda pendente.',
-      true
+      true,
+      'notification',
+      'Ativar notificações'
     );
   } catch (_) {
     hideNotificationBanner();
   }
+}
+
+function handleNotificationBannerPrimaryAction() {
+  if (notificationBannerMode === 'reliability') {
+    requestAndSyncPaymentReliabilityAccess();
+    return;
+  }
+
+  enablePaymentNotifications();
 }
 
 async function enablePaymentNotifications() {
@@ -1385,7 +1404,9 @@ async function enablePaymentNotifications() {
       showNotificationBanner(
         'Permissão de notificação bloqueada',
         'Ative as notificações nas configurações do app para receber lembretes de pagamento.',
-        true
+        true,
+        'notification',
+        'Ativar notificações'
       );
       setStatus('Não foi possível ativar os lembretes porque a permissão de notificação não foi concedida.', 'error');
       return;
@@ -1401,7 +1422,8 @@ async function enablePaymentNotifications() {
       scheduledCount > 0
         ? `${scheduledCount} lembretes de pagamento foram programados.`
         : 'Tudo pronto. Os próximos compromissos pendentes serão lembrados automaticamente.',
-      false
+      false,
+      'notification'
     );
     setStatus('Notificações de pagamento ativadas com sucesso.', 'success');
     window.setTimeout(() => hideNotificationBanner(), 3600);
@@ -1468,6 +1490,95 @@ async function createPaymentNotificationChannel() {
 async function requestPaymentReliabilityAccess(plugin) {
   await requestExactNotificationAccess(plugin);
   await requestBatteryOptimizationAccess();
+}
+
+async function requestAndSyncPaymentReliabilityAccess() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin) {
+    setStatus('Notificações locais não estão disponíveis neste dispositivo.', 'error');
+    return;
+  }
+
+  enableNotificationsBtn.disabled = true;
+  enableNotificationsBtn.textContent = 'Abrindo...';
+
+  try {
+    localStorage.removeItem(NOTIFICATION_RELIABILITY_PROMPT_KEY);
+    await requestPaymentReliabilityAccess(plugin);
+    const scheduledCount = await syncPaymentNotifications();
+    await showPaymentReliabilityPromptIfNeeded(plugin);
+
+    setStatus(
+      scheduledCount > 0
+        ? `${scheduledCount} lembretes foram reprogramados com as permissões atuais.`
+        : 'Permissões revisadas. Os próximos lembretes serão programados automaticamente.',
+      'success'
+    );
+  } catch (_) {
+    setStatus('Não foi possível abrir os ajustes de permissões agora.', 'error');
+  } finally {
+    enableNotificationsBtn.disabled = false;
+    enableNotificationsBtn.textContent = 'Ajustar permissões';
+  }
+}
+
+async function showPaymentReliabilityPromptIfNeeded(plugin) {
+  if (localStorage.getItem(NOTIFICATION_RELIABILITY_PROMPT_KEY) === 'dismissed') {
+    hideNotificationBanner();
+    return false;
+  }
+
+  const needs = await getPaymentReliabilityNeeds(plugin);
+
+  if (!needs.exactAlarm && !needs.batteryOptimization) {
+    hideNotificationBanner();
+    return false;
+  }
+
+  const pendingLabels = [];
+
+  if (needs.exactAlarm) {
+    pendingLabels.push('alarmes exatos');
+  }
+
+  if (needs.batteryOptimization) {
+    pendingLabels.push('segundo plano');
+  }
+
+  showNotificationBanner(
+    'Concluir permissões de lembrete',
+    `Para avisar melhor no vencimento, permita ${pendingLabels.join(' e ')} nas telas do Android.`,
+    true,
+    'reliability',
+    'Ajustar permissões'
+  );
+  return true;
+}
+
+async function getPaymentReliabilityNeeds(plugin) {
+  const needs = {
+    exactAlarm: false,
+    batteryOptimization: false
+  };
+
+  try {
+    if (plugin?.checkExactNotificationSetting) {
+      const exactStatus = await plugin.checkExactNotificationSetting();
+      needs.exactAlarm = exactStatus?.exact_alarm !== 'granted';
+    }
+  } catch (_) {}
+
+  const nativePermissions = getNotificationPermissionsPlugin();
+
+  try {
+    if (nativePermissions?.getStatus) {
+      const nativeStatus = await nativePermissions.getStatus();
+      needs.batteryOptimization = nativeStatus?.batteryOptimizationIgnored === false;
+    }
+  } catch (_) {}
+
+  return needs;
 }
 
 async function requestExactNotificationAccess(plugin) {
@@ -1665,16 +1776,18 @@ function registerPaymentNotificationListeners() {
   });
 }
 
-function showNotificationBanner(title, message, canRequest) {
+function showNotificationBanner(title, message, canRequest, mode = 'notification', primaryLabel = 'Ativar notificações') {
   if (!notificationBanner || !notificationBannerTitle || !notificationBannerMessage || !enableNotificationsBtn || !dismissNotificationsBtn) {
     return;
   }
 
+  notificationBannerMode = mode;
   notificationBanner.hidden = false;
   notificationBannerTitle.textContent = title;
   notificationBannerMessage.textContent = message;
   enableNotificationsBtn.hidden = !canRequest;
   dismissNotificationsBtn.hidden = !canRequest;
+  enableNotificationsBtn.textContent = primaryLabel;
 }
 
 function hideNotificationBanner() {

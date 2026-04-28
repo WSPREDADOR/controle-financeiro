@@ -1,6 +1,6 @@
 {
-  "version": "1.6.1",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.1/app-release.apk",
-  "notes": "Melhora permissões e confiabilidade dos lembretes de pagamento no Android.",
+  "version": "1.6.2",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.2/app-release.apk",
+  "notes": "Corrige exibição das solicitações de permissões avançadas de lembrete.",
   "publishedAt": "2026-04-28"
 }
