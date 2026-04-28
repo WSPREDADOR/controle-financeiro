@@ -184,7 +184,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.9.1',
+  currentVersion: '1.9.2',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1965,6 +1965,10 @@ async function openPermissionAction(action) {
   const localNotifications = getLocalNotificationsPlugin();
   const nativePermissions = getNotificationPermissionsPlugin();
 
+  if (!nativePermissions && action !== 'notification' && action !== 'test') {
+    alert('Erro: Plugin de permissões nativas não encontrado. Por favor, reinstale o app v1.9.1.');
+  }
+
   switch (action) {
     case 'notification':
       await enablePaymentNotifications();
@@ -2072,12 +2076,28 @@ async function requestVendorLockScreenAccess() {
 }
 
 async function requestStorageAccess() {
-  const fs = getFilesystemPlugin();
-  if (!fs) return 'granted';
+  const plugin = getNotificationPermissionsPlugin();
+  
+  if (!plugin) {
+    // Fallback se o plugin nativo nao estiver disponivel
+    const fs = getFilesystemPlugin();
+    if (!fs) return 'granted';
+    try {
+      const result = await fs.requestPermissions();
+      return result.publicStorage;
+    } catch (_) {
+      return 'denied';
+    }
+  }
+  
   try {
-    const result = await fs.requestPermissions();
-    return result.publicStorage;
+    await plugin.requestStoragePermission();
+    // Após o pedido, verifica novamente o estado via Filesystem padrão
+    const fs = getFilesystemPlugin();
+    const status = await fs?.checkPermissions();
+    return status?.publicStorage ?? 'denied';
   } catch (_) {
+    await plugin.openAppSettings();
     return 'denied';
   }
 }

@@ -14,14 +14,48 @@ import androidx.activity.result.ActivityResult;
 import androidx.core.app.NotificationManagerCompat;
 
 import com.getcapacitor.JSObject;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "NotificationPermissions")
+import android.Manifest;
+
+@CapacitorPlugin(
+    name = "NotificationPermissions",
+    permissions = {
+        @Permission(
+            alias = "storage",
+            strings = {Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}
+        )
+    }
+)
 public class NotificationPermissionsPlugin extends Plugin {
+    @PluginMethod
+    public void requestStoragePermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                getActivity().startActivity(intent);
+                call.resolve(buildStatus());
+            } catch (Exception e) {
+                openAppSettingsInternal();
+                call.resolve(buildStatus());
+            }
+        } else {
+            requestPermissionForAlias("storage", call, "storageCallback");
+        }
+    }
+
+    @PermissionCallback
+    private void storageCallback(PluginCall call) {
+        call.resolve(buildStatus());
+    }
+
     @PluginMethod
     public void getStatus(PluginCall call) {
         call.resolve(buildStatus());

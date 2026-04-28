@@ -11,6 +11,9 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(UpdateInstallerPlugin.class);
         registerPlugin(NotificationPermissionsPlugin.class);
+        registerPlugin(com.capacitorjs.plugins.filesystem.FilesystemPlugin.class);
+        registerPlugin(com.capacitorjs.plugins.app.AppPlugin.class);
+        registerPlugin(com.capacitorjs.plugins.preferences.PreferencesPlugin.class);
         super.onCreate(savedInstanceState);
         runLegacyWebMigrationIfNeeded();
     }

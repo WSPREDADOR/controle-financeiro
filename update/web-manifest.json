@@ -1,8 +1,8 @@
 {
-  "version": "1.9.1",
-  "notes": "v1.9.1: Correção na lógica de versão e identificação automática de APK baixado",
+  "version": "1.9.2",
+  "notes": "Atualizacao do aplicativo Android via APK na versao 1.9.2.",
   "publishedAt": "2026-04-28",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777404801980",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777404801980",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.9.1/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777407282736",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777407282736",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.9.2/app-release.apk"
 }
