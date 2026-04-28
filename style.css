@@ -868,6 +868,51 @@ button.version-pill {
   line-height: 1.55;
 }
 
+.permission-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.permission-step-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid rgba(85, 212, 203, 0.16);
+  border-radius: 14px;
+  background: rgba(18, 27, 33, 0.72);
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.permission-step-btn span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permission-step-state {
+  flex-shrink: 0;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(241, 182, 111, 0.16);
+  color: #ffd0ad;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.permission-step-btn.is-ok .permission-step-state {
+  background: rgba(85, 212, 203, 0.16);
+  color: var(--primary-strong);
+}
+
 .update-banner-actions {
   display: flex;
   gap: 10px;
@@ -2316,6 +2361,10 @@ button.version-pill {
   .notification-banner {
     padding: 16px;
     border-radius: 22px;
+  }
+
+  .permission-checklist {
+    grid-template-columns: 1fr;
   }
 
   .update-banner-actions,

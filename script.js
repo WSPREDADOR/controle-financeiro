@@ -21,6 +21,7 @@ const updateProgressBar = document.getElementById('updateProgressBar');
 const notificationBanner = document.getElementById('notificationBanner');
 const notificationBannerTitle = document.getElementById('notificationBannerTitle');
 const notificationBannerMessage = document.getElementById('notificationBannerMessage');
+const permissionChecklist = document.getElementById('permissionChecklist');
 const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
 const dismissNotificationsBtn = document.getElementById('dismissNotificationsBtn');
 const plansList = document.getElementById('plansList');
@@ -153,7 +154,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.6.4',
+  currentVersion: '1.6.5',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -670,6 +671,16 @@ dismissNotificationsBtn?.addEventListener('click', () => {
   }
 
   hideNotificationBanner();
+});
+
+permissionChecklist?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-permission-action]');
+
+  if (!button) {
+    return;
+  }
+
+  openPermissionAction(button.dataset.permissionAction);
 });
 
 function renderPlanDetails(plan, options = {}) {
@@ -1527,7 +1538,7 @@ async function requestAndSyncPaymentReliabilityAccess() {
 
   try {
     localStorage.removeItem(NOTIFICATION_RELIABILITY_PROMPT_KEY);
-    await requestPaymentReliabilityAccess(plugin);
+    await openNextPermissionStep(plugin);
     const scheduledCount = await syncPaymentNotifications();
     await showPaymentReliabilityPromptIfNeeded(plugin);
 
@@ -1545,6 +1556,34 @@ async function requestAndSyncPaymentReliabilityAccess() {
   }
 }
 
+async function openNextPermissionStep(plugin) {
+  const needs = await getPaymentReliabilityNeeds(plugin);
+
+  if (needs.notification) {
+    await enablePaymentNotifications();
+    return;
+  }
+
+  if (needs.exactAlarm) {
+    await openPermissionAction('exact');
+    return;
+  }
+
+  if (needs.batteryOptimization) {
+    await openPermissionAction('battery');
+    return;
+  }
+
+  if (needs.vendorAutostart) {
+    await openPermissionAction('autostart');
+    return;
+  }
+
+  if (needs.vendorLockScreen) {
+    await openPermissionAction('lockscreen');
+  }
+}
+
 async function showPaymentReliabilityPromptIfNeeded(plugin) {
   if (localStorage.getItem(NOTIFICATION_RELIABILITY_PROMPT_KEY) === 'dismissed') {
     hideNotificationBanner();
@@ -1552,13 +1591,18 @@ async function showPaymentReliabilityPromptIfNeeded(plugin) {
   }
 
   const needs = await getPaymentReliabilityNeeds(plugin);
+  renderPermissionChecklist(needs);
 
-  if (!needs.exactAlarm && !needs.batteryOptimization && !needs.vendorAutostart && !needs.vendorLockScreen) {
+  if (!needs.notification && !needs.exactAlarm && !needs.batteryOptimization && !needs.vendorAutostart && !needs.vendorLockScreen) {
     hideNotificationBanner();
     return false;
   }
 
   const pendingLabels = [];
+
+  if (needs.notification) {
+    pendingLabels.push('notificações');
+  }
 
   if (needs.exactAlarm) {
     pendingLabels.push('alarmes exatos');
@@ -1578,21 +1622,26 @@ async function showPaymentReliabilityPromptIfNeeded(plugin) {
 
   showNotificationBanner(
     'Concluir permissões de lembrete',
-    `Para avisar melhor no vencimento, abra ${pendingLabels.join(' e ')} e habilite o Controle de Dívidas quando a tela aparecer.`,
+    `Pendências: ${pendingLabels.join(', ')}. Use os botões abaixo e habilite o Controle de Dívidas quando a tela do Android aparecer.`,
     true,
     'reliability',
-    'Ajustar permissões'
+    'Abrir próxima'
   );
   return true;
 }
 
 async function getPaymentReliabilityNeeds(plugin) {
   const needs = {
+    notification: false,
     exactAlarm: false,
     batteryOptimization: false,
     vendorAutostart: false,
     vendorLockScreen: false
   };
+
+  try {
+    needs.notification = await getPaymentNotificationPermissionState() !== 'granted';
+  } catch (_) {}
 
   try {
     if (plugin?.checkExactNotificationSetting) {
@@ -1617,6 +1666,71 @@ async function getPaymentReliabilityNeeds(plugin) {
   } catch (_) {}
 
   return needs;
+}
+
+function renderPermissionChecklist(needs = {}) {
+  if (!permissionChecklist) {
+    return;
+  }
+
+  const items = [
+    { action: 'notification', label: 'Notificações', ok: !needs.notification },
+    { action: 'exact', label: 'Alarmes', ok: !needs.exactAlarm },
+    { action: 'battery', label: 'Bateria', ok: !needs.batteryOptimization },
+    { action: 'autostart', label: 'Início auto', ok: !needs.vendorAutostart },
+    { action: 'lockscreen', label: 'Tela bloqueio', ok: !needs.vendorLockScreen },
+    { action: 'test', label: 'Teste', ok: true }
+  ];
+
+  permissionChecklist.hidden = false;
+  permissionChecklist.innerHTML = items.map((item) => `
+    <button type="button" class="permission-step-btn${item.ok ? ' is-ok' : ''}" data-permission-action="${item.action}">
+      <span>${item.label}</span>
+      <strong class="permission-step-state">${item.ok ? 'OK' : 'Abrir'}</strong>
+    </button>
+  `).join('');
+}
+
+function hidePermissionChecklist() {
+  if (!permissionChecklist) {
+    return;
+  }
+
+  permissionChecklist.hidden = true;
+  permissionChecklist.innerHTML = '';
+}
+
+async function openPermissionAction(action) {
+  const localNotifications = getLocalNotificationsPlugin();
+  const nativePermissions = getNotificationPermissionsPlugin();
+
+  switch (action) {
+    case 'notification':
+      await enablePaymentNotifications();
+      return;
+    case 'exact':
+      await requestExactNotificationAccess(localNotifications);
+      break;
+    case 'battery':
+      await requestBatteryOptimizationAccess();
+      break;
+    case 'autostart':
+      await requestVendorAutostartAccess();
+      break;
+    case 'lockscreen':
+      await requestVendorLockScreenAccess();
+      break;
+    case 'test':
+      await scheduleTestNotification();
+      return;
+    default:
+      await nativePermissions?.openAppSettings?.();
+      return;
+  }
+
+  window.setTimeout(() => {
+    showPaymentReliabilityPromptIfNeeded(localNotifications).catch(() => {});
+  }, 800);
 }
 
 async function requestExactNotificationAccess(plugin) {
@@ -1694,6 +1808,40 @@ async function requestVendorLockScreenAccess() {
   }
 
   await plugin.openManufacturerAppPermissionsSettings();
+}
+
+async function scheduleTestNotification() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin) {
+    setStatus('Notificações locais não estão disponíveis neste dispositivo.', 'error');
+    return;
+  }
+
+  const permission = await requestPaymentNotificationPermission();
+
+  if (permission !== 'granted') {
+    setStatus('Permita notificações para testar o aviso.', 'error');
+    return;
+  }
+
+  await createPaymentNotificationChannel();
+  const notifyAt = new Date(Date.now() + 10000);
+  await plugin.schedule({
+    notifications: [{
+      id: 990001,
+      title: 'Teste de lembrete',
+      body: 'Se este aviso apareceu, as notificações do Controle de Dívidas estão funcionando.',
+      schedule: {
+        at: notifyAt,
+        allowWhileIdle: true
+      },
+      channelId: NOTIFICATION_CHANNEL_ID,
+      sound: NOTIFICATION_SOUND_FILE,
+      autoCancel: true
+    }]
+  });
+  setStatus('Teste programado para daqui a 10 segundos.', 'success');
 }
 
 function queuePaymentNotificationSync() {
@@ -1864,6 +2012,10 @@ function showNotificationBanner(title, message, canRequest, mode = 'notification
   enableNotificationsBtn.hidden = !canRequest;
   dismissNotificationsBtn.hidden = !canRequest;
   enableNotificationsBtn.textContent = primaryLabel;
+
+  if (mode !== 'reliability') {
+    hidePermissionChecklist();
+  }
 }
 
 function hideNotificationBanner() {
@@ -1872,6 +2024,7 @@ function hideNotificationBanner() {
   }
 
   notificationBanner.hidden = true;
+  hidePermissionChecklist();
 }
 
 function initializeUpdateCheck(installedVersion = null) {

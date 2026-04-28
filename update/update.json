@@ -1,6 +1,6 @@
 {
-  "version": "1.6.4",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.4/app-release.apk",
-  "notes": "Abre telas especiais de bateria, início automático e notificações no Android.",
+  "version": "1.6.5",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.5/app-release.apk",
+  "notes": "Adiciona diagnóstico guiado de permissões e teste de notificações.",
   "publishedAt": "2026-04-28"
 }
