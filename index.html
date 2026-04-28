@@ -36,11 +36,11 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v1.5.7</strong>
+            <strong id="appVersionLabel">v1.5.8</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
-            <strong id="appReleaseDateLabel">27/04/2026</strong>
+            <strong id="appReleaseDateLabel">28/04/2026</strong>
           </div>
         </div>
         <div class="version-pill app-date-pill">
@@ -182,7 +182,7 @@
                 <span class="meta-label">Início</span>
                 <strong id="summaryStart">--/--/----</strong>
               </div>
-              <div class="meta-pill">
+              <div class="meta-pill meta-duration">
                 <span class="meta-label">Duração</span>
                 <strong><span id="summaryMonths">0</span> meses</strong>
               </div>
@@ -190,7 +190,7 @@
                 <span class="meta-label">Status</span>
                 <strong id="planStatus">Aguardando dados</strong>
               </div>
-              <div class="meta-pill">
+              <div class="meta-pill meta-count">
                 <span class="meta-label">Contagem</span>
                 <strong id="countModeLabel">Aguardando dados</strong>
               </div>
@@ -232,28 +232,41 @@
       </div>
 
       <form id="createPlanForm" class="form-grid modal-form">
+        <div class="plan-type-toggle" style="display: flex; gap: 12px; margin-bottom: 20px;">
+          <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid rgba(85, 212, 203, 0.3); border-radius: 12px; background: rgba(85, 212, 203, 0.05);">
+            <input type="radio" name="createPlanType" value="debt" checked style="accent-color: var(--primary);">
+            <strong style="font-size: 1.05rem; color: var(--text);">Dívida</strong>
+          </label>
+          <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; background: rgba(255, 255, 255, 0.02);">
+            <input type="radio" name="createPlanType" value="expense" style="accent-color: var(--primary);">
+            <strong style="font-size: 1.05rem; color: var(--text);">Despesa</strong>
+          </label>
+        </div>
+
         <label class="input-group" for="createPlanName">
           <span>Nome do compromisso</span>
-          <input type="text" id="createPlanName" class="input-field" placeholder="Ex.: Parcelas da moto" required>
+          <input type="text" id="createPlanName" class="input-field" placeholder="Ex.: Parcelas da moto ou Energia" required>
         </label>
 
         <label class="input-group" for="createStartDate">
-          <span>Data de início</span>
+          <span id="createStartDateLabel">Data de início</span>
           <input type="date" id="createStartDate" class="input-field" required>
         </label>
 
-        <label class="input-group" for="createTotalMonths">
-          <span>Total de meses</span>
-          <input type="number" id="createTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
-        </label>
+        <div id="debtSpecificFields" style="display: contents;">
+          <label class="input-group" for="createTotalMonths">
+            <span>Total de meses</span>
+            <input type="number" id="createTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
+          </label>
 
-        <label class="input-group" for="createCountMode">
-          <span>Quando começa a contagem</span>
-          <select id="createCountMode" class="input-field" required>
-            <option value="start_month">Começar no mês informado</option>
-            <option value="next_month">Começar a partir do próximo mês</option>
-          </select>
-        </label>
+          <label class="input-group" for="createCountMode">
+            <span>Quando começa a contagem</span>
+            <select id="createCountMode" class="input-field" required>
+              <option value="start_month">Começar no mês informado</option>
+              <option value="next_month">Começar a partir do próximo mês</option>
+            </select>
+          </label>
+        </div>
 
         <div class="button-row modal-actions">
           <button type="submit" class="btn-primary">Adicionar compromisso</button>

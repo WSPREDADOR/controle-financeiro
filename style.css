@@ -2603,3 +2603,14 @@ button.version-pill {
     grid-template-columns: 1fr;
   }
 }
+
+/* Modal states for 'Despesa' */
+.results-section.is-expense-mode .stat-progress,
+.results-section.is-expense-mode .stat-remaining,
+.results-section.is-expense-mode .stat-deadline,
+.results-section.is-expense-mode #summaryDays,
+.results-section.is-expense-mode .progress-track,
+.results-section.is-expense-mode .meta-duration,
+.results-section.is-expense-mode .meta-count {
+  display: none !important;
+}
