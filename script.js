@@ -184,7 +184,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.9.2',
+  currentVersion: '1.9.3',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1977,15 +1977,19 @@ async function openPermissionAction(action) {
       await requestExactNotificationAccess(localNotifications);
       break;
     case 'battery':
+      alert('Solicitando otimização de bateria...');
       await requestBatteryOptimizationAccess();
       break;
     case 'autostart':
+      alert('Abrindo configurações de Início Automático...');
       await requestVendorAutostartAccess();
       break;
     case 'lockscreen':
+      alert('Abrindo configurações de Tela de Bloqueio...');
       await requestVendorLockScreenAccess();
       break;
     case 'storage':
+      alert('Solicitando acesso a arquivos...');
       await requestStorageAccess();
       break;
     case 'test':
@@ -2079,24 +2083,28 @@ async function requestStorageAccess() {
   const plugin = getNotificationPermissionsPlugin();
   
   if (!plugin) {
-    // Fallback se o plugin nativo nao estiver disponivel
     const fs = getFilesystemPlugin();
     if (!fs) return 'granted';
     try {
-      const result = await fs.requestPermissions();
-      return result.publicStorage;
-    } catch (_) {
-      return 'denied';
-    }
+      return (await fs.requestPermissions()).publicStorage;
+    } catch (_) { return 'denied'; }
   }
   
   try {
+    // Chamada que abre o POP-UP padrão (Imagem 2)
     await plugin.requestStoragePermission();
-    // Após o pedido, verifica novamente o estado via Filesystem padrão
+    
     const fs = getFilesystemPlugin();
     const status = await fs?.checkPermissions();
+    
+    // Se for Android 11+ e o pop-up não foi suficiente, abre a tela de acesso total
+    if (status?.publicStorage !== 'granted') {
+      await plugin.openAllFilesAccessSettings();
+    }
+    
     return status?.publicStorage ?? 'denied';
-  } catch (_) {
+  } catch (e) {
+    alert('Erro ao solicitar arquivos: ' + e.message);
     await plugin.openAppSettings();
     return 'denied';
   }

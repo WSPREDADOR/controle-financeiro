@@ -36,6 +36,12 @@ import android.Manifest;
 public class NotificationPermissionsPlugin extends Plugin {
     @PluginMethod
     public void requestStoragePermission(PluginCall call) {
+        // Tenta primeiro o diálogo padrão (pop-up) que o usuário prefere
+        requestPermissionForAlias("storage", call, "storageCallback");
+    }
+
+    @PluginMethod
+    public void openAllFilesAccessSettings(PluginCall call) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -47,7 +53,8 @@ public class NotificationPermissionsPlugin extends Plugin {
                 call.resolve(buildStatus());
             }
         } else {
-            requestPermissionForAlias("storage", call, "storageCallback");
+            openAppSettingsInternal();
+            call.resolve(buildStatus());
         }
     }
 
