@@ -82,6 +82,16 @@ const reorderList = document.getElementById('reorderList');
 const closeReorderModalBtn = document.getElementById('closeReorderModalBtn');
 const closeDetailsModalBtn = document.getElementById('closeDetailsModalBtn');
 
+// Novos campos financeiros
+const createTotalValueInput = document.getElementById('createTotalValue');
+const createInstallmentValueInput = document.getElementById('createInstallmentValue');
+const editTotalValueInput = document.getElementById('editTotalValue');
+const editInstallmentValueInput = document.getElementById('editInstallmentValue');
+const toggleSinglePaymentBtn = document.getElementById('toggleSinglePaymentBtn');
+const singlePaymentToggleContainer = document.getElementById('singlePaymentToggleContainer');
+
+let isSinglePaymentMode = false;
+
 let plans = loadPlans();
 let currentPlanFilter = 'all';
 let selectedPlanId = plans[0]?.id ?? null;
@@ -174,7 +184,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.7.0',
+  currentVersion: '1.8.0',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -232,6 +242,9 @@ createForm.addEventListener('submit', (event) => {
   if (isExpense) {
     monthsInput = 1200; // 100 years para simular continuo
     countMode = 'start_month';
+  } else if (isSinglePaymentMode) {
+    monthsInput = 1;
+    countMode = 'start_month';
   } else {
     monthsInput = Number.parseInt(createTotalMonthsInput.value, 10);
     countMode = createCountModeInput.value;
@@ -253,6 +266,10 @@ createForm.addEventListener('submit', (event) => {
     totalMonths: monthsInput,
     countMode: isValidCountMode(countMode) ? countMode : 'start_month',
     isExpense: isExpense,
+    isSinglePayment: isSinglePaymentMode,
+    totalValue: parseCurrencyToNumber(createTotalValueInput?.value),
+    installmentValue: parseCurrencyToNumber(createInstallmentValueInput?.value),
+    manualMonthValues: {},
     paidMonths: []
   };
 
@@ -483,6 +500,8 @@ editForm.addEventListener('submit', (event) => {
   const startInput = editStartDateInput.value;
   const monthsInput = Number.parseInt(editTotalMonthsInput.value, 10);
   const countMode = editCountModeInput.value;
+  const totalVal = parseCurrencyToNumber(editTotalValueInput?.value);
+  const instVal = parseCurrencyToNumber(editInstallmentValueInput?.value);
 
   if (!planName || !startInput || Number.isNaN(monthsInput) || monthsInput <= 0) {
     setEditStatus('Preencha o nome do compromisso, uma data válida e um total de meses maior que zero.', 'error');
@@ -504,7 +523,10 @@ editForm.addEventListener('submit', (event) => {
     startDate: startInput,
     totalMonths: monthsInput,
     countMode: isValidCountMode(countMode) ? countMode : 'start_month',
-    paidMonths: sanitizePaidMonths(existingPlan.paidMonths ?? [], monthsInput)
+    paidMonths: sanitizePaidMonths(existingPlan.paidMonths ?? [], monthsInput),
+    totalValue: totalVal,
+    installmentValue: instVal,
+    isSinglePayment: isSinglePaymentMode,
   };
 
   plans[existingPlanIndex] = updatedPlan;
@@ -840,7 +862,9 @@ function renderPlanDetails(plan, options = {}) {
   const paidMonths = getPaidMonths(plan);
   const completedMonths = paidMonths.length;
   const remainingMonths = Math.max(plan.totalMonths - completedMonths, 0);
-  const percent = Math.round((completedMonths / plan.totalMonths) * 100);
+  // Lógica de pontuações e porcentagens nos valores
+  const financials = calculatePlanFinancials(plan);
+  const percent = financials.progressPercent;
   const remainingLabel = buildRemainingLabel(remainingMonths);
 
   selectedPlanTitle.textContent = plan.name;
@@ -855,6 +879,8 @@ function renderPlanDetails(plan, options = {}) {
   if (isExpense) {
     document.getElementById('planStatus').textContent = 'Despesa Contínua';
     document.getElementById('completedMonths').textContent = `${completedMonths}`;
+    document.getElementById('summaryPaidValue').textContent = formatCurrency(financials.totalPaid);
+    document.getElementById('summaryRemainingValue').parentElement.style.display = 'none';
   } else {
     document.getElementById('percentage').textContent = `${percent}%`;
     document.getElementById('remainingTime').textContent = remainingLabel;
@@ -865,6 +891,10 @@ function renderPlanDetails(plan, options = {}) {
     document.getElementById('planStatus').textContent = buildPlanStatus(completedMonths, plan.totalMonths);
     document.getElementById('countModeLabel').textContent = getCountModeLabel(plan.countMode);
     document.getElementById('progressFill').style.width = `${percent}%`;
+
+    document.getElementById('summaryPaidValue').textContent = formatCurrency(financials.totalPaid);
+    document.getElementById('summaryRemainingValue').textContent = formatCurrency(financials.remainingValue);
+    document.getElementById('summaryRemainingValue').parentElement.style.display = 'flex';
   }
 
   renderMonthlyTimeline(plan, effectiveStartDate, today, options);
@@ -896,9 +926,13 @@ function renderPlansList() {
   filteredPlans.forEach((plan, index) => {
     const planStartDate = parseDateInput(plan.startDate);
     const planEndDate = addMonths(getEffectiveStartDate(planStartDate, plan.countMode), plan.totalMonths);
-    const paidCount = getPaidMonths(plan).length;
-    const progressRatio = plan.totalMonths > 0 ? clamp(paidCount / plan.totalMonths, 0, 1) : 0;
-    const progressPercent = Math.round(progressRatio * 100);
+    const financials = calculatePlanFinancials(plan);
+    const progressRatio = financials.progressRatio;
+    const progressPercent = financials.progressPercent;
+    const paidMonthsCount = getPaidMonths(plan).length;
+    const currentInstallment = plan.manualMonthValues?.[paidMonthsCount + 1] || plan.installmentValue || 0;
+    const valueDisplay = currentInstallment > 0 ? `<div class="plan-item-value" style="font-family: 'Space Grotesk'; color: var(--primary); font-weight: 700; font-size: 0.95rem; white-space: nowrap;">${formatCurrencyRaw(currentInstallment)}</div>` : '';
+
     const item = document.createElement('div');
     item.className = `plan-entry${plan.isExpense ? ' is-expense-entry' : ''}`;
     item.dataset.planNumber = String(index + 1);
@@ -910,13 +944,20 @@ function renderPlansList() {
             <span class="plan-item-tag">${String(index + 1).padStart(2, '0')}</span>
             <span class="plan-duration-pill">${plan.isExpense ? 'Despesa' : `${plan.totalMonths} ${plan.totalMonths === 1 ? 'mês' : 'meses'}`}</span>
           </div>
-          <strong class="plan-item-name">${escapeHtml(plan.name)}</strong>
+          <div class="plan-item-main-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 6px; gap: 12px;">
+            <strong class="plan-item-name" style="margin: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(plan.name)}</strong>
+            ${valueDisplay}
+          </div>
+
           <div class="plan-progress-meta">
             <span class="plan-progress-label">Andamento</span>
-            <strong class="plan-progress-value">${plan.isExpense ? 'Contínuo' : `${progressPercent}%`}</strong>
+
           </div>
-          <div class="plan-progress" aria-hidden="true" ${plan.isExpense ? 'style="opacity: 0.2;"' : ''}>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+            <div class="plan-progress" aria-hidden="true" style="flex: 1; margin: 0; ${plan.isExpense ? 'opacity: 0.2;' : ''}">
             <span class="plan-progress-fill" ${plan.isExpense ? 'style="width: 100%; background: var(--text-muted);"' : ''}></span>
+            </div>
+            <strong class="plan-progress-value" style="font-size: 0.85rem; min-width: 35px; text-align: right;">${plan.isExpense ? '∞' : `${progressPercent}%`}</strong>
           </div>
           <div class="plan-stat-grid">
             <div class="plan-stat-card">
@@ -925,7 +966,7 @@ function renderPlansList() {
             </div>
             <div class="plan-stat-card">
               <span class="plan-stat-label">Pagos</span>
-              <strong class="plan-stat-value">${plan.isExpense ? paidCount : `${paidCount}/${plan.totalMonths}`}</strong>
+              <strong class="stat-value">${plan.isExpense ? paidMonthsCount : `${paidMonthsCount}/${plan.totalMonths}`}</strong>
             </div>
             <div class="plan-stat-card plan-stat-card-end">
               <span class="plan-stat-label">Fim</span>
@@ -982,6 +1023,17 @@ function renderMonthlyTimeline(plan, startDate, today, options = {}) {
             ? ' is-current'
             : '';
 
+    const manualValue = plan.manualMonthValues?.[monthIndex];
+    const displayValue = manualValue !== undefined ? manualValue : (plan.installmentValue || 0);
+    const valueHtml = displayValue > 0 ? `
+      <div class="installment-value-row">
+        <span class="installment-amount-display">R$ ${displayValue.toFixed(2)}</span>
+        <button type="button" class="edit-installment-btn" data-edit-value-month="${monthIndex}" title="Editar valor desta parcela">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </div>
+    ` : '';
+
     const card = document.createElement('article');
     card.className = `month-card${cardStateClass}`;
     card.innerHTML = `
@@ -994,6 +1046,7 @@ function renderMonthlyTimeline(plan, startDate, today, options = {}) {
         <span class="month-status ${status.className}">${status.label}</span>
       </div>
       <div class="month-card-body">
+        ${valueHtml}
         <div class="month-progress" aria-hidden="true">
           <div class="month-progress-bar" style="width:${progress}%"></div>
         </div>
@@ -1183,6 +1236,8 @@ function openEditModal(plan) {
   editStartDateInput.value = plan.startDate;
   editTotalMonthsInput.value = String(plan.totalMonths);
   editCountModeInput.value = isValidCountMode(plan.countMode) ? plan.countMode : 'start_month';
+  editTotalValueInput.value = plan.totalValue > 0 ? formatCurrencyRaw(plan.totalValue) : '';
+  editInstallmentValueInput.value = plan.installmentValue > 0 ? formatCurrencyRaw(plan.installmentValue) : '';
   editModalSubtitle.textContent = `Atualize os dados do compromisso "${plan.name}" e salve as alterações.`;
   setEditStatus('', '');
   editModal.hidden = false;
@@ -2604,14 +2659,27 @@ async function startApkUpdate(update) {
     });
 
     if (result?.requiresPermission) {
-      showUpdateError('Permita a instalacao por fontes desconhecidas para este app e toque em atualizar novamente.');
+      showUpdateError('Permita a instalação por fontes desconhecidas para este app e toque em atualizar novamente.');
       return;
     }
 
-    setUpdateProgress('Download iniciado pelo Android', 12);
+    setUpdateProgress('Baixado, verifique em suas notificações', 100);
+
+    // Notificar o usuário
+    const localNotifications = getLocalNotificationsPlugin();
+    if (localNotifications) {
+      localNotifications.schedule({
+        notifications: [{
+          id: 999,
+          title: 'Atualização Baixada',
+          body: 'Toque para instalar a nova versão do app.',
+          schedule: { at: new Date(Date.now() + 500) }
+        }]
+      });
+    }
 
     if (updateBannerMessage) {
-      updateBannerMessage.textContent = 'Quando o download terminar, confirme a instalacao do APK na tela do Android.';
+      updateBannerMessage.textContent = 'Download concluído! Verifique suas notificações para instalar.';
     }
   } catch (_) {
     openUpdateUrl(apkUrl);
@@ -2632,7 +2700,7 @@ function setUpdateProgress(message, percent = null) {
   if (updatePrimaryBtn) {
     updatePrimaryBtn.hidden = false;
     updatePrimaryBtn.disabled = true;
-    updatePrimaryBtn.textContent = 'Baixando atualização...';
+    updatePrimaryBtn.textContent = message || 'Baixando atualização...';
   }
 
   if (!updateProgress || !updateProgressLabel) {
@@ -2640,7 +2708,11 @@ function setUpdateProgress(message, percent = null) {
   }
 
   updateProgress.hidden = false;
-  updateProgressLabel.textContent = 'Baixando...';
+  updateProgressLabel.textContent = message || 'Baixando...';
+  
+  if (updateProgressBar && percent !== null) {
+    updateProgressBar.style.width = `${percent}%`;
+  }
 }
 
 function announceInstalledUpdate() {
@@ -2683,10 +2755,26 @@ async function startAppUpdate(update) {
     persistWebBundle(bundle);
     setUpdateProgress('Aplicando atualização...', 96);
     didStartApply = true;
+    
+    // Notificar o usuário que baixou
+    const localNotifications = getLocalNotificationsPlugin();
+    if (localNotifications) {
+      localNotifications.schedule({
+        notifications: [{
+          id: 1000,
+          title: 'Atualização Concluída',
+          body: 'O app foi atualizado para a versão ' + (update.version || 'mais recente') + '.',
+          schedule: { at: new Date(Date.now() + 500) }
+        }]
+      });
+    }
+
     window.setTimeout(() => {
       try {
-        setUpdateProgress('Aplicando atualização...', 100);
-        applyWebBundle(bundle);
+        setUpdateProgress('Baixado, verifique em suas notificações', 100);
+        window.setTimeout(() => {
+          applyWebBundle(bundle);
+        }, 1500);
       } catch (error) {
         isUpdateInstallInFlight = false;
         Storage.remove(PENDING_UPDATE_VERSION_KEY).finally(() => {
@@ -3072,7 +3160,197 @@ function scrollToSection(element) {
   element.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function initFinancialLogic() {
+  // Aplicar máscara de moeda nos inputs
+  document.querySelectorAll('.currency-input').forEach(input => {
+    input.addEventListener('input', handleCurrencyInput);
+  });
+
+  // Listeners para troca de tipo (Dívida vs Despesa)
+  document.querySelectorAll('input[name="createPlanType"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const isExpense = e.target.value === 'expense';
+      const totalValueField = document.getElementById('createTotalValue')?.parentElement;
+      const installmentLabel = document.querySelector('label[for="createInstallmentValue"] span');
+      
+      if (isExpense) {
+        if (totalValueField) totalValueField.style.display = 'none';
+        if (installmentLabel) installmentLabel.textContent = 'Valor Mensal (Opcional)';
+        if (singlePaymentToggleContainer) singlePaymentToggleContainer.style.display = 'none';
+        isSinglePaymentMode = false;
+      } else {
+        if (totalValueField) totalValueField.style.display = 'flex';
+        if (installmentLabel) installmentLabel.textContent = 'Valor da Parcela (Opcional)';
+        if (singlePaymentToggleContainer) singlePaymentToggleContainer.style.display = 'block';
+      }
+      updateSinglePaymentUI();
+    });
+  });
+
+  // Toggle Valor Único
+  toggleSinglePaymentBtn?.addEventListener('click', () => {
+    isSinglePaymentMode = !isSinglePaymentMode;
+    updateSinglePaymentUI();
+  });
+
+  // Cálculo automático: Total -> Parcela
+  [createTotalValueInput, editTotalValueInput].forEach(input => {
+    input?.addEventListener('input', (e) => {
+      const isEdit = e.target === editTotalValueInput;
+      const totalVal = parseCurrencyToNumber(e.target.value);
+      const monthsInput = isEdit ? editTotalMonthsInput : createTotalMonthsInput;
+      const installmentInput = isEdit ? editInstallmentValueInput : createInstallmentValueInput;
+      const months = parseInt(monthsInput.value) || 1;
+
+      if (!isNaN(totalVal) && totalVal > 0 && months > 0 && !isSinglePaymentMode) {
+        installmentInput.value = formatCurrencyRaw(totalVal / months);
+      }
+    });
+  });
+
+  // Cálculo automático: Parcela -> Total
+  [createInstallmentValueInput, editInstallmentValueInput].forEach(input => {
+    input?.addEventListener('input', (e) => {
+      const isEdit = e.target === editInstallmentValueInput;
+      const instVal = parseCurrencyToNumber(e.target.value);
+      const monthsInput = isEdit ? editTotalMonthsInput : createTotalMonthsInput;
+      const totalInput = isEdit ? editTotalValueInput : createTotalValueInput;
+      const months = parseInt(monthsInput.value) || 1;
+
+      if (!isNaN(instVal) && instVal > 0 && months > 0 && !isSinglePaymentMode) {
+        totalInput.value = formatCurrencyRaw(instVal * months);
+      }
+    });
+  });
+
+  // Listener para o lápis de editar parcela
+  monthlyContainer?.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-edit-value-month]');
+    if (!editBtn) return;
+    
+    const monthIndex = parseInt(editBtn.dataset.editValueMonth);
+    const plan = getSelectedPlan();
+    if (!plan) return;
+
+    openValuePrompt(plan, monthIndex);
+  });
+
+  // Listeners do modal de prompt de valor
+  const promptValueModal = document.getElementById('promptValueModal');
+  const promptValueInput = document.getElementById('promptValueInput');
+  const confirmBtn = document.getElementById('confirmPromptValueBtn');
+  const cancelBtn = document.getElementById('cancelPromptValueBtn');
+
+  let currentPromptMonth = null;
+
+  function openValuePrompt(plan, monthIndex) {
+    currentPromptMonth = monthIndex;
+    const currentVal = plan.manualMonthValues?.[monthIndex] || plan.installmentValue || 0;
+    promptValueInput.value = currentVal > 0 ? formatCurrencyRaw(currentVal) : '';
+    promptValueModal.hidden = false;
+    syncModalBodyState();
+    window.setTimeout(() => promptValueInput.focus(), 20);
+  }
+
+  cancelBtn?.addEventListener('click', () => {
+    promptValueModal.hidden = true;
+    syncModalBodyState();
+  });
+
+  confirmBtn?.addEventListener('click', () => {
+    const newVal = parseCurrencyToNumber(promptValueInput.value);
+    const plan = getSelectedPlan();
+    if (plan && currentPromptMonth) {
+      if (!plan.manualMonthValues) plan.manualMonthValues = {};
+      plan.manualMonthValues[currentPromptMonth] = isNaN(newVal) ? 0 : newVal;
+      savePlans();
+      renderPlansList();
+      renderPlanDetails(plan);
+    }
+    promptValueModal.hidden = true;
+    syncModalBodyState();
+  });
+}
+
+function handleCurrencyInput(e) {
+  let value = e.target.value.replace(/\D/g, "");
+  if (!value) {
+    e.target.value = "";
+    return;
+  }
+  value = (parseInt(value) / 100).toFixed(2);
+  e.target.value = formatCurrencyRaw(parseFloat(value));
+}
+
+function parseCurrencyToNumber(value) {
+  if (!value) return 0;
+  const cleanValue = value.replace(/[^\d,]/g, "").replace(",", ".");
+  return parseFloat(cleanValue) || 0;
+}
+
+function formatCurrencyRaw(value) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
+}
+
+function updateSinglePaymentUI() {
+  if (isSinglePaymentMode) {
+    createModal?.classList.add('mode-single-payment');
+    editModal?.classList.add('mode-single-payment');
+    toggleSinglePaymentBtn?.classList.add('active');
+    if (createTotalMonthsInput) createTotalMonthsInput.value = '1';
+  } else {
+    createModal?.classList.remove('mode-single-payment');
+    editModal?.classList.remove('mode-single-payment');
+    toggleSinglePaymentBtn?.classList.remove('active');
+  }
+}
+
+// Chamar inicialização
+initFinancialLogic();
+
+
+function calculatePlanFinancials(plan) {
+  const paidMonthsList = getPaidMonths(plan);
+  let totalPaid = 0;
+
+  paidMonthsList.forEach(monthIdx => {
+    const manualVal = plan.manualMonthValues?.[monthIdx];
+    totalPaid += (manualVal !== undefined) ? manualVal : (plan.installmentValue || 0);
+  });
+
+  const totalValue = plan.totalValue || (plan.totalMonths * (plan.installmentValue || 0)) || 0;
+  
+  let progressRatio = 0;
+  if (plan.isExpense) {
+     // Despesas não tem um "fim" financeiro óbvio, usamos progresso de meses ou 0
+     progressRatio = 0; 
+  } else if (totalValue > 0) {
+    progressRatio = clamp(totalPaid / totalValue, 0, 1);
+  } else if (plan.totalMonths > 0) {
+    progressRatio = clamp(paidMonthsList.length / plan.totalMonths, 0, 1);
+  }
+
+  return {
+    totalPaid,
+    totalValue,
+    remainingValue: Math.max(0, totalValue - totalPaid),
+    progressRatio,
+    progressPercent: Math.round(progressRatio * 100)
+  };
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
+}
+
 function escapeHtml(value) {
+  if (typeof value !== 'string') return value;
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

@@ -42,7 +42,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v1.7.0</strong>
+            <strong id="appVersionLabel">v1.8.0</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -116,7 +116,7 @@
                 </div>
                 <div class="app-details-item">
                   <span class="app-details-label">Versão Instalada</span>
-                  <strong class="app-details-value" id="settingsAppVersion">v1.6.5</strong>
+                  <strong class="app-details-value" id="settingsAppVersion">v1.8.0</strong>
                 </div>
                 <div class="app-details-item">
                   <span class="app-details-label">Desenvolvedor</span>
@@ -263,6 +263,16 @@
               <strong class="stat-value" id="summaryEnd">--/--/----</strong>
               <p class="stat-note">Data estimada de conclusão.</p>
             </article>
+            <article class="stat-card stat-paid-value">
+              <span class="stat-label">Total Pago</span>
+              <strong class="stat-value" id="summaryPaidValue">R$ 0,00</strong>
+              <p class="stat-note">Soma dos valores quitados.</p>
+            </article>
+            <article class="stat-card stat-remaining-value">
+              <span class="stat-label">Saldo Devedor</span>
+              <strong class="stat-value" id="summaryRemainingValue">R$ 0,00</strong>
+              <p class="stat-note">Valor que ainda resta pagar.</p>
+            </article>
           </div>
 
           <div class="progress-panel">
@@ -344,29 +354,54 @@
           </label>
         </div>
 
-        <label class="input-group" for="createPlanName">
-          <span>Nome do compromisso</span>
-          <input type="text" id="createPlanName" class="input-field" placeholder="Ex.: Parcelas da moto ou Energia" required>
-        </label>
+        <div class="input-group-row">
+          <label class="input-group" for="createPlanName">
+            <span>Nome do compromisso</span>
+            <input type="text" id="createPlanName" class="input-field" placeholder="Ex.: Parcelas da moto" required>
+          </label>
 
-        <label class="input-group" for="createStartDate">
-          <span id="createStartDateLabel">Data de início</span>
-          <input type="date" id="createStartDate" class="input-field" required>
-        </label>
+          <label class="input-group" for="createStartDate">
+            <span id="createStartDateLabel">Data de início</span>
+            <input type="date" id="createStartDate" class="input-field" required>
+          </label>
+        </div>
+
+        <div id="createValueFields" class="input-group-row">
+          <label class="input-group" for="createTotalValue">
+            <span id="createTotalValueLabel">Valor Total (Opcional)</span>
+            <input type="text" id="createTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+            <small class="value-input-hint">Calcula a parcela automaticamente</small>
+          </label>
+
+          <label class="input-group" for="createInstallmentValue">
+            <span id="createInstallmentValueLabel">Valor da Parcela (Opcional)</span>
+            <input type="text" id="createInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+            <small class="value-input-hint">Calcula o total automaticamente</small>
+          </label>
+        </div>
 
         <div id="debtSpecificFields" style="display: contents;">
-          <label class="input-group" for="createTotalMonths">
-            <span>Total de meses</span>
-            <input type="number" id="createTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
-          </label>
+          <div id="singlePaymentToggleContainer" style="grid-column: span 2; margin: 8px 0;">
+            <button type="button" id="toggleSinglePaymentBtn" class="btn-toggle-mode">
+              <svg viewBox="0 0 24 24"><path d="M12 2v20m10-10H2" stroke="currentColor"/></svg>
+              Valor Único (Pagamento único)
+            </button>
+          </div>
 
-          <label class="input-group" for="createCountMode">
-            <span>Quando começa a contagem</span>
-            <select id="createCountMode" class="input-field" required>
-              <option value="start_month">Começar no mês informado</option>
-              <option value="next_month">Começar a partir do próximo mês</option>
-            </select>
-          </label>
+          <div class="input-group-row hide-on-single">
+            <label class="input-group" for="createTotalMonths">
+              <span>Total de meses</span>
+              <input type="number" id="createTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
+            </label>
+
+            <label class="input-group" for="createCountMode">
+              <span>Quando começa a contagem</span>
+              <select id="createCountMode" class="input-field" required>
+                <option value="start_month">Começar no mês informado</option>
+                <option value="next_month">Começar a partir do próximo mês</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div class="button-row modal-actions">
@@ -395,28 +430,44 @@
       </div>
 
       <form id="editPlanForm" class="form-grid modal-form">
-        <label class="input-group" for="editPlanName">
-          <span>Nome do compromisso</span>
-          <input type="text" id="editPlanName" class="input-field" placeholder="Ex.: Parcelas da moto" required>
-        </label>
+        <div class="input-group-row">
+          <label class="input-group" for="editPlanName">
+            <span>Nome do compromisso</span>
+            <input type="text" id="editPlanName" class="input-field" placeholder="Ex.: Parcelas da moto" required>
+          </label>
 
-        <label class="input-group" for="editStartDate">
-          <span>Data de início</span>
-          <input type="date" id="editStartDate" class="input-field" required>
-        </label>
+          <label class="input-group" for="editStartDate">
+            <span>Data de início</span>
+            <input type="date" id="editStartDate" class="input-field" required>
+          </label>
+        </div>
 
-        <label class="input-group" for="editTotalMonths">
-          <span>Total de meses</span>
-          <input type="number" id="editTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
-        </label>
+        <div id="editValueFields" class="input-group-row">
+          <label class="input-group" for="editTotalValue">
+            <span>Valor Total</span>
+            <input type="text" id="editTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+          </label>
 
-        <label class="input-group" for="editCountMode">
-          <span>Quando começa a contagem</span>
-          <select id="editCountMode" class="input-field" required>
-            <option value="start_month">Começar no mês informado</option>
-            <option value="next_month">Começar a partir do próximo mês</option>
-          </select>
-        </label>
+          <label class="input-group" for="editInstallmentValue">
+            <span>Valor da Parcela</span>
+            <input type="text" id="editInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+          </label>
+        </div>
+
+        <div id="editDebtSpecificFields" class="input-group-row hide-on-single">
+          <label class="input-group" for="editTotalMonths">
+            <span>Total de meses</span>
+            <input type="number" id="editTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
+          </label>
+
+          <label class="input-group" for="editCountMode">
+            <span>Quando começa a contagem</span>
+            <select id="editCountMode" class="input-field" required>
+              <option value="start_month">Começar no mês informado</option>
+              <option value="next_month">Começar a partir do próximo mês</option>
+            </select>
+          </label>
+        </div>
 
         <div class="button-row modal-actions">
           <button type="submit" class="btn-primary">Salvar alterações</button>
@@ -475,6 +526,23 @@
 
       <div class="reorder-modal-body">
         <div class="reorder-list" id="reorderList" aria-label="Lista para reorganizar compromissos"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="promptValueModal" hidden>
+    <section class="edit-modal" role="dialog" aria-modal="true" style="width: min(100%, 340px); padding: 24px; border-radius: 28px;">
+      <div class="modal-heading" style="margin-bottom: 20px;">
+        <span class="section-kicker">Editar Valor</span>
+        <h2 id="promptValueTitle" style="font-size: 1.4rem; margin: 4px 0;">Ajustar Parcela</h2>
+      </div>
+      <label class="input-group">
+        <span style="font-size: 0.9rem; color: var(--muted); margin-bottom: 8px; display: block;">Valor Pago (R$)</span>
+        <input type="text" id="promptValueInput" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric" style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">
+      </label>
+      <div class="button-row modal-actions" style="margin-top: 24px; display: flex; gap: 10px;">
+        <button type="button" id="confirmPromptValueBtn" class="btn-primary" style="flex: 1;">Salvar</button>
+        <button type="button" id="cancelPromptValueBtn" class="btn-secondary" style="flex: 1;">Voltar</button>
       </div>
     </section>
   </div>

@@ -3009,3 +3009,122 @@ button.version-pill {
 .results-section.is-expense-mode .meta-count {
   display: none !important;
 }
+
+/* ─── Novos Estilos Financeiros ────────────────────────────────────────── */
+.btn-toggle-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(85, 212, 203, 0.2);
+  background: rgba(85, 212, 203, 0.05);
+  color: var(--primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  width: fit-content;
+  user-select: none;
+}
+
+.btn-toggle-mode:hover {
+  background: rgba(85, 212, 203, 0.12);
+  border-color: rgba(85, 212, 203, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-toggle-mode.active {
+  background: var(--primary);
+  color: #0d1216;
+  border-color: var(--primary);
+  box-shadow: 0 8px 20px rgba(85, 212, 203, 0.25);
+}
+
+.btn-toggle-mode svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+}
+
+.input-group-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  grid-column: span 2;
+}
+
+.stat-paid-value .stat-label::before { content: '💰'; }
+.stat-remaining-value .stat-label::before { content: '📉'; }
+
+.installment-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  width: fit-content;
+}
+
+.installment-amount-display {
+  font-family: "Space Grotesk", sans-serif;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+.edit-installment-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.edit-installment-btn:hover {
+  background: var(--primary);
+  color: #000;
+  border-color: var(--primary);
+  transform: scale(1.05);
+}
+
+.edit-installment-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  fill: none;
+}
+
+/* Controle de visibilidade dos modos */
+.mode-single-payment .hide-on-single {
+  display: none !important;
+}
+
+.mode-single-payment .show-on-single {
+  display: block !important;
+}
+
+.value-input-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+  display: block;
+  opacity: 0.8;
+}
+
+@media (max-width: 600px) {
+  .input-group-row {
+    grid-template-columns: 1fr;
+  }
+}
