@@ -1,8 +1,8 @@
 {
-  "version": "1.6.5",
-  "notes": "Adiciona diagnóstico guiado de permissões e teste de notificações.",
+  "version": "1.7.0",
+  "notes": "Novas funções de Onboarding, Identificação Única e Suporte via WhatsApp.",
   "publishedAt": "2026-04-28",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777383446935",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777383446935",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.5/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777390420522",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777390420522",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.7.0/app-release.apk"
 }

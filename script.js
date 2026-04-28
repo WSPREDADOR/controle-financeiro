@@ -1,6 +1,8 @@
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const STORAGE_KEY = 'payment-plans-v1';
+const USER_NAME_KEY = 'cf-user-name-v1';
+const USER_ID_KEY = 'cf-user-id-v1';
 
 const resultsSection = document.getElementById('resultsSection');
 const statusMessage = document.getElementById('statusMessage');
@@ -24,6 +26,24 @@ const notificationBannerMessage = document.getElementById('notificationBannerMes
 const permissionChecklist = document.getElementById('permissionChecklist');
 const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
 const dismissNotificationsBtn = document.getElementById('dismissNotificationsBtn');
+const openAppSettingsModalBtn = document.getElementById('openAppSettingsModalBtn');
+const appSettingsModal = document.getElementById('appSettingsModal');
+const closeAppSettingsModalBtn = document.getElementById('closeAppSettingsModalBtn');
+const settingsPermissionChecklist = document.getElementById('settingsPermissionChecklist');
+const openNativeAppSettingsBtn = document.getElementById('openNativeAppSettingsBtn');
+const togglePermissionsBtn = document.getElementById('togglePermissionsBtn');
+const appDetailsSection = document.getElementById('appDetailsSection');
+const permissionsSection = document.getElementById('permissionsSection');
+const settingsAppVersion = document.getElementById('settingsAppVersion');
+const settingsAppRelease = document.getElementById('settingsAppRelease');
+const contactDevBtn = document.getElementById('contactDevBtn');
+const onboardingModal = document.getElementById('onboardingModal');
+const userNameInput = document.getElementById('userNameInput');
+const saveOnboardingBtn = document.getElementById('saveOnboardingBtn');
+const onboardingStatus = document.getElementById('onboardingStatus');
+const userGreeting = document.getElementById('userGreeting');
+const displayUserName = document.getElementById('displayUserName');
+const settingsUserId = document.getElementById('settingsUserId');
 const plansList = document.getElementById('plansList');
 const selectedPlanTitle = document.getElementById('selectedPlanTitle');
 const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
@@ -154,7 +174,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.6.5',
+  currentVersion: '1.7.0',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -173,6 +193,10 @@ updateResultsNavigation();
   await Storage.migrate(STORAGE_KEY);
   await Storage.migrate(NOTIFICATION_PREFERENCE_KEY);
   await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
+  await Storage.migrate(USER_NAME_KEY);
+  await Storage.migrate(USER_ID_KEY);
+
+  await checkOnboarding();
 
   // Recarrega planos do armazenamento nativo (pode ter dados mais recentes)
   const migratedPlans = await loadPlansAsync();
@@ -536,6 +560,101 @@ closeDetailsModalBtn.addEventListener('click', () => {
   closeDetailsModal();
 });
 
+openAppSettingsModalBtn?.addEventListener('click', () => {
+  openAppSettingsModal();
+});
+
+closeAppSettingsModalBtn?.addEventListener('click', () => {
+  closeAppSettingsModal();
+});
+
+openNativeAppSettingsBtn?.addEventListener('click', async () => {
+  await getNotificationPermissionsPlugin()?.openAppSettings?.();
+});
+
+togglePermissionsBtn?.addEventListener('click', () => {
+  const showingPermissions = !permissionsSection.hidden;
+  
+  if (showingPermissions) {
+    permissionsSection.hidden = true;
+    appDetailsSection.hidden = false;
+    togglePermissionsBtn.textContent = 'Permissões';
+    togglePermissionsBtn.classList.remove('btn-secondary');
+    togglePermissionsBtn.classList.add('btn-primary');
+  } else {
+    appDetailsSection.hidden = true;
+    permissionsSection.hidden = false;
+    togglePermissionsBtn.textContent = 'Voltar aos Detalhes';
+    togglePermissionsBtn.classList.remove('btn-primary');
+    togglePermissionsBtn.classList.add('btn-secondary');
+  }
+});
+
+contactDevBtn?.addEventListener('click', async () => {
+  const phone = '5594992592305'; 
+  const name = (await Storage.get(USER_NAME_KEY)) || '(seu nome aqui)';
+  const message = encodeURIComponent(`Olá Sr Werbert Silva, me chamo ${name}, vim através do seu app Controle de Dívidas!`);
+  window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+});
+
+// ─── Onboarding e Identidade do Usuário ──────────────────────────────────────
+function generateSupportId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const gen = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `CF-${gen()}-${gen()}`;
+}
+
+async function checkOnboarding() {
+  const name = await Storage.get(USER_NAME_KEY);
+  let id = await Storage.get(USER_ID_KEY);
+
+  if (!id) {
+    id = generateSupportId();
+    await Storage.set(USER_ID_KEY, id);
+  }
+
+  if (!name) {
+    onboardingModal.hidden = false;
+    document.body.classList.add('modal-open');
+    window.setTimeout(() => {
+      userNameInput?.focus();
+    }, 100);
+    return;
+  }
+
+  updateUserInfoUI(name, id);
+}
+
+function updateUserInfoUI(name, id) {
+  document.querySelectorAll('.display-user-name-placeholder').forEach((el) => {
+    el.textContent = name;
+  });
+  if (displayUserName) displayUserName.textContent = name;
+  if (userGreeting) userGreeting.hidden = false;
+  if (settingsUserId) settingsUserId.textContent = id;
+}
+
+saveOnboardingBtn?.addEventListener('click', async () => {
+  const name = userNameInput.value.trim();
+  if (!name) {
+    onboardingStatus.hidden = false;
+    return;
+  }
+
+  await Storage.set(USER_NAME_KEY, name);
+  const id = await Storage.get(USER_ID_KEY);
+  updateUserInfoUI(name, id);
+  
+  onboardingModal.hidden = true;
+  document.body.classList.remove('modal-open');
+});
+
+userNameInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    saveOnboardingBtn?.click();
+  }
+});
+
 closeCreateModalBtn.addEventListener('click', () => {
   closeCreateModal();
 });
@@ -568,6 +687,12 @@ reorderModal.addEventListener('click', (event) => {
   }
 });
 
+appSettingsModal?.addEventListener('click', (event) => {
+  if (event.target === appSettingsModal) {
+    closeAppSettingsModal();
+  }
+});
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !createModal.hidden) {
     closeCreateModal();
@@ -589,6 +714,11 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
+  if (event.key === 'Escape' && appSettingsModal && !appSettingsModal.hidden) {
+    closeAppSettingsModal();
+    return;
+  }
+
   if (event.key === 'Escape' && !resultsSection.hidden) {
     closeDetailsModal();
   }
@@ -605,6 +735,8 @@ if (window.Capacitor?.Plugins?.App) {
       closeDeleteModal();
     } else if (!reorderModal.hidden) {
       closeReorderModal();
+    } else if (appSettingsModal && !appSettingsModal.hidden) {
+      closeAppSettingsModal();
     } else if (!resultsSection.hidden) {
       closeDetailsModal();
     } else {
@@ -674,6 +806,16 @@ dismissNotificationsBtn?.addEventListener('click', () => {
 });
 
 permissionChecklist?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-permission-action]');
+
+  if (!button) {
+    return;
+  }
+
+  openPermissionAction(button.dataset.permissionAction);
+});
+
+settingsPermissionChecklist?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-permission-action]');
 
   if (!button) {
@@ -1093,6 +1235,49 @@ function closeReorderModal() {
   syncModalBodyState();
 }
 
+async function openAppSettingsModal() {
+  if (!appSettingsModal) {
+    return;
+  }
+
+  appDetailsSection.hidden = false;
+  permissionsSection.hidden = true;
+  togglePermissionsBtn.textContent = 'Permissões';
+  togglePermissionsBtn.classList.remove('btn-secondary');
+  togglePermissionsBtn.classList.add('btn-primary');
+
+  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
+  if (settingsAppVersion) settingsAppVersion.textContent = `v${getCurrentAppVersion(config)}`;
+  if (settingsAppRelease) settingsAppRelease.textContent = config.expirationDate || '28/04/2026';
+
+  appSettingsModal.hidden = false;
+  syncModalBodyState();
+  await refreshSettingsPermissionChecklist();
+  window.setTimeout(() => {
+    closeAppSettingsModalBtn?.focus();
+  }, 20);
+}
+
+function closeAppSettingsModal() {
+  if (!appSettingsModal) {
+    return;
+  }
+
+  appSettingsModal.hidden = true;
+  syncModalBodyState();
+}
+
+async function refreshSettingsPermissionChecklist() {
+  if (!settingsPermissionChecklist) {
+    return;
+  }
+
+  const needs = await getPaymentReliabilityNeeds(getLocalNotificationsPlugin(), {
+    respectOpenedFlags: false
+  });
+  renderPermissionChecklist(settingsPermissionChecklist, needs);
+}
+
 function renderReorderList() {
   reorderList.innerHTML = '';
 
@@ -1137,6 +1322,7 @@ function syncModalBodyState() {
       !editModal.hidden ||
       !deleteModal.hidden ||
       !reorderModal.hidden ||
+      Boolean(appSettingsModal && !appSettingsModal.hidden) ||
       !resultsSection.hidden
   );
 }
@@ -1591,7 +1777,7 @@ async function showPaymentReliabilityPromptIfNeeded(plugin) {
   }
 
   const needs = await getPaymentReliabilityNeeds(plugin);
-  renderPermissionChecklist(needs);
+  renderPermissionChecklist(permissionChecklist, needs);
 
   if (!needs.notification && !needs.exactAlarm && !needs.batteryOptimization && !needs.vendorAutostart && !needs.vendorLockScreen) {
     hideNotificationBanner();
@@ -1630,7 +1816,8 @@ async function showPaymentReliabilityPromptIfNeeded(plugin) {
   return true;
 }
 
-async function getPaymentReliabilityNeeds(plugin) {
+async function getPaymentReliabilityNeeds(plugin, options = {}) {
+  const respectOpenedFlags = options.respectOpenedFlags !== false;
   const needs = {
     notification: false,
     exactAlarm: false,
@@ -1647,7 +1834,7 @@ async function getPaymentReliabilityNeeds(plugin) {
     if (plugin?.checkExactNotificationSetting) {
       const exactStatus = await plugin.checkExactNotificationSetting();
       needs.exactAlarm = exactStatus?.exact_alarm !== 'granted'
-        && localStorage.getItem(NOTIFICATION_EXACT_SCREEN_OPENED_KEY) !== 'opened';
+        && (!respectOpenedFlags || localStorage.getItem(NOTIFICATION_EXACT_SCREEN_OPENED_KEY) !== 'opened');
     }
   } catch (_) {}
 
@@ -1657,19 +1844,19 @@ async function getPaymentReliabilityNeeds(plugin) {
     if (nativePermissions?.getStatus) {
       const nativeStatus = await nativePermissions.getStatus();
       needs.batteryOptimization = nativeStatus?.batteryOptimizationIgnored === false
-        && localStorage.getItem(NOTIFICATION_BATTERY_SCREEN_OPENED_KEY) !== 'opened';
+        && (!respectOpenedFlags || localStorage.getItem(NOTIFICATION_BATTERY_SCREEN_OPENED_KEY) !== 'opened');
       needs.vendorAutostart = Boolean(nativeStatus?.hasManufacturerPermissionScreens)
-        && localStorage.getItem(NOTIFICATION_VENDOR_AUTOSTART_KEY) !== 'opened';
+        && (!respectOpenedFlags || localStorage.getItem(NOTIFICATION_VENDOR_AUTOSTART_KEY) !== 'opened');
       needs.vendorLockScreen = Boolean(nativeStatus?.hasManufacturerPermissionScreens)
-        && localStorage.getItem(NOTIFICATION_VENDOR_LOCKSCREEN_KEY) !== 'opened';
+        && (!respectOpenedFlags || localStorage.getItem(NOTIFICATION_VENDOR_LOCKSCREEN_KEY) !== 'opened');
     }
   } catch (_) {}
 
   return needs;
 }
 
-function renderPermissionChecklist(needs = {}) {
-  if (!permissionChecklist) {
+function renderPermissionChecklist(target, needs = {}) {
+  if (!target) {
     return;
   }
 
@@ -1682,8 +1869,8 @@ function renderPermissionChecklist(needs = {}) {
     { action: 'test', label: 'Teste', ok: true }
   ];
 
-  permissionChecklist.hidden = false;
-  permissionChecklist.innerHTML = items.map((item) => `
+  target.hidden = false;
+  target.innerHTML = items.map((item) => `
     <button type="button" class="permission-step-btn${item.ok ? ' is-ok' : ''}" data-permission-action="${item.action}">
       <span>${item.label}</span>
       <strong class="permission-step-state">${item.ok ? 'OK' : 'Abrir'}</strong>
@@ -1730,6 +1917,7 @@ async function openPermissionAction(action) {
 
   window.setTimeout(() => {
     showPaymentReliabilityPromptIfNeeded(localNotifications).catch(() => {});
+    refreshSettingsPermissionChecklist().catch(() => {});
   }, 800);
 }
 
