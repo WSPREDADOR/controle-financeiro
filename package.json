@@ -1,6 +1,6 @@
 {
   "name": "controle-financeiro",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Aplicativo desktop para controle de compromissos e pagamentos.",
   "main": "main.js",
   "author": {
@@ -24,6 +24,7 @@
     "@capacitor/android": "^7.1.0",
     "@capacitor/app": "^7.1.2",
     "@capacitor/core": "^7.1.0",
+    "@capacitor/filesystem": "^7.1.8",
     "@capacitor/local-notifications": "^7.0.6",
     "@capacitor/preferences": "^8.0.1"
   },

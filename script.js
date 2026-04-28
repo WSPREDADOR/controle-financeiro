@@ -184,7 +184,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.9.0',
+  currentVersion: '1.9.1',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -803,6 +803,11 @@ document.querySelectorAll('input[name="createPlanType"]').forEach(radio => {
 });
 
 updatePrimaryBtn?.addEventListener('click', () => {
+  if (updateBannerTitle?.textContent === 'Instalador encontrado!') {
+    installLocalApk();
+    return;
+  }
+
   if (availableUpdate?.apkUrl) {
     startApkUpdate(availableUpdate);
     return;
@@ -1699,6 +1704,10 @@ function getNotificationPermissionsPlugin() {
   return window.Capacitor?.Plugins?.NotificationPermissions ?? null;
 }
 
+function getFilesystemPlugin() {
+  return window.Capacitor?.Plugins?.Filesystem ?? null;
+}
+
 async function getPaymentNotificationPermissionState() {
   const plugin = getLocalNotificationsPlugin();
 
@@ -1878,7 +1887,8 @@ async function getPaymentReliabilityNeeds(plugin, options = {}) {
     exactAlarm: false,
     batteryOptimization: false,
     vendorAutostart: false,
-    vendorLockScreen: false
+    vendorLockScreen: false,
+    storage: false
   };
 
   try {
@@ -1907,6 +1917,14 @@ async function getPaymentReliabilityNeeds(plugin, options = {}) {
     }
   } catch (_) {}
 
+  try {
+    const fs = getFilesystemPlugin();
+    if (fs) {
+      const status = await fs.checkPermissions();
+      needs.storage = status.publicStorage !== 'granted';
+    }
+  } catch (_) {}
+
   return needs;
 }
 
@@ -1921,6 +1939,7 @@ function renderPermissionChecklist(target, needs = {}) {
     { action: 'battery', label: 'Bateria', ok: !needs.batteryOptimization },
     { action: 'autostart', label: 'Início auto', ok: !needs.vendorAutostart },
     { action: 'lockscreen', label: 'Tela bloqueio', ok: !needs.vendorLockScreen },
+    { action: 'storage', label: 'Armazenamento', ok: !needs.storage },
     { action: 'test', label: 'Teste', ok: true }
   ];
 
@@ -1961,6 +1980,9 @@ async function openPermissionAction(action) {
       break;
     case 'lockscreen':
       await requestVendorLockScreenAccess();
+      break;
+    case 'storage':
+      await requestStorageAccess();
       break;
     case 'test':
       await scheduleTestNotification();
@@ -2038,10 +2060,6 @@ async function requestVendorAutostartAccess() {
 async function requestVendorLockScreenAccess() {
   const plugin = getNotificationPermissionsPlugin();
 
-  if (!plugin?.openManufacturerAppPermissionsSettings) {
-    return;
-  }
-
   localStorage.setItem(NOTIFICATION_VENDOR_LOCKSCREEN_KEY, 'opened');
   setStatus('Na tela de notificações, confira som, pop-up e tela de bloqueio. Se não aparecer, volte e ajuste nas permissões especiais.', 'success');
 
@@ -2051,6 +2069,17 @@ async function requestVendorLockScreenAccess() {
   }
 
   await plugin.openManufacturerAppPermissionsSettings();
+}
+
+async function requestStorageAccess() {
+  const fs = getFilesystemPlugin();
+  if (!fs) return 'granted';
+  try {
+    const result = await fs.requestPermissions();
+    return result.publicStorage;
+  } catch (_) {
+    return 'denied';
+  }
 }
 
 async function scheduleTestNotification() {
@@ -2369,6 +2398,62 @@ async function checkForUpdates(options = {}) {
   } finally {
     isUpdateCheckInFlight = false;
   }
+
+  // Novo: Scaneia por APK já baixado se não houver banner de atualização remota
+  if (!availableUpdate && (updateBanner && updateBanner.hidden)) {
+    await scanForDownloadedUpdate();
+  }
+}
+
+async function scanForDownloadedUpdate() {
+  const fs = getFilesystemPlugin();
+  if (!fs) return;
+
+  try {
+    // Verifica se temos permissão
+    const status = await fs.checkPermissions();
+    if (status.publicStorage !== 'granted') return;
+
+    // Tentamos listar a pasta de Downloads
+    const result = await fs.readdir({
+      path: 'Download',
+      directory: 'EXTERNAL_STORAGE'
+    }).catch(() => null);
+
+    if (!result?.files) return;
+
+    // Procuramos por app-release.apk ou similar
+    const apkFile = result.files.find(f => f.name.toLowerCase() === 'app-release.apk');
+    
+    if (apkFile) {
+       showUpdateBanner(
+         'Instalador encontrado!',
+         'Encontramos o arquivo de atualização (APK) na sua pasta de Downloads. Deseja instalar agora?',
+         'Local',
+         null
+       );
+    }
+  } catch (_) {}
+}
+
+async function installLocalApk() {
+  const fs = getFilesystemPlugin();
+  const installer = window.Capacitor?.Plugins?.UpdateInstaller;
+  if (!fs || !installer?.installApk) return;
+
+  try {
+    const uriResult = await fs.getUri({
+      path: 'Download/app-release.apk',
+      directory: 'EXTERNAL_STORAGE'
+    });
+
+    if (uriResult?.uri) {
+      await installer.installApk({ path: uriResult.uri });
+    }
+  } catch (error) {
+    console.error('Falha ao instalar APK local:', error);
+    setStatus('Falha ao abrir o instalador. Verifique as permissões de armazenamento.', 'error');
+  }
 }
 
 function buildManifestUrls(config) {
@@ -2584,7 +2669,11 @@ function showUpdateBanner(title, message, version, apkUrl = null) {
   
   updatePrimaryBtn.hidden = false;
   updatePrimaryBtn.disabled = false;
-  updatePrimaryBtn.textContent = apkUrl ? 'Baixar Atualização (APK)' : `Atualizar para ${version}`;
+  if (version === 'Local') {
+    updatePrimaryBtn.textContent = 'Instalar Agora';
+  } else {
+    updatePrimaryBtn.textContent = apkUrl ? 'Baixar Atualização (APK)' : `Atualizar para ${version}`;
+  }
 
   if (updateNativeBtn) {
     updateNativeBtn.hidden = true;

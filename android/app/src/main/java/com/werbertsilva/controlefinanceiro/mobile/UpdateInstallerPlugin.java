@@ -118,6 +118,44 @@ public class UpdateInstallerPlugin extends Plugin {
         call.resolve();
     }
 
+    @PluginMethod
+    public void installApk(PluginCall call) {
+        String path = call.getString("path");
+        if (path == null || path.isEmpty()) {
+            call.reject("Caminho do arquivo não informado.");
+            return;
+        }
+
+        File apkFile = new File(path);
+        if (!apkFile.exists()) {
+             if (path.startsWith("file://")) {
+                 apkFile = new File(Uri.parse(path).getPath());
+             }
+        }
+
+        if (!apkFile.exists()) {
+            call.reject("Arquivo não encontrado: " + path);
+            return;
+        }
+
+        try {
+            Uri contentUri = FileProvider.getUriForFile(
+                getContext(),
+                getContext().getPackageName() + ".fileprovider",
+                apkFile
+            );
+
+            Intent installIntent = new Intent(Intent.ACTION_VIEW);
+            installIntent.setDataAndType(contentUri, "application/vnd.android.package-archive");
+            installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContext().startActivity(installIntent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Erro ao instalar APK: " + e.getMessage());
+        }
+    }
+
     private void installDownloadedApk() {
         if (downloadManager == null || activeDownloadId < 0) {
             return;
