@@ -1,8 +1,8 @@
 {
-  "version": "1.5.9",
-  "notes": "Ajusta filtros e largura dos cards de despesas no mobile.",
+  "version": "1.6.0",
+  "notes": "Resumo de compromissos agora acompanha os filtros Todos, Dívidas e Despesas.",
   "publishedAt": "2026-04-28",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777374774962",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777374774962",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.9/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777376040407",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777376040407",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.6.0/app-release.apk"
 }

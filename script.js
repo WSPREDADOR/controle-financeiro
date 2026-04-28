@@ -146,7 +146,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.5.9',
+  currentVersion: '1.6.0',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -708,11 +708,7 @@ function renderPlanDetails(plan, options = {}) {
 function renderPlansList() {
   plansList.innerHTML = '';
 
-  const filteredPlans = plans.filter((plan) => {
-    if (currentPlanFilter === 'debt') return !plan.isExpense;
-    if (currentPlanFilter === 'expense') return plan.isExpense;
-    return true;
-  });
+  const filteredPlans = getFilteredPlans();
 
   if (filteredPlans.length === 0) {
     plansList.innerHTML = `
@@ -1150,6 +1146,18 @@ function setEditStatus(message, type) {
 
 function getSelectedPlan() {
   return plans.find((plan) => plan.id === selectedPlanId) ?? null;
+}
+
+function getFilteredPlans() {
+  if (currentPlanFilter === 'debt') {
+    return plans.filter((plan) => !plan.isExpense);
+  }
+
+  if (currentPlanFilter === 'expense') {
+    return plans.filter((plan) => plan.isExpense);
+  }
+
+  return plans;
 }
 
 function createPlanId() {
@@ -2300,7 +2308,8 @@ function openUpdateUrl(url) {
 }
 
 function updatePlansSummary(visibleNumber = 0) {
-  plansTotalCount.textContent = String(plans.length);
+  const filteredPlans = getFilteredPlans();
+  plansTotalCount.textContent = String(filteredPlans.length);
   plansVisibleCount.textContent = String(visibleNumber || 0);
   plansSelectedCount.textContent = String(getSelectedPlanNumber());
 }
@@ -2343,7 +2352,7 @@ function getSelectedPlanNumber() {
     return 0;
   }
 
-  const selectedIndex = plans.findIndex((plan) => plan.id === selectedPlanId);
+  const selectedIndex = getFilteredPlans().findIndex((plan) => plan.id === selectedPlanId);
   return selectedIndex >= 0 ? selectedIndex + 1 : 0;
 }
 
