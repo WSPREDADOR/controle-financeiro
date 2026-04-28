@@ -36,7 +36,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v1.5.8</strong>
+            <strong id="appVersionLabel">v1.5.9</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -95,8 +95,9 @@
         </div>
 
         <div class="create-launcher">
-          <div class="button-row create-launcher-actions">
-            <button type="button" id="openCreateModalBtn" class="btn-primary">Adicionar compromisso</button>
+          <div class="button-row create-launcher-actions" style="display: flex; gap: 10px;">
+            <button type="button" id="openCreateModalBtn" class="btn-primary" style="flex: 1;">Adicionar</button>
+            <button type="button" id="openReorderModalBtn" class="btn-secondary" style="flex: 1;">Reorganizar</button>
           </div>
         </div>
       </section>
@@ -108,9 +109,10 @@
             <p>Selecione um compromisso salvo para abrir os detalhes dele.</p>
           </div>
 
-          <div class="panel-shortcuts">
-            <button type="button" class="nav-chip" id="goToFormBtn">Ir para cadastro</button>
-            <button type="button" class="nav-chip" id="openReorderModalBtn">Reorganizar</button>
+          <div class="panel-shortcuts" id="plansFilterNav" style="display: flex; gap: 8px;">
+            <button type="button" class="nav-chip active" data-filter="all">Todos</button>
+            <button type="button" class="nav-chip" data-filter="debt">Dívidas</button>
+            <button type="button" class="nav-chip" data-filter="expense">Despesas</button>
           </div>
 
           <div class="plans-summary" aria-label="Resumo dos compromissos">

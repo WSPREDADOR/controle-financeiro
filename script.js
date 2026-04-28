@@ -26,8 +26,8 @@ const dismissNotificationsBtn = document.getElementById('dismissNotificationsBtn
 const plansList = document.getElementById('plansList');
 const selectedPlanTitle = document.getElementById('selectedPlanTitle');
 const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
-const goToFormBtn = document.getElementById('goToFormBtn');
 const openCreateModalBtn = document.getElementById('openCreateModalBtn');
+const plansFilterNav = document.getElementById('plansFilterNav');
 const openReorderModalBtn = document.getElementById('openReorderModalBtn');
 const plansTotalCount = document.getElementById('plansTotalCount');
 const plansVisibleCount = document.getElementById('plansVisibleCount');
@@ -62,6 +62,7 @@ const closeReorderModalBtn = document.getElementById('closeReorderModalBtn');
 const closeDetailsModalBtn = document.getElementById('closeDetailsModalBtn');
 
 let plans = loadPlans();
+let currentPlanFilter = 'all';
 let selectedPlanId = plans[0]?.id ?? null;
 let editingPlanId = null;
 let pendingDeletePlanId = null;
@@ -145,7 +146,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.5.8',
+  currentVersion: '1.5.9',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -604,8 +605,13 @@ if (window.Capacitor?.Plugins?.App) {
   });
 }
 
-goToFormBtn.addEventListener('click', () => {
-  openCreateModal();
+plansFilterNav?.addEventListener('click', (event) => {
+  if (event.target.tagName === 'BUTTON') {
+    plansFilterNav.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    currentPlanFilter = event.target.dataset.filter;
+    renderPlansList();
+  }
 });
 
 const debtSpecificFields = document.getElementById('debtSpecificFields');
@@ -702,26 +708,32 @@ function renderPlanDetails(plan, options = {}) {
 function renderPlansList() {
   plansList.innerHTML = '';
 
-  if (plans.length === 0) {
+  const filteredPlans = plans.filter((plan) => {
+    if (currentPlanFilter === 'debt') return !plan.isExpense;
+    if (currentPlanFilter === 'expense') return plan.isExpense;
+    return true;
+  });
+
+  if (filteredPlans.length === 0) {
     plansList.innerHTML = `
       <div class="empty-state">
-        Nenhum compromisso salvo ainda. Cadastre algo como parcelas da moto, do carro ou da casa.
+        ${plans.length === 0 ? 'Nenhum compromisso salvo ainda. Cadastre algo como parcelas da moto, do carro ou da casa.' : 'Nenhum compromisso encontrado para este filtro.'}
       </div>
     `;
-    closeDetailsModal();
+    if (plans.length === 0) closeDetailsModal();
     updatePlansSummary(0);
     updateResultsNavigation();
     return;
   }
 
-  plans.forEach((plan, index) => {
+  filteredPlans.forEach((plan, index) => {
     const planStartDate = parseDateInput(plan.startDate);
     const planEndDate = addMonths(getEffectiveStartDate(planStartDate, plan.countMode), plan.totalMonths);
     const paidCount = getPaidMonths(plan).length;
     const progressRatio = plan.totalMonths > 0 ? clamp(paidCount / plan.totalMonths, 0, 1) : 0;
     const progressPercent = Math.round(progressRatio * 100);
     const item = document.createElement('div');
-    item.className = 'plan-entry';
+    item.className = `plan-entry${plan.isExpense ? ' is-expense-entry' : ''}`;
     item.dataset.planNumber = String(index + 1);
     item.dataset.planId = plan.id;
     item.innerHTML = `
@@ -732,15 +744,13 @@ function renderPlansList() {
             <span class="plan-duration-pill">${plan.isExpense ? 'Despesa' : `${plan.totalMonths} ${plan.totalMonths === 1 ? 'mês' : 'meses'}`}</span>
           </div>
           <strong class="plan-item-name">${escapeHtml(plan.name)}</strong>
-          ${plan.isExpense ? '' : `
           <div class="plan-progress-meta">
             <span class="plan-progress-label">Andamento</span>
-            <strong class="plan-progress-value">${progressPercent}%</strong>
+            <strong class="plan-progress-value">${plan.isExpense ? 'Contínuo' : `${progressPercent}%`}</strong>
           </div>
-          <div class="plan-progress" aria-hidden="true">
-            <span class="plan-progress-fill"></span>
+          <div class="plan-progress" aria-hidden="true" ${plan.isExpense ? 'style="opacity: 0.2;"' : ''}>
+            <span class="plan-progress-fill" ${plan.isExpense ? 'style="width: 100%; background: var(--text-muted);"' : ''}></span>
           </div>
-          `}
           <div class="plan-stat-grid">
             <div class="plan-stat-card">
               <span class="plan-stat-label">Início</span>
@@ -750,12 +760,10 @@ function renderPlansList() {
               <span class="plan-stat-label">Pagos</span>
               <strong class="plan-stat-value">${plan.isExpense ? paidCount : `${paidCount}/${plan.totalMonths}`}</strong>
             </div>
-            ${plan.isExpense ? '' : `
             <div class="plan-stat-card plan-stat-card-end">
               <span class="plan-stat-label">Fim</span>
-              <strong class="plan-stat-value">${formatMonthYearCompact(planEndDate)}</strong>
+              <strong class="plan-stat-value">${plan.isExpense ? 'Livre' : formatMonthYearCompact(planEndDate)}</strong>
             </div>
-            `}
           </div>
         </button>
         <div class="plan-item-actions">

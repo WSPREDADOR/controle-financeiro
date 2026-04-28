@@ -1530,6 +1530,14 @@ button.version-pill {
   color: var(--primary-strong);
 }
 
+.nav-chip.active {
+  background: var(--primary);
+  color: #080d11;
+  font-weight: 700;
+  border-color: var(--primary);
+  box-shadow: 0 0 12px rgba(85, 212, 203, 0.3);
+}
+
 .plan-delete-btn:hover,
 .nav-chip:hover,
 .inline-link-btn:hover,
@@ -2381,6 +2389,16 @@ button.version-pill {
     scroll-snap-align: start;
   }
 
+  .plan-entry.is-expense-entry {
+    width: 260px;
+    max-width: 82vw;
+    justify-self: start;
+  }
+
+  .plan-entry.is-expense-entry .plan-item {
+    width: 100%;
+  }
+
   .panel-shortcuts {
     display: grid;
     grid-auto-flow: column;
@@ -2399,6 +2417,19 @@ button.version-pill {
   .panel-shortcuts .nav-chip {
     width: 100%;
     scroll-snap-align: start;
+  }
+
+  #plansFilterNav {
+    flex-wrap: nowrap;
+  }
+
+  #plansFilterNav .nav-chip {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    padding-inline: 8px;
+    font-size: 0.86rem;
+    white-space: nowrap;
   }
 
   .stat-card {
