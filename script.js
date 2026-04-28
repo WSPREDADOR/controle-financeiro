@@ -184,7 +184,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.9.3',
+  currentVersion: '1.9.4',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1977,19 +1977,15 @@ async function openPermissionAction(action) {
       await requestExactNotificationAccess(localNotifications);
       break;
     case 'battery':
-      alert('Solicitando otimização de bateria...');
       await requestBatteryOptimizationAccess();
       break;
     case 'autostart':
-      alert('Abrindo configurações de Início Automático...');
       await requestVendorAutostartAccess();
       break;
     case 'lockscreen':
-      alert('Abrindo configurações de Tela de Bloqueio...');
       await requestVendorLockScreenAccess();
       break;
     case 'storage':
-      alert('Solicitando acesso a arquivos...');
       await requestStorageAccess();
       break;
     case 'test':
@@ -2104,7 +2100,6 @@ async function requestStorageAccess() {
     
     return status?.publicStorage ?? 'denied';
   } catch (e) {
-    alert('Erro ao solicitar arquivos: ' + e.message);
     await plugin.openAppSettings();
     return 'denied';
   }
