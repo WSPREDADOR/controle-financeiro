@@ -173,8 +173,12 @@
 
     <main class="dashboard">
       <section class="calculator-card calculator-card-compact">
-        <div class="section-heading">
+        <div class="section-heading" style="position: relative;">
           <span class="section-kicker">Área de Cadastro</span>
+          <div class="monthly-summary-badge">
+            <span class="monthly-summary-label">Total do Mês</span>
+            <strong id="monthlyTotalValue">R$ 0,00</strong>
+          </div>
           <h2>Adicionar compromisso</h2>
           <p>Registre aqui suas novas faturas e parcelas para acompanhamento.</p>
         </div>
@@ -291,6 +295,12 @@
                 <span class="meta-label">Contagem</span>
                 <strong id="countModeLabel">Aguardando dados</strong>
               </div>
+            </div>
+            
+            <div class="panel-actions" style="margin-top: 22px; display: flex; gap: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 22px;">
+              <button type="button" class="btn btn-primary" id="openBulkPaymentBtn" style="flex: 1; min-height: 52px; background: linear-gradient(135deg, #79e6df 0%, #55d4cb 100%); color: #082522; font-weight: 700;">
+                Antecipar Pagamentos / Dar Lance
+              </button>
             </div>
           </div>
 
@@ -529,6 +539,24 @@
       <div class="button-row modal-actions" style="margin-top: 24px; display: flex; gap: 10px;">
         <button type="button" id="confirmPromptValueBtn" class="btn-primary" style="flex: 1;">Salvar</button>
         <button type="button" id="cancelPromptValueBtn" class="btn-secondary" style="flex: 1;">Voltar</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="bulkPaymentModal" hidden>
+    <section class="edit-modal" role="dialog" aria-modal="true" style="width: min(100%, 360px); padding: 26px; border-radius: 30px;">
+      <div class="modal-heading" style="margin-bottom: 22px;">
+        <span class="section-kicker">Antecipação</span>
+        <h2 style="font-size: 1.4rem; margin: 4px 0;">Registrar Lance / Pagamento</h2>
+        <p style="font-size: 0.85rem; color: var(--muted); line-height: 1.4;">Informe o valor total pago para que o app dê baixa nas próximas parcelas automaticamente.</p>
+      </div>
+      <label class="input-group">
+        <span style="font-size: 0.9rem; color: var(--muted); margin-bottom: 8px; display: block;">Valor Pago (R$)</span>
+        <input type="text" id="bulkPaymentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric" style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">
+      </label>
+      <div class="button-row modal-actions" style="margin-top: 26px; display: flex; gap: 10px;">
+        <button type="button" id="confirmBulkPaymentBtn" class="btn-primary" style="flex: 1;">Confirmar Baixa</button>
+        <button type="button" id="cancelBulkPaymentBtn" class="btn-secondary" style="flex: 1;">Cancelar</button>
       </div>
     </section>
   </div>

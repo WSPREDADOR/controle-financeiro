@@ -104,6 +104,12 @@ let notificationSyncTimeoutId = null;
 let paymentNotificationListenersRegistered = false;
 let notificationBannerMode = 'notification';
 
+const bulkPaymentModal = document.getElementById('bulkPaymentModal');
+const bulkPaymentValueInput = document.getElementById('bulkPaymentValue');
+const confirmBulkPaymentBtn = document.getElementById('confirmBulkPaymentBtn');
+const cancelBulkPaymentBtn = document.getElementById('cancelBulkPaymentBtn');
+const openBulkPaymentBtn = document.getElementById('openBulkPaymentBtn');
+
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
@@ -171,7 +177,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.2',
+  currentVersion: '2.0.3',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -880,6 +886,43 @@ function renderPlanDetails(plan, options = {}) {
   }
 }
 
+function updateMonthlyTotal() {
+  const monthlyTotalEl = document.getElementById('monthlyTotalValue');
+  if (!monthlyTotalEl) return;
+
+  const today = normalizeDate(new Date());
+  let total = 0;
+
+  plans.forEach((plan) => {
+    const startDate = parseDateInput(plan.startDate);
+    const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
+    
+    // Para despesas e dívidas, percorremos as parcelas possíveis
+    // e somamos apenas a que corresponde ao mês atual.
+    const maxMonths = plan.isExpense ? (plan.totalMonths || 1200) : plan.totalMonths;
+    
+    for (let i = 1; i <= maxMonths; i++) {
+      const periodStart = addMonths(effectiveStartDate, i - 1);
+      const dueDate = addMonths(effectiveStartDate, i);
+      
+      if (today >= periodStart && today < dueDate) {
+        const manualValue = plan.manualMonthValues?.[i];
+        const displayValue = manualValue !== undefined ? manualValue : (plan.installmentValue || 0);
+        total += displayValue;
+        break; // Achou o mês atual, pula para o próximo plano
+      }
+    }
+  });
+
+  if (total > 0) {
+    monthlyTotalEl.textContent = `- ${formatCurrency(total)}`;
+    monthlyTotalEl.classList.add('is-negative');
+  } else {
+    monthlyTotalEl.textContent = formatCurrency(total);
+    monthlyTotalEl.classList.remove('is-negative');
+  }
+}
+
 function renderPlansList() {
   plansList.innerHTML = '';
 
@@ -894,6 +937,7 @@ function renderPlansList() {
     if (plans.length === 0) closeDetailsModal();
     updatePlansSummary(0);
     updateResultsNavigation();
+    updateMonthlyTotal(); // Atualiza o total mesmo vazio
     return;
   }
 
@@ -969,6 +1013,7 @@ function renderPlansList() {
   updateFocusedPlanCard(visibleNumber);
   updateResultsNavigation();
   schedulePlanFocusUpdate();
+  updateMonthlyTotal();
 }
 
 function renderMonthlyTimeline(plan, startDate, today, options = {}) {
@@ -1043,9 +1088,22 @@ function renderMonthlyTimeline(plan, startDate, today, options = {}) {
   }
 
   if (options.resetTimelineScroll) {
-    // On narrow screens the timeline becomes a horizontal scroller.
-    // Resetting it keeps the first visible card aligned with the plan start month.
-    monthlyContainer.scrollLeft = 0;
+    // Busca o primeiro card que não está pago para focar nele automaticamente
+    const firstUnpaidCard = monthlyContainer.querySelector('.month-card:not(.is-paid)');
+    
+    if (firstUnpaidCard) {
+      // Usamos um pequeno timeout para garantir que o modal já terminou de abrir
+      // e que o container está pronto para o scroll.
+      window.setTimeout(() => {
+        firstUnpaidCard.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest', 
+          inline: 'start' 
+        });
+      }, 100);
+    } else {
+      monthlyContainer.scrollLeft = 0;
+    }
   }
 }
 
@@ -3078,6 +3136,79 @@ function initFinancialLogic() {
     promptValueModal.hidden = true;
     syncModalBodyState();
   });
+
+  // --- Lógica de Pagamento Antecipado (Lance) ---
+  openBulkPaymentBtn?.addEventListener('click', () => {
+    const plan = getSelectedPlan();
+    if (!plan) return;
+    bulkPaymentValueInput.value = '';
+    bulkPaymentModal.hidden = false;
+    syncModalBodyState();
+    window.setTimeout(() => bulkPaymentValueInput.focus(), 20);
+  });
+
+  cancelBulkPaymentBtn?.addEventListener('click', () => {
+    bulkPaymentModal.hidden = true;
+    syncModalBodyState();
+  });
+
+  confirmBulkPaymentBtn?.addEventListener('click', () => {
+    const amount = parseCurrencyToNumber(bulkPaymentValueInput.value);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Por favor, informe um valor válido para o pagamento.');
+      return;
+    }
+
+    const plan = getSelectedPlan();
+    if (!plan) return;
+
+    processBulkPayment(plan, amount);
+    
+    bulkPaymentModal.hidden = true;
+    syncModalBodyState();
+  });
+
+  function processBulkPayment(plan, amount) {
+    let remainingAmount = amount;
+    const paidMonths = new Set(getPaidMonths(plan));
+    const maxMonths = plan.isExpense ? 1200 : plan.totalMonths;
+    let count = 0;
+
+    // Percorre as parcelas futuras que não estão pagas
+    for (let i = 1; i <= maxMonths; i++) {
+      if (paidMonths.has(i)) continue;
+
+      const installmentValue = plan.manualMonthValues?.[i] || plan.installmentValue || 0;
+      
+      // Se a parcela não tiver valor, consideramos o valor padrão do plano
+      const valueToCompare = installmentValue > 0 ? installmentValue : (plan.installmentValue || 0);
+      
+      if (valueToCompare <= 0) continue; 
+
+      if (remainingAmount >= valueToCompare) {
+        paidMonths.add(i);
+        remainingAmount -= valueToCompare;
+        count++;
+      } else {
+        // O saldo acabou ou não cobre a próxima parcela inteira
+        break;
+      }
+      
+      if (remainingAmount <= 0) break;
+    }
+
+    if (count > 0) {
+      plan.paidMonths = [...paidMonths].sort((a, b) => a - b);
+      savePlans();
+      renderPlansList();
+      renderPlanDetails(plan);
+      
+      const changeMsg = remainingAmount > 0 ? ` (Sobrou ${formatCurrency(remainingAmount)} de saldo não utilizado)` : '';
+      setStatus(`Excelente! ${count} parcelas foram quitadas automaticamente com o valor de ${formatCurrency(amount)}.${changeMsg}`, 'success');
+    } else {
+      setStatus(`O valor informado não é suficiente para quitar a próxima parcela de ${formatCurrency(plan.installmentValue)}.`, 'error');
+    }
+  }
 }
 
 function handleCurrencyInput(e) {

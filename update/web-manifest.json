@@ -1,8 +1,8 @@
 {
-  "version": "2.0.2",
-  "notes": "Simplificação do sistema de permissões e correções de estabilidade.",
-  "publishedAt": "2026-04-28",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777416550000",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777416550000",
+  "version": "2.0.3",
+  "notes": "Novidade: Saldo mensal colorido (vermelho para dívidas), sistema de antecipação de parcelas (lances) e navegação inteligente direto na parcela pendente.",
+  "publishedAt": "2026-04-29",
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/raw/main/update/app-release.apk"
 }
