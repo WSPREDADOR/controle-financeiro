@@ -1,8 +1,8 @@
 {
-  "version": "1.9.4",
-  "notes": "Atualizacao do aplicativo Android via APK na versao 1.9.4.",
+  "version": "1.9.6",
+  "notes": "Simplificação do sistema de permissões e correções de estabilidade.",
   "publishedAt": "2026-04-28",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777411473073",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777411473073",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.9.4/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777415942359",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777415942359",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.9.5/app-release.apk"
 }

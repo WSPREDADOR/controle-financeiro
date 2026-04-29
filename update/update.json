@@ -1,6 +1,6 @@
 {
-  "version": "1.9.4",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.9.4/app-release.apk",
-  "notes": "Atualizacao do aplicativo Android via APK na versao 1.9.4.",
+  "version": "1.9.6",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.9.6/app-release.apk",
+  "notes": "Simplificação do sistema de permissões e correções de estabilidade.",
   "publishedAt": "2026-04-28"
 }

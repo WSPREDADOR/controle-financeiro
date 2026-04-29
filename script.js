@@ -20,20 +20,10 @@ const updateProgress = document.getElementById('updateProgress');
 const updateProgressLabel = document.getElementById('updateProgressLabel');
 const updateProgressPercent = document.getElementById('updateProgressPercent');
 const updateProgressBar = document.getElementById('updateProgressBar');
-const notificationBanner = document.getElementById('notificationBanner');
-const notificationBannerTitle = document.getElementById('notificationBannerTitle');
-const notificationBannerMessage = document.getElementById('notificationBannerMessage');
-const permissionChecklist = document.getElementById('permissionChecklist');
-const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
-const dismissNotificationsBtn = document.getElementById('dismissNotificationsBtn');
 const openAppSettingsModalBtn = document.getElementById('openAppSettingsModalBtn');
 const appSettingsModal = document.getElementById('appSettingsModal');
 const closeAppSettingsModalBtn = document.getElementById('closeAppSettingsModalBtn');
-const settingsPermissionChecklist = document.getElementById('settingsPermissionChecklist');
-const openNativeAppSettingsBtn = document.getElementById('openNativeAppSettingsBtn');
-const togglePermissionsBtn = document.getElementById('togglePermissionsBtn');
 const appDetailsSection = document.getElementById('appDetailsSection');
-const permissionsSection = document.getElementById('permissionsSection');
 const settingsAppVersion = document.getElementById('settingsAppVersion');
 const settingsAppRelease = document.getElementById('settingsAppRelease');
 const contactDevBtn = document.getElementById('contactDevBtn');
@@ -112,16 +102,12 @@ let isUpdateInstallInFlight = false;
 let updateBannerHoldUntil = 0;
 let notificationSyncTimeoutId = null;
 let paymentNotificationListenersRegistered = false;
-let notificationBannerMode = 'notification';
+
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
-const NOTIFICATION_RELIABILITY_PROMPT_KEY = 'payment-notifications-reliability-dismissed-v1';
-const NOTIFICATION_EXACT_SCREEN_OPENED_KEY = 'payment-notifications-exact-screen-opened-v1';
-const NOTIFICATION_BATTERY_SCREEN_OPENED_KEY = 'payment-notifications-battery-screen-opened-v1';
-const NOTIFICATION_VENDOR_AUTOSTART_KEY = 'payment-notifications-vendor-autostart-opened-v1';
-const NOTIFICATION_VENDOR_LOCKSCREEN_KEY = 'payment-notifications-vendor-lockscreen-opened-v1';
+
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
 const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
@@ -184,7 +170,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.9.4',
+  currentVersion: '1.9.6',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -592,24 +578,6 @@ closeAppSettingsModalBtn?.addEventListener('click', () => {
 
 openNativeAppSettingsBtn?.addEventListener('click', async () => {
   await getNotificationPermissionsPlugin()?.openAppSettings?.();
-});
-
-togglePermissionsBtn?.addEventListener('click', () => {
-  const showingPermissions = !permissionsSection.hidden;
-  
-  if (showingPermissions) {
-    permissionsSection.hidden = true;
-    appDetailsSection.hidden = false;
-    togglePermissionsBtn.textContent = 'Permissões';
-    togglePermissionsBtn.classList.remove('btn-secondary');
-    togglePermissionsBtn.classList.add('btn-primary');
-  } else {
-    appDetailsSection.hidden = true;
-    permissionsSection.hidden = false;
-    togglePermissionsBtn.textContent = 'Voltar aos Detalhes';
-    togglePermissionsBtn.classList.remove('btn-primary');
-    togglePermissionsBtn.classList.add('btn-secondary');
-  }
 });
 
 contactDevBtn?.addEventListener('click', async () => {
@@ -1156,8 +1124,13 @@ function clamp(value, min, max) {
 }
 
 function setStatus(message, type) {
+  if (!statusMessage) {
+    return;
+  }
+
   statusMessage.textContent = message;
   statusMessage.className = 'status-message';
+  statusMessage.hidden = !message;
 
   if (type) {
     statusMessage.classList.add(type);
@@ -1301,10 +1274,6 @@ async function openAppSettingsModal() {
   }
 
   appDetailsSection.hidden = false;
-  permissionsSection.hidden = true;
-  togglePermissionsBtn.textContent = 'Permissões';
-  togglePermissionsBtn.classList.remove('btn-secondary');
-  togglePermissionsBtn.classList.add('btn-primary');
 
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
   if (settingsAppVersion) settingsAppVersion.textContent = `v${getCurrentAppVersion(config)}`;
@@ -1312,7 +1281,6 @@ async function openAppSettingsModal() {
 
   appSettingsModal.hidden = false;
   syncModalBodyState();
-  await refreshSettingsPermissionChecklist();
   window.setTimeout(() => {
     closeAppSettingsModalBtn?.focus();
   }, 20);
@@ -1327,16 +1295,7 @@ function closeAppSettingsModal() {
   syncModalBodyState();
 }
 
-async function refreshSettingsPermissionChecklist() {
-  if (!settingsPermissionChecklist) {
-    return;
-  }
 
-  const needs = await getPaymentReliabilityNeeds(getLocalNotificationsPlugin(), {
-    respectOpenedFlags: false
-  });
-  renderPermissionChecklist(settingsPermissionChecklist, needs);
-}
 
 function renderReorderList() {
   reorderList.innerHTML = '';
@@ -1597,14 +1556,9 @@ function updateDisplayedAppVersion() {
 }
 
 async function initializePaymentNotifications() {
-  if (!notificationBanner || !enableNotificationsBtn || !dismissNotificationsBtn) {
-    return;
-  }
-
   const plugin = getLocalNotificationsPlugin();
 
   if (!plugin) {
-    hideNotificationBanner();
     return;
   }
 
@@ -1614,32 +1568,27 @@ async function initializePaymentNotifications() {
     if (permission === 'granted') {
       localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'enabled');
       await createPaymentNotificationChannel();
-      await showPaymentReliabilityPromptIfNeeded(plugin);
       queuePaymentNotificationSync();
       registerPaymentNotificationListeners();
       return;
     }
 
-    if (localStorage.getItem(NOTIFICATION_PREFERENCE_KEY) === 'dismissed') {
-      hideNotificationBanner();
-      return;
+    // Se ainda não foi solicitado ou recusado, tenta ativar uma vez no início
+    if (localStorage.getItem(NOTIFICATION_PREFERENCE_KEY) !== 'denied') {
+      await enablePaymentNotifications();
     }
-
-    showNotificationBanner(
-      'Ativar notificações de pagamento',
-      'Receba um aviso quando chegar o mês de pagar um compromisso ainda pendente.',
-      true,
-      'notification',
-      'Ativar notificações'
-    );
   } catch (_) {
-    hideNotificationBanner();
   }
 }
 
 function handleNotificationBannerPrimaryAction() {
   if (notificationBannerMode === 'reliability') {
     requestAndSyncPaymentReliabilityAccess();
+    return;
+  }
+
+  if (notificationBannerMode === 'notification-settings') {
+    openNotificationPermissionSettings();
     return;
   }
 
@@ -1650,49 +1599,23 @@ async function enablePaymentNotifications() {
   const plugin = getLocalNotificationsPlugin();
 
   if (!plugin) {
-    setStatus('Notificações locais não estão disponíveis neste dispositivo.', 'error');
     return;
   }
-
-  enableNotificationsBtn.disabled = true;
-  enableNotificationsBtn.textContent = 'Ativando...';
 
   try {
     const permission = await requestPaymentNotificationPermission();
 
     if (permission !== 'granted') {
       localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'denied');
-      showNotificationBanner(
-        'Permissão de notificação bloqueada',
-        'Ative as notificações nas configurações do app para receber lembretes de pagamento.',
-        true,
-        'notification',
-        'Ativar notificações'
-      );
-      setStatus('Não foi possível ativar os lembretes porque a permissão de notificação não foi concedida.', 'error');
       return;
     }
 
     localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, 'enabled');
     await createPaymentNotificationChannel();
-    await requestPaymentReliabilityAccess(plugin);
-    const scheduledCount = await syncPaymentNotifications();
+    await syncPaymentNotifications();
     registerPaymentNotificationListeners();
-    showNotificationBanner(
-      'Notificações ativadas',
-      scheduledCount > 0
-        ? `${scheduledCount} lembretes de pagamento foram programados.`
-        : 'Tudo pronto. Os próximos compromissos pendentes serão lembrados automaticamente.',
-      false,
-      'notification'
-    );
     setStatus('Notificações de pagamento ativadas com sucesso.', 'success');
-    window.setTimeout(() => hideNotificationBanner(), 3600);
   } catch (_) {
-    setStatus('Não foi possível ativar as notificações agora. Tente novamente em alguns instantes.', 'error');
-  } finally {
-    enableNotificationsBtn.disabled = false;
-    enableNotificationsBtn.textContent = 'Ativar notificações';
   }
 }
 
@@ -1708,26 +1631,86 @@ function getFilesystemPlugin() {
   return window.Capacitor?.Plugins?.Filesystem ?? null;
 }
 
+function getUpdateInstallerPlugin() {
+  return window.Capacitor?.Plugins?.UpdateInstaller ?? null;
+}
+
+function getNativePlatform() {
+  return window.Capacitor?.getPlatform?.() ?? null;
+}
+
+function isNativeAndroidApp() {
+  return getNativePlatform() === 'android';
+}
+
+function normalizePermissionState(state) {
+  return typeof state === 'string' && state.trim()
+    ? state.trim().toLowerCase()
+    : 'denied';
+}
+
+async function getNativePermissionStatus() {
+  const plugin = getNotificationPermissionsPlugin();
+
+  if (!plugin?.getStatus) {
+    return null;
+  }
+
+  try {
+    return await plugin.getStatus();
+  } catch (_) {
+    return null;
+  }
+}
+
 async function getPaymentNotificationPermissionState() {
   const plugin = getLocalNotificationsPlugin();
 
-  if (!plugin?.checkPermissions) {
-    return 'denied';
+  if (plugin?.checkPermissions) {
+    try {
+      const permission = await plugin.checkPermissions();
+      return normalizePermissionState(permission?.display);
+    } catch (_) {}
   }
 
-  const permission = await plugin.checkPermissions();
-  return permission?.display ?? 'denied';
+  const nativeStatus = await getNativePermissionStatus();
+
+  if (nativeStatus?.notificationsEnabled) {
+    return 'granted';
+  }
+
+  return normalizePermissionState(nativeStatus?.notificationPermissionState);
 }
 
 async function requestPaymentNotificationPermission() {
   const plugin = getLocalNotificationsPlugin();
+  const nativePermissions = getNotificationPermissionsPlugin();
+  let state = 'denied';
 
-  if (!plugin?.requestPermissions) {
-    return 'denied';
+  if (plugin?.requestPermissions) {
+    try {
+      const permission = await plugin.requestPermissions();
+      state = normalizePermissionState(permission?.display);
+    } catch (_) {}
   }
 
-  const permission = await plugin.requestPermissions();
-  return permission?.display ?? 'denied';
+  if (state === 'granted') {
+    return state;
+  }
+
+  if (nativePermissions?.requestNotificationPermission) {
+    try {
+      const nativeStatus = await nativePermissions.requestNotificationPermission();
+
+      if (nativeStatus?.notificationsEnabled || nativeStatus?.notificationPermissionState === 'granted') {
+        return 'granted';
+      }
+
+      return normalizePermissionState(nativeStatus?.notificationPermissionState || state);
+    } catch (_) {}
+  }
+
+  return state;
 }
 
 async function createPaymentNotificationChannel() {
@@ -1752,358 +1735,29 @@ async function createPaymentNotificationChannel() {
   } catch (_) {}
 }
 
-async function requestPaymentReliabilityAccess(plugin) {
-  const needs = await getPaymentReliabilityNeeds(plugin);
 
-  if (needs.exactAlarm) {
-    await requestExactNotificationAccess(plugin);
-    return;
-  }
 
-  if (needs.batteryOptimization) {
-    await requestBatteryOptimizationAccess();
-    return;
-  }
 
-  if (needs.vendorAutostart) {
-    await requestVendorAutostartAccess();
-    return;
-  }
 
-  if (needs.vendorLockScreen) {
-    await requestVendorLockScreenAccess();
-  }
-}
 
-async function requestAndSyncPaymentReliabilityAccess() {
-  const plugin = getLocalNotificationsPlugin();
 
-  if (!plugin) {
-    setStatus('Notificações locais não estão disponíveis neste dispositivo.', 'error');
-    return;
-  }
 
-  enableNotificationsBtn.disabled = true;
-  enableNotificationsBtn.textContent = 'Abrindo...';
 
-  try {
-    localStorage.removeItem(NOTIFICATION_RELIABILITY_PROMPT_KEY);
-    await openNextPermissionStep(plugin);
-    const scheduledCount = await syncPaymentNotifications();
-    await showPaymentReliabilityPromptIfNeeded(plugin);
 
-    setStatus(
-      scheduledCount > 0
-        ? `${scheduledCount} lembretes foram reprogramados com as permissões atuais.`
-        : 'Permissões revisadas. Os próximos lembretes serão programados automaticamente.',
-      'success'
-    );
-  } catch (_) {
-    setStatus('Não foi possível abrir os ajustes de permissões agora.', 'error');
-  } finally {
-    enableNotificationsBtn.disabled = false;
-    enableNotificationsBtn.textContent = 'Ajustar permissões';
-  }
-}
-
-async function openNextPermissionStep(plugin) {
-  const needs = await getPaymentReliabilityNeeds(plugin);
-
-  if (needs.notification) {
-    await enablePaymentNotifications();
-    return;
-  }
-
-  if (needs.exactAlarm) {
-    await openPermissionAction('exact');
-    return;
-  }
-
-  if (needs.batteryOptimization) {
-    await openPermissionAction('battery');
-    return;
-  }
-
-  if (needs.vendorAutostart) {
-    await openPermissionAction('autostart');
-    return;
-  }
-
-  if (needs.vendorLockScreen) {
-    await openPermissionAction('lockscreen');
-  }
-}
-
-async function showPaymentReliabilityPromptIfNeeded(plugin) {
-  if (localStorage.getItem(NOTIFICATION_RELIABILITY_PROMPT_KEY) === 'dismissed') {
-    hideNotificationBanner();
-    return false;
-  }
-
-  const needs = await getPaymentReliabilityNeeds(plugin);
-  renderPermissionChecklist(permissionChecklist, needs);
-
-  if (!needs.notification && !needs.exactAlarm && !needs.batteryOptimization && !needs.vendorAutostart && !needs.vendorLockScreen) {
-    hideNotificationBanner();
-    return false;
-  }
-
-  const pendingLabels = [];
-
-  if (needs.notification) {
-    pendingLabels.push('notificações');
-  }
-
-  if (needs.exactAlarm) {
-    pendingLabels.push('alarmes exatos');
-  }
-
-  if (needs.batteryOptimization) {
-    pendingLabels.push('bateria em segundo plano');
-  }
-
-  if (needs.vendorAutostart) {
-    pendingLabels.push('início automático');
-  }
-
-  if (needs.vendorLockScreen) {
-    pendingLabels.push('tela de bloqueio');
-  }
-
-  showNotificationBanner(
-    'Concluir permissões de lembrete',
-    `Pendências: ${pendingLabels.join(', ')}. Use os botões abaixo e habilite o Controle de Dívidas quando a tela do Android aparecer.`,
-    true,
-    'reliability',
-    'Abrir próxima'
-  );
-  return true;
-}
-
-async function getPaymentReliabilityNeeds(plugin, options = {}) {
-  const respectOpenedFlags = options.respectOpenedFlags !== false;
-  const needs = {
-    notification: false,
-    exactAlarm: false,
-    batteryOptimization: false,
-    vendorAutostart: false,
-    vendorLockScreen: false,
-    storage: false
-  };
-
-  try {
-    needs.notification = await getPaymentNotificationPermissionState() !== 'granted';
-  } catch (_) {}
-
-  try {
-    if (plugin?.checkExactNotificationSetting) {
-      const exactStatus = await plugin.checkExactNotificationSetting();
-      needs.exactAlarm = exactStatus?.exact_alarm !== 'granted'
-        && (!respectOpenedFlags || localStorage.getItem(NOTIFICATION_EXACT_SCREEN_OPENED_KEY) !== 'opened');
-    }
-  } catch (_) {}
-
-  const nativePermissions = getNotificationPermissionsPlugin();
-
-  try {
-    if (nativePermissions?.getStatus) {
-      const nativeStatus = await nativePermissions.getStatus();
-      needs.batteryOptimization = nativeStatus?.batteryOptimizationIgnored === false
-        && (!respectOpenedFlags || localStorage.getItem(NOTIFICATION_BATTERY_SCREEN_OPENED_KEY) !== 'opened');
-      needs.vendorAutostart = Boolean(nativeStatus?.hasManufacturerPermissionScreens)
-        && (!respectOpenedFlags || localStorage.getItem(NOTIFICATION_VENDOR_AUTOSTART_KEY) !== 'opened');
-      needs.vendorLockScreen = Boolean(nativeStatus?.hasManufacturerPermissionScreens)
-        && (!respectOpenedFlags || localStorage.getItem(NOTIFICATION_VENDOR_LOCKSCREEN_KEY) !== 'opened');
-    }
-  } catch (_) {}
-
-  try {
-    const fs = getFilesystemPlugin();
-    if (fs) {
-      const status = await fs.checkPermissions();
-      needs.storage = status.publicStorage !== 'granted';
-    }
-  } catch (_) {}
-
-  return needs;
-}
-
-function renderPermissionChecklist(target, needs = {}) {
-  if (!target) {
-    return;
-  }
-
-  const items = [
-    { action: 'notification', label: 'Notificações', ok: !needs.notification },
-    { action: 'exact', label: 'Alarmes', ok: !needs.exactAlarm },
-    { action: 'battery', label: 'Bateria', ok: !needs.batteryOptimization },
-    { action: 'autostart', label: 'Início auto', ok: !needs.vendorAutostart },
-    { action: 'lockscreen', label: 'Tela bloqueio', ok: !needs.vendorLockScreen },
-    { action: 'storage', label: 'Armazenamento', ok: !needs.storage },
-    { action: 'test', label: 'Teste', ok: true }
-  ];
-
-  target.hidden = false;
-  target.innerHTML = items.map((item) => `
-    <button type="button" class="permission-step-btn${item.ok ? ' is-ok' : ''}" data-permission-action="${item.action}">
-      <span>${item.label}</span>
-      <strong class="permission-step-state">${item.ok ? 'OK' : 'Abrir'}</strong>
-    </button>
-  `).join('');
-}
-
-function hidePermissionChecklist() {
-  if (!permissionChecklist) {
-    return;
-  }
-
-  permissionChecklist.hidden = true;
-  permissionChecklist.innerHTML = '';
-}
-
-async function openPermissionAction(action) {
-  const localNotifications = getLocalNotificationsPlugin();
-  const nativePermissions = getNotificationPermissionsPlugin();
-
-  if (!nativePermissions && action !== 'notification' && action !== 'test') {
-    alert('Erro: Plugin de permissões nativas não encontrado. Por favor, reinstale o app v1.9.1.');
-  }
-
-  switch (action) {
-    case 'notification':
-      await enablePaymentNotifications();
-      return;
-    case 'exact':
-      await requestExactNotificationAccess(localNotifications);
-      break;
-    case 'battery':
-      await requestBatteryOptimizationAccess();
-      break;
-    case 'autostart':
-      await requestVendorAutostartAccess();
-      break;
-    case 'lockscreen':
-      await requestVendorLockScreenAccess();
-      break;
-    case 'storage':
-      await requestStorageAccess();
-      break;
-    case 'test':
-      await scheduleTestNotification();
-      return;
-    default:
-      await nativePermissions?.openAppSettings?.();
-      return;
-  }
-
-  window.setTimeout(() => {
-    showPaymentReliabilityPromptIfNeeded(localNotifications).catch(() => {});
-    refreshSettingsPermissionChecklist().catch(() => {});
-  }, 800);
-}
-
-async function requestExactNotificationAccess(plugin) {
-  if (!plugin?.checkExactNotificationSetting || !plugin?.changeExactNotificationSetting) {
-    return 'granted';
-  }
-
-  try {
-    const currentStatus = await plugin.checkExactNotificationSetting();
-
-    if (currentStatus?.exact_alarm === 'granted') {
-      return 'granted';
-    }
-
-    localStorage.setItem(NOTIFICATION_EXACT_SCREEN_OPENED_KEY, 'opened');
-    setStatus('O Android vai abrir Alarmes e lembretes. Se não houver opção para ativar, volte ao app para continuar.', 'success');
-    const nextStatus = await plugin.changeExactNotificationSetting();
-    return nextStatus?.exact_alarm ?? 'denied';
-  } catch (_) {
-    const nativePermissions = getNotificationPermissionsPlugin();
-    await nativePermissions?.openExactAlarmSettings?.();
-    return 'denied';
-  }
-}
-
-async function requestBatteryOptimizationAccess() {
+async function openNotificationPermissionSettings() {
   const plugin = getNotificationPermissionsPlugin();
 
-  if (!plugin?.getStatus || !plugin?.requestBatteryOptimizationExemption) {
-    return;
-  }
-
   try {
-    const status = await plugin.getStatus();
-
-    if (status?.batteryOptimizationIgnored) {
-      return;
+    setStatus('O Android vai abrir as notificações do app. Ative a permissão para liberar os lembretes.', 'success');
+    if (plugin?.openAppNotificationSettings) {
+      await plugin.openAppNotificationSettings();
+    } else {
+      await plugin?.openAppSettings?.();
     }
-
-    localStorage.setItem(NOTIFICATION_BATTERY_SCREEN_OPENED_KEY, 'opened');
-    setStatus('Permita o funcionamento em segundo plano. Se não aparecer um botão, abra Bateria nos detalhes do app e escolha Sem restrições.', 'success');
-    const nextStatus = await plugin.requestBatteryOptimizationExemption();
-
-    if (nextStatus?.batteryOptimizationIgnored === false) {
-      await plugin.openManufacturerBatterySettings?.();
-    }
-  } catch (_) {}
+  } catch (e) {}
 }
 
-async function requestVendorAutostartAccess() {
-  const plugin = getNotificationPermissionsPlugin();
 
-  if (!plugin?.openManufacturerAutostartSettings) {
-    return;
-  }
-
-  localStorage.setItem(NOTIFICATION_VENDOR_AUTOSTART_KEY, 'opened');
-  setStatus('Na tela do sistema, ative o início automático do Controle de Dívidas, se essa opção aparecer.', 'success');
-  await plugin.openManufacturerAutostartSettings();
-}
-
-async function requestVendorLockScreenAccess() {
-  const plugin = getNotificationPermissionsPlugin();
-
-  localStorage.setItem(NOTIFICATION_VENDOR_LOCKSCREEN_KEY, 'opened');
-  setStatus('Na tela de notificações, confira som, pop-up e tela de bloqueio. Se não aparecer, volte e ajuste nas permissões especiais.', 'success');
-
-  if (plugin.openNotificationChannelSettings) {
-    await plugin.openNotificationChannelSettings({ channelId: NOTIFICATION_CHANNEL_ID });
-    return;
-  }
-
-  await plugin.openManufacturerAppPermissionsSettings();
-}
-
-async function requestStorageAccess() {
-  const plugin = getNotificationPermissionsPlugin();
-  
-  if (!plugin) {
-    const fs = getFilesystemPlugin();
-    if (!fs) return 'granted';
-    try {
-      return (await fs.requestPermissions()).publicStorage;
-    } catch (_) { return 'denied'; }
-  }
-  
-  try {
-    // Chamada que abre o POP-UP padrão (Imagem 2)
-    await plugin.requestStoragePermission();
-    
-    const fs = getFilesystemPlugin();
-    const status = await fs?.checkPermissions();
-    
-    // Se for Android 11+ e o pop-up não foi suficiente, abre a tela de acesso total
-    if (status?.publicStorage !== 'granted') {
-      await plugin.openAllFilesAccessSettings();
-    }
-    
-    return status?.publicStorage ?? 'denied';
-  } catch (e) {
-    await plugin.openAppSettings();
-    return 'denied';
-  }
-}
 
 async function scheduleTestNotification() {
   const plugin = getLocalNotificationsPlugin();
@@ -2433,6 +2087,9 @@ async function scanForDownloadedUpdate() {
   if (!fs) return;
 
   try {
+    const nativeStatus = await getNativePermissionStatus();
+    if (nativeStatus?.requiresAllFilesAccess && !nativeStatus?.allFilesAccessGranted) return;
+
     // Verifica se temos permissão
     const status = await fs.checkPermissions();
     if (status.publicStorage !== 'granted') return;
@@ -2461,10 +2118,17 @@ async function scanForDownloadedUpdate() {
 
 async function installLocalApk() {
   const fs = getFilesystemPlugin();
-  const installer = window.Capacitor?.Plugins?.UpdateInstaller;
+  const installer = getUpdateInstallerPlugin();
   if (!fs || !installer?.installApk) return;
 
   try {
+    const nativeStatus = await getNativePermissionStatus();
+    if (nativeStatus?.requiresAllFilesAccess && !nativeStatus?.allFilesAccessGranted) {
+      await requestStorageAccess();
+      setStatus('Libere o acesso aos arquivos e toque em instalar novamente.', 'success');
+      return;
+    }
+
     const uriResult = await fs.getUri({
       path: 'Download/app-release.apk',
       directory: 'EXTERNAL_STORAGE'
@@ -2754,7 +2418,7 @@ async function startApkUpdate(update) {
     return;
   }
 
-  const installer = window.Capacitor?.Plugins?.UpdateInstaller;
+  const installer = getUpdateInstallerPlugin();
 
   if (!installer?.downloadAndInstall) {
     openUpdateUrl(apkUrl);
@@ -2765,6 +2429,13 @@ async function startApkUpdate(update) {
   setUpdateProgress('Iniciando download do APK...', 1);
 
   try {
+    if (isNativeAndroidApp()) {
+      const notificationState = await getPaymentNotificationPermissionState();
+      if (notificationState !== 'granted') {
+        await requestPaymentNotificationPermission();
+      }
+    }
+
     const result = await installer.downloadAndInstall({
       apkUrl,
       version: update.version || ''
