@@ -3,5 +3,6 @@
   "notes": "Simplificação do sistema de permissões e correções de estabilidade.",
   "publishedAt": "2026-04-28",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777416550000",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777416550000"
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777416550000",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/raw/main/update/app-release.apk"
 }

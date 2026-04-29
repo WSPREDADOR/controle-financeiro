@@ -1,6 +1,6 @@
 {
   "version": "1.9.7",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.9.6/app-release.apk",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/raw/main/update/app-release.apk",
   "notes": "Simplificação do sistema de permissões e correções de estabilidade.",
   "publishedAt": "2026-04-28"
 }
