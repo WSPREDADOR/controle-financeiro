@@ -1183,11 +1183,23 @@ button.version-pill {
 }
 
 @media (max-width: 480px) {
+  .add-plan-section {
+    position: relative;
+    padding-top: 32px;
+  }
+
   .monthly-summary-badge {
-    position: static;
-    margin-top: 14px;
-    align-items: flex-start;
-    width: fit-content;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    margin-top: 0;
+    transform: scale(0.8);
+    transform-origin: right top;
+    z-index: 10;
+  }
+  
+  .section-heading {
+    padding-right: 100px; /* Garante que o título não bata no saldo */
   }
 }
 

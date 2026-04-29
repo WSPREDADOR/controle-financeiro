@@ -10,7 +10,7 @@ const monthlyContainer = document.getElementById('monthlyContainer');
 const plansPanel = document.querySelector('.plans-panel');
 const currentDate = document.getElementById('currentDate');
 const appVersionLabel = document.getElementById('appVersionLabel');
-const appExpirationLabel = document.getElementById('appExpirationLabel');
+const appReleaseDateLabel = document.getElementById('appReleaseDateLabel');
 const updateBanner = document.getElementById('updateBanner');
 const updateBannerTitle = document.getElementById('updateBannerTitle');
 const updateBannerMessage = document.getElementById('updateBannerMessage');
@@ -1608,9 +1608,9 @@ function updateDisplayedAppVersion() {
   const version = getCurrentAppVersion(config);
   appVersionLabel.textContent = `v${version}`;
 
-  if (appExpirationLabel) {
-    const expiration = config.expirationDate || '21/04/2026';
-    appExpirationLabel.textContent = expiration;
+  if (appReleaseDateLabel) {
+    const expiration = config.expirationDate || '29/04/2026';
+    appReleaseDateLabel.textContent = expiration;
   }
 }
 
