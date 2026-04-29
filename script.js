@@ -102,6 +102,7 @@ let isUpdateInstallInFlight = false;
 let updateBannerHoldUntil = 0;
 let notificationSyncTimeoutId = null;
 let paymentNotificationListenersRegistered = false;
+let notificationBannerMode = 'notification';
 
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
@@ -170,7 +171,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '1.9.6',
+  currentVersion: '1.9.7',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -2624,8 +2625,9 @@ async function fetchBundlePayload(update, currentVersion, timeoutMs = 10000, onP
 
       // Aceitar qualquer bundle mais novo que a versão atual do app.
       // Não exige match exato com o manifesto — CDNs podem ter lag.
-      if (!isRemoteVersionNewer(bundle.version, currentVersion)) {
-        throw new Error(`Bundle (${bundle.version}) não é mais recente que a versão atual (${currentVersion}).`);
+      // Aceitar qualquer bundle igual ou mais novo que a versão atual do app.
+      if (isRemoteVersionNewer(currentVersion, bundle.version)) {
+        throw new Error(`Bundle (${bundle.version}) é mais antigo que a versão atual (${currentVersion}).`);
       }
 
       assertBundleSize(bundle);
