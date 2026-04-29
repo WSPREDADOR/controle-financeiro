@@ -177,7 +177,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.6',
+  currentVersion: '2.0.7',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -3004,9 +3004,11 @@ function scrollToSection(element) {
 }
 
 function initFinancialLogic() {
-  // Aplicar máscara de moeda nos inputs
-  document.querySelectorAll('.currency-input').forEach(input => {
-    input.addEventListener('input', handleCurrencyInput);
+  // Delegação de evento para máscara de moeda (mais robusto para modais)
+  document.addEventListener('input', (e) => {
+    if (e.target.classList.contains('currency-input')) {
+      handleCurrencyInput(e);
+    }
   });
 
   // Listeners para troca de tipo (Dívida vs Despesa)
@@ -3212,13 +3214,19 @@ function initFinancialLogic() {
 }
 
 function handleCurrencyInput(e) {
-  let value = e.target.value.replace(/\D/g, "");
+  const input = e.target;
+  let value = input.value.replace(/\D/g, "");
+  
   if (!value) {
-    e.target.value = "";
+    input.value = "";
     return;
   }
-  value = (parseInt(value) / 100).toFixed(2);
-  e.target.value = formatCurrencyRaw(parseFloat(value));
+  
+  // Converte centavos para decimal
+  const numericValue = (parseInt(value) / 100);
+  
+  // Formata e atribui
+  input.value = formatCurrencyRaw(numericValue);
 }
 
 function parseCurrencyToNumber(value) {
