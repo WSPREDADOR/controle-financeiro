@@ -1,5 +1,5 @@
 {
-  "version": "2.0.7",
+  "version": "2.0.9",
   "notes": "Novidade: Saldo mensal colorido (vermelho para dívidas), sistema de antecipação de parcelas (lances) e navegação inteligente direto na parcela pendente.",
   "publishedAt": "2026-04-29",
   "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",

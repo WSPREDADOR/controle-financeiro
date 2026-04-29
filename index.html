@@ -26,7 +26,7 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="topbar-brand">
-        <img src="Controle Financeiro.png" alt="Logo Controle de Dívidas" class="topbar-brand-image">
+        <img src="logo.png" alt="Logo Controle de Dívidas" class="topbar-brand-image">
         <div>
           <span class="eyebrow">Controle de pagamentos</span>
           <h1 class="topbar-title">Controle de Dívidas</h1>
@@ -42,7 +42,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.0.7</strong>
+            <strong id="appVersionLabel">v2.0.9</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -362,28 +362,7 @@
           </label>
         </div>
 
-        <div id="createValueFields" class="input-group-row">
-          <label class="input-group" for="createTotalValue">
-            <span id="createTotalValueLabel">Valor Total (Opcional)</span>
-            <input type="text" id="createTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
-            <small class="value-input-hint">Calcula a parcela automaticamente</small>
-          </label>
-
-          <label class="input-group" for="createInstallmentValue">
-            <span id="createInstallmentValueLabel">Valor da Parcela (Opcional)</span>
-            <input type="text" id="createInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
-            <small class="value-input-hint">Calcula o total automaticamente</small>
-          </label>
-        </div>
-
         <div id="debtSpecificFields" style="display: contents;">
-          <div id="singlePaymentToggleContainer" style="grid-column: span 2; margin: 8px 0;">
-            <button type="button" id="toggleSinglePaymentBtn" class="btn-toggle-mode">
-              <svg viewBox="0 0 24 24"><path d="M12 2v20m10-10H2" stroke="currentColor"/></svg>
-              Valor Único (Pagamento único)
-            </button>
-          </div>
-
           <div class="input-group-row hide-on-single">
             <label class="input-group" for="createTotalMonths">
               <span>Total de meses</span>
@@ -398,6 +377,27 @@
               </select>
             </label>
           </div>
+
+          <div id="singlePaymentToggleContainer" style="grid-column: span 2; margin: 8px 0;">
+            <button type="button" id="toggleSinglePaymentBtn" class="btn-toggle-mode">
+              <svg viewBox="0 0 24 24"><path d="M12 2v20m10-10H2" stroke="currentColor"/></svg>
+              Valor Único (Pagamento único)
+            </button>
+          </div>
+        </div>
+
+        <div id="createValueFields" class="input-group-row">
+          <label class="input-group" for="createInstallmentValue">
+            <span id="createInstallmentValueLabel">Valor da Parcela (Opcional)</span>
+            <input type="text" id="createInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+            <small class="value-input-hint">Calcula o total automaticamente</small>
+          </label>
+
+          <label class="input-group" for="createTotalValue">
+            <span id="createTotalValueLabel">Valor Total (Opcional)</span>
+            <input type="text" id="createTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+            <small class="value-input-hint">Calcula a parcela automaticamente</small>
+          </label>
         </div>
 
         <div class="button-row modal-actions">
@@ -438,18 +438,6 @@
           </label>
         </div>
 
-        <div id="editValueFields" class="input-group-row">
-          <label class="input-group" for="editTotalValue">
-            <span>Valor Total</span>
-            <input type="text" id="editTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
-          </label>
-
-          <label class="input-group" for="editInstallmentValue">
-            <span>Valor da Parcela</span>
-            <input type="text" id="editInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
-          </label>
-        </div>
-
         <div id="editDebtSpecificFields" class="input-group-row hide-on-single">
           <label class="input-group" for="editTotalMonths">
             <span>Total de meses</span>
@@ -462,6 +450,25 @@
               <option value="start_month">Começar no mês informado</option>
               <option value="next_month">Começar a partir do próximo mês</option>
             </select>
+          </label>
+        </div>
+
+        <div id="editSinglePaymentToggleContainer" style="margin: 8px 0;">
+          <button type="button" id="toggleSinglePaymentEditBtn" class="btn-toggle-mode">
+            <svg viewBox="0 0 24 24"><path d="M12 2v20m10-10H2" stroke="currentColor"/></svg>
+            Valor Único (Pagamento único)
+          </button>
+        </div>
+
+        <div id="editValueFields" class="input-group-row">
+          <label class="input-group" for="editInstallmentValue">
+            <span>Valor da Parcela</span>
+            <input type="text" id="editInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+          </label>
+
+          <label class="input-group" for="editTotalValue">
+            <span>Valor Total</span>
+            <input type="text" id="editTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
           </label>
         </div>
 

@@ -78,7 +78,9 @@ const createInstallmentValueInput = document.getElementById('createInstallmentVa
 const editTotalValueInput = document.getElementById('editTotalValue');
 const editInstallmentValueInput = document.getElementById('editInstallmentValue');
 const toggleSinglePaymentBtn = document.getElementById('toggleSinglePaymentBtn');
+const toggleSinglePaymentEditBtn = document.getElementById('toggleSinglePaymentEditBtn');
 const singlePaymentToggleContainer = document.getElementById('singlePaymentToggleContainer');
+const editSinglePaymentToggleContainer = document.getElementById('editSinglePaymentToggleContainer');
 
 let isSinglePaymentMode = false;
 
@@ -177,7 +179,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.7',
+  currentVersion: '2.0.9',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -924,6 +926,7 @@ function updateMonthlyTotal() {
 }
 
 function renderPlansList() {
+  updateMonthlyDebtSummary();
   plansList.innerHTML = '';
 
   const filteredPlans = getFilteredPlans();
@@ -1152,6 +1155,56 @@ function buildSummaryMessage(planName, completedMonths, totalMonths) {
   return `Painel atualizado com sucesso. Você marcou ${completedMonths} de ${totalMonths} faturas como pagas e ainda faltam ${remainingMonths}.`;
 }
 
+function updateMonthlyDebtSummary() {
+  const badgeValue = document.getElementById('monthlyTotalValue');
+  const badgeLabel = document.querySelector('.monthly-label');
+  if (!badgeValue) return;
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  let totalMonthlyDebt = 0;
+
+  plans.forEach(plan => {
+    // Para despesas, somamos o valor mensal se estiver ativo
+    if (plan.isExpense) {
+      totalMonthlyDebt += (plan.installmentValue || 0);
+      return;
+    }
+
+    // Para dívidas, verificamos se há parcela neste mês
+    const start = normalizeDate(new Date(plan.startDate));
+    let monthsDiff = (currentYear - start.getFullYear()) * 12 + (currentMonth - start.getMonth());
+    
+    if (plan.countMode === 'next_month') {
+      monthsDiff--;
+    }
+
+    const currentInstallmentIndex = monthsDiff + 1;
+
+    // Se a parcela atual está dentro do intervalo do plano
+    if (currentInstallmentIndex >= 1 && currentInstallmentIndex <= (plan.totalMonths || 1)) {
+      // Verificamos se já foi paga
+      const paidMonths = new Set(getPaidMonths(plan));
+      if (!paidMonths.has(currentInstallmentIndex)) {
+        const value = plan.manualMonthValues?.[currentInstallmentIndex] || plan.installmentValue || 0;
+        totalMonthlyDebt += value;
+      }
+    }
+  });
+
+  if (totalMonthlyDebt > 0) {
+    badgeValue.textContent = `- ${formatCurrency(totalMonthlyDebt)}`;
+    badgeValue.style.color = '#ff5a5a'; // Vermelho para dívida
+    if (badgeLabel) badgeLabel.textContent = 'TOTAL DO MÊS';
+  } else {
+    badgeValue.textContent = formatCurrency(0);
+    badgeValue.style.color = 'var(--primary)'; // Cor padrão se estiver limpo
+    if (badgeLabel) badgeLabel.textContent = 'MÊS QUITADO';
+  }
+}
+
 function parseDateInput(value) {
   return normalizeDate(new Date(`${value}T00:00:00`));
 }
@@ -1277,6 +1330,23 @@ function openEditModal(plan) {
   editInstallmentValueInput.value = plan.installmentValue > 0 ? formatCurrencyRaw(plan.installmentValue) : '';
   editModalSubtitle.textContent = `Atualize os dados do compromisso "${plan.name}" e salve as alterações.`;
   setEditStatus('', '');
+
+  // Ajuste visual para Despesas vs Dívidas na edição
+  const editTotalValueField = editTotalValueInput?.parentElement;
+  const editInstallmentLabel = document.querySelector('label[for="editInstallmentValue"] span');
+  
+  if (plan.isExpense) {
+    if (editTotalValueField) editTotalValueField.style.display = 'none';
+    if (editInstallmentLabel) editInstallmentLabel.textContent = 'Valor Mensal (Opcional)';
+    if (editSinglePaymentToggleContainer) editSinglePaymentToggleContainer.style.display = 'none';
+    isSinglePaymentMode = false;
+  } else {
+    if (editTotalValueField) editTotalValueField.style.display = 'flex';
+    if (editInstallmentLabel) editInstallmentLabel.textContent = 'Valor da Parcela (Opcional)';
+    if (editSinglePaymentToggleContainer) editSinglePaymentToggleContainer.style.display = 'block';
+    isSinglePaymentMode = plan.isSinglePayment || false;
+  }
+  updateSinglePaymentUI();
   editModal.hidden = false;
   syncModalBodyState();
   window.setTimeout(() => {
@@ -3032,10 +3102,12 @@ function initFinancialLogic() {
     });
   });
 
-  // Toggle Valor Único
-  toggleSinglePaymentBtn?.addEventListener('click', () => {
-    isSinglePaymentMode = !isSinglePaymentMode;
-    updateSinglePaymentUI();
+  // Toggle Valor Único (Criar e Editar)
+  [toggleSinglePaymentBtn, toggleSinglePaymentEditBtn].forEach(btn => {
+    btn?.addEventListener('click', () => {
+      isSinglePaymentMode = !isSinglePaymentMode;
+      updateSinglePaymentUI();
+    });
   });
 
   // Cálculo automático: Total -> Parcela
@@ -3045,9 +3117,9 @@ function initFinancialLogic() {
       const totalVal = parseCurrencyToNumber(e.target.value);
       const monthsInput = isEdit ? editTotalMonthsInput : createTotalMonthsInput;
       const installmentInput = isEdit ? editInstallmentValueInput : createInstallmentValueInput;
-      const months = parseInt(monthsInput.value) || 1;
+      const months = parseInt(monthsInput.value) || 0;
 
-      if (!isNaN(totalVal) && totalVal > 0 && months > 0 && !isSinglePaymentMode) {
+      if (totalVal > 0 && months > 0 && !isSinglePaymentMode) {
         installmentInput.value = formatCurrencyRaw(totalVal / months);
       }
     });
@@ -3060,9 +3132,9 @@ function initFinancialLogic() {
       const instVal = parseCurrencyToNumber(e.target.value);
       const monthsInput = isEdit ? editTotalMonthsInput : createTotalMonthsInput;
       const totalInput = isEdit ? editTotalValueInput : createTotalValueInput;
-      const months = parseInt(monthsInput.value) || 1;
+      const months = parseInt(monthsInput.value) || 0;
 
-      if (!isNaN(instVal) && instVal > 0 && months > 0 && !isSinglePaymentMode) {
+      if (instVal > 0 && months > 0 && !isSinglePaymentMode) {
         totalInput.value = formatCurrencyRaw(instVal * months);
       }
     });
@@ -3080,12 +3152,12 @@ function initFinancialLogic() {
       const instVal = parseCurrencyToNumber(installmentInput.value);
 
       if (months > 0 && !isSinglePaymentMode) {
-        if (totalVal > 0) {
-          // Se tem total, ajusta a parcela
-          installmentInput.value = formatCurrencyRaw(totalVal / months);
-        } else if (instVal > 0) {
-          // Se não tem total mas tem parcela, ajusta o total
+        // Se ambos estão preenchidos, priorizamos manter a parcela e ajustar o total (comum em financiamentos)
+        // Mas se apenas o total estiver preenchido, ajustamos a parcela.
+        if (instVal > 0) {
           totalInput.value = formatCurrencyRaw(instVal * months);
+        } else if (totalVal > 0) {
+          installmentInput.value = formatCurrencyRaw(totalVal / months);
         }
       }
     });
@@ -3231,8 +3303,10 @@ function handleCurrencyInput(e) {
 
 function parseCurrencyToNumber(value) {
   if (!value) return 0;
-  const cleanValue = value.replace(/[^\d,]/g, "").replace(",", ".");
-  return parseFloat(cleanValue) || 0;
+  // Pega apenas os dígitos para tratar como centavos, igual à máscara
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return 0;
+  return parseInt(digits) / 100;
 }
 
 function formatCurrencyRaw(value) {
@@ -3247,11 +3321,13 @@ function updateSinglePaymentUI() {
     createModal?.classList.add('mode-single-payment');
     editModal?.classList.add('mode-single-payment');
     toggleSinglePaymentBtn?.classList.add('active');
+    toggleSinglePaymentEditBtn?.classList.add('active');
     if (createTotalMonthsInput) createTotalMonthsInput.value = '1';
   } else {
     createModal?.classList.remove('mode-single-payment');
     editModal?.classList.remove('mode-single-payment');
     toggleSinglePaymentBtn?.classList.remove('active');
+    toggleSinglePaymentEditBtn?.classList.remove('active');
   }
 }
 
