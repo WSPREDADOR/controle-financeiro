@@ -1185,21 +1185,20 @@ button.version-pill {
 @media (max-width: 480px) {
   .add-plan-section {
     position: relative;
-    padding-top: 32px;
+    padding-top: 26px;
   }
 
   .monthly-summary-badge {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 38px; /* Alinhado verticalmente com o título */
+    right: 22px;
     margin-top: 0;
-    transform: scale(0.8);
-    transform-origin: right top;
+    transform: none; /* Tamanho normal como na imagem 2 */
     z-index: 10;
   }
   
   .section-heading {
-    padding-right: 100px; /* Garante que o título não bata no saldo */
+    padding-right: 140px; /* Mais espaço para o badge não bater no texto */
   }
 }
 
