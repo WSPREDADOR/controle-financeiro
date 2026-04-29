@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const VERSION = '1.9.8';
+const VERSION = '1.9.9';
 
 function bundle() {
   const htmlPath = path.join(__dirname, 'index.html');
