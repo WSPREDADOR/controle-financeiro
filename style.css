@@ -1192,24 +1192,28 @@ button.version-pill {
     padding-top: 24px;
   }
 
-  .monthly-summary-badge {
+  .calculator-card-compact .section-heading {
+    padding-right: 142px;
+  }
+
+  .calculator-card-compact .monthly-summary-badge {
     position: absolute;
-    top: 28px; /* Sobe para alinhar com o topo do título */
-    right: 20px;
+    top: 0;
+    right: 0;
     margin-top: 0;
-    min-width: 130px; /* Força o formato retangular da Imagem 2 */
-    padding: 10px 18px;
+    min-width: 126px;
+    padding: 9px 14px;
     transform: none;
     z-index: 10;
     align-items: flex-end;
   }
   
-  #monthlyTotalValue {
-    font-size: 1.45rem; /* Valor mais imponente como na imagem 2 */
+  .calculator-card-compact #monthlyTotalValue {
+    font-size: 1.25rem;
   }
 
-  .section-heading {
-    padding-right: 150px; /* Espaço extra para o badge largo */
+  .calculator-card-compact .monthly-summary-label {
+    font-size: 0.56rem;
   }
 }
 
