@@ -42,7 +42,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.0.9</strong>
+            <strong id="appVersionLabel">v2.0.10</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -363,40 +363,35 @@
         </div>
 
         <div id="debtSpecificFields" style="display: contents;">
-          <div class="input-group-row hide-on-single">
-            <label class="input-group" for="createTotalMonths">
+          <div class="input-group-row">
+            <label class="input-group" for="createTotalMonths" style="grid-column: 1 / -1;">
               <span>Total de meses</span>
-              <input type="number" id="createTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
+              <input type="number" id="createTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" oninput="updateCreateTotalFromInstallment()" onchange="updateCreateTotalFromInstallment()" onblur="updateCreateTotalFromInstallment()" required>
             </label>
-
-            <label class="input-group" for="createCountMode">
-              <span>Quando começa a contagem</span>
-              <select id="createCountMode" class="input-field" required>
-                <option value="start_month">Começar no mês informado</option>
-                <option value="next_month">Começar a partir do próximo mês</option>
-              </select>
-            </label>
-          </div>
-
-          <div id="singlePaymentToggleContainer" style="grid-column: span 2; margin: 8px 0;">
-            <button type="button" id="toggleSinglePaymentBtn" class="btn-toggle-mode">
-              <svg viewBox="0 0 24 24"><path d="M12 2v20m10-10H2" stroke="currentColor"/></svg>
-              Valor Único (Pagamento único)
-            </button>
           </div>
         </div>
 
         <div id="createValueFields" class="input-group-row">
           <label class="input-group" for="createInstallmentValue">
             <span id="createInstallmentValueLabel">Valor da Parcela (Opcional)</span>
-            <input type="text" id="createInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+            <input type="text" id="createInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="decimal" oninput="handleCurrencyInput(event); updateCreateTotalFromInstallment()" onchange="handleCurrencyInput(event); updateCreateTotalFromInstallment()" onblur="handleCurrencyInput(event); updateCreateTotalFromInstallment()">
             <small class="value-input-hint">Calcula o total automaticamente</small>
           </label>
 
           <label class="input-group" for="createTotalValue">
             <span id="createTotalValueLabel">Valor Total (Opcional)</span>
-            <input type="text" id="createTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
+            <input type="text" id="createTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="decimal" oninput="handleCurrencyInput(event)" onchange="handleCurrencyInput(event)" onblur="handleCurrencyInput(event)">
             <small class="value-input-hint">Calcula a parcela automaticamente</small>
+          </label>
+        </div>
+
+        <div id="createCountModeGroup" style="grid-column: 1 / -1;">
+          <label class="input-group" for="createCountMode">
+            <span>Quando começa a contagem</span>
+            <select id="createCountMode" class="input-field" required>
+              <option value="start_month">Começar no mês informado</option>
+              <option value="next_month">Começar a partir do próximo mês</option>
+            </select>
           </label>
         </div>
 
@@ -438,7 +433,7 @@
           </label>
         </div>
 
-        <div id="editDebtSpecificFields" class="input-group-row hide-on-single">
+        <div id="editDebtSpecificFields" class="input-group-row">
           <label class="input-group" for="editTotalMonths">
             <span>Total de meses</span>
             <input type="number" id="editTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
@@ -447,17 +442,10 @@
           <label class="input-group" for="editCountMode">
             <span>Quando começa a contagem</span>
             <select id="editCountMode" class="input-field" required>
-              <option value="start_month">Começar no mês informado</option>
               <option value="next_month">Começar a partir do próximo mês</option>
+              <option value="start_month">Começar no mês informado</option>
             </select>
           </label>
-        </div>
-
-        <div id="editSinglePaymentToggleContainer" style="margin: 8px 0;">
-          <button type="button" id="toggleSinglePaymentEditBtn" class="btn-toggle-mode">
-            <svg viewBox="0 0 24 24"><path d="M12 2v20m10-10H2" stroke="currentColor"/></svg>
-            Valor Único (Pagamento único)
-          </button>
         </div>
 
         <div id="editValueFields" class="input-group-row">
@@ -541,7 +529,7 @@
       </div>
       <label class="input-group">
         <span style="font-size: 0.9rem; color: var(--muted); margin-bottom: 8px; display: block;">Valor Pago (R$)</span>
-        <input type="text" id="promptValueInput" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric" style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">
+        <input type="text" id="promptValueInput" class="input-field currency-input" placeholder="R$ 0,00" inputmode="decimal" oninput="handleCurrencyInput(event)" onchange="handleCurrencyInput(event)" onblur="handleCurrencyInput(event)" style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">
       </label>
       <div class="button-row modal-actions" style="margin-top: 24px; display: flex; gap: 10px;">
         <button type="button" id="confirmPromptValueBtn" class="btn-primary" style="flex: 1;">Salvar</button>

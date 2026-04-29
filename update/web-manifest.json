@@ -1,8 +1,8 @@
 {
-  "version": "2.0.9",
-  "notes": "Novidade: Saldo mensal colorido (vermelho para dívidas), sistema de antecipação de parcelas (lances) e navegação inteligente direto na parcela pendente.",
+  "version": "2.0.10",
+  "notes": "Correções no cadastro, cálculo automático de valores e edição de parcelas.",
   "publishedAt": "2026-04-29",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/raw/main/update/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777500927713",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777500927713",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.10/app-release.apk"
 }

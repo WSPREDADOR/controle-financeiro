@@ -1,6 +1,6 @@
 {
-  "version": "2.0.2",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/raw/main/update/app-release.apk",
-  "notes": "Simplificação do sistema de permissões e correções de estabilidade.",
-  "publishedAt": "2026-04-28"
+  "version": "2.0.10",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.10/app-release.apk",
+  "notes": "Correções no cadastro, cálculo automático de valores e edição de parcelas.",
+  "publishedAt": "2026-04-29"
 }

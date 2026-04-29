@@ -77,17 +77,16 @@ const createTotalValueInput = document.getElementById('createTotalValue');
 const createInstallmentValueInput = document.getElementById('createInstallmentValue');
 const editTotalValueInput = document.getElementById('editTotalValue');
 const editInstallmentValueInput = document.getElementById('editInstallmentValue');
-const toggleSinglePaymentBtn = document.getElementById('toggleSinglePaymentBtn');
-const toggleSinglePaymentEditBtn = document.getElementById('toggleSinglePaymentEditBtn');
-const singlePaymentToggleContainer = document.getElementById('singlePaymentToggleContainer');
-const editSinglePaymentToggleContainer = document.getElementById('editSinglePaymentToggleContainer');
-
-let isSinglePaymentMode = false;
+const promptValueModal = document.getElementById('promptValueModal');
+const promptValueInput = document.getElementById('promptValueInput');
+const confirmPromptValueBtn = document.getElementById('confirmPromptValueBtn');
+const cancelPromptValueBtn = document.getElementById('cancelPromptValueBtn');
 
 let plans = loadPlans();
 let currentPlanFilter = 'all';
 let selectedPlanId = plans[0]?.id ?? null;
 let editingPlanId = null;
+let currentPromptMonth = null;
 let pendingDeletePlanId = null;
 let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
@@ -179,7 +178,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.9',
+  currentVersion: '2.0.10',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -237,9 +236,6 @@ createForm.addEventListener('submit', (event) => {
   if (isExpense) {
     monthsInput = 1200; // 100 years para simular continuo
     countMode = 'start_month';
-  } else if (isSinglePaymentMode) {
-    monthsInput = 1;
-    countMode = 'start_month';
   } else {
     monthsInput = Number.parseInt(createTotalMonthsInput.value, 10);
     countMode = createCountModeInput.value;
@@ -261,7 +257,6 @@ createForm.addEventListener('submit', (event) => {
     totalMonths: monthsInput,
     countMode: isValidCountMode(countMode) ? countMode : 'start_month',
     isExpense: isExpense,
-    isSinglePayment: isSinglePaymentMode,
     totalValue: parseCurrencyToNumber(createTotalValueInput?.value),
     installmentValue: parseCurrencyToNumber(createInstallmentValueInput?.value),
     manualMonthValues: {},
@@ -327,6 +322,13 @@ plansList.addEventListener('click', (event) => {
 });
 
 monthlyContainer.addEventListener('click', (event) => {
+  const editButton = event.target.closest('[data-edit-value-month]');
+
+  if (editButton) {
+    openInstallmentValuePrompt(event, editButton.dataset.editValueMonth);
+    return;
+  }
+
   const toggleButton = event.target.closest('[data-toggle-paid]');
 
   if (!toggleButton) {
@@ -341,6 +343,9 @@ monthlyContainer.addEventListener('click', (event) => {
 
   toggleMonthPaid(monthIndex);
 });
+
+cancelPromptValueBtn?.addEventListener('click', closeInstallmentValuePrompt);
+confirmPromptValueBtn?.addEventListener('click', saveInstallmentValuePrompt);
 
 plansList.addEventListener('scroll', () => {
   schedulePlanFocusUpdate();
@@ -521,7 +526,6 @@ editForm.addEventListener('submit', (event) => {
     paidMonths: sanitizePaidMonths(existingPlan.paidMonths ?? [], monthsInput),
     totalValue: totalVal,
     installmentValue: instVal,
-    isSinglePayment: isSinglePaymentMode,
   };
 
   plans[existingPlanIndex] = updatedPlan;
@@ -686,6 +690,12 @@ reorderModal.addEventListener('click', (event) => {
   }
 });
 
+promptValueModal?.addEventListener('click', (event) => {
+  if (event.target === promptValueModal) {
+    closeInstallmentValuePrompt();
+  }
+});
+
 appSettingsModal?.addEventListener('click', (event) => {
   if (event.target === appSettingsModal) {
     closeAppSettingsModal();
@@ -713,6 +723,11 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
+  if (event.key === 'Escape' && promptValueModal && !promptValueModal.hidden) {
+    closeInstallmentValuePrompt();
+    return;
+  }
+
   if (event.key === 'Escape' && appSettingsModal && !appSettingsModal.hidden) {
     closeAppSettingsModal();
     return;
@@ -734,6 +749,8 @@ if (window.Capacitor?.Plugins?.App) {
       closeDeleteModal();
     } else if (!reorderModal.hidden) {
       closeReorderModal();
+    } else if (promptValueModal && !promptValueModal.hidden) {
+      closeInstallmentValuePrompt();
     } else if (appSettingsModal && !appSettingsModal.hidden) {
       closeAppSettingsModal();
     } else if (!resultsSection.hidden) {
@@ -760,17 +777,20 @@ plansFilterNav?.addEventListener('click', (event) => {
 });
 
 const debtSpecificFields = document.getElementById('debtSpecificFields');
+const createCountModeGroup = document.getElementById('createCountModeGroup');
 const createStartDateLabel = document.getElementById('createStartDateLabel');
 document.querySelectorAll('input[name="createPlanType"]').forEach(radio => {
   radio.addEventListener('change', (e) => {
     if (e.target.value === 'expense') {
       debtSpecificFields.style.display = 'none';
+      if (createCountModeGroup) createCountModeGroup.style.display = 'none';
       createTotalMonthsInput.removeAttribute('required');
       createCountModeInput.removeAttribute('required');
       createPlanNameInput.placeholder = 'Ex.: Conta de energia, Internet';
       if (createStartDateLabel) createStartDateLabel.textContent = 'Data de pagamento';
     } else {
       debtSpecificFields.style.display = 'contents';
+      if (createCountModeGroup) createCountModeGroup.style.display = '';
       createTotalMonthsInput.setAttribute('required', 'required');
       createCountModeInput.setAttribute('required', 'required');
       createPlanNameInput.placeholder = 'Ex.: Parcelas da moto ou Energia';
@@ -1049,8 +1069,8 @@ function renderMonthlyTimeline(plan, startDate, today, options = {}) {
     const displayValue = manualValue !== undefined ? manualValue : (plan.installmentValue || 0);
     const valueHtml = displayValue > 0 ? `
       <div class="installment-value-row">
-        <span class="installment-amount-display">R$ ${displayValue.toFixed(2)}</span>
-        <button type="button" class="edit-installment-btn" data-edit-value-month="${monthIndex}" title="Editar valor desta parcela">
+        <span class="installment-amount-display">${formatCurrencyRaw(displayValue)}</span>
+        <button type="button" class="edit-installment-btn" data-edit-value-month="${monthIndex}" onclick="openInstallmentValuePrompt(event, ${monthIndex})" title="Editar valor desta parcela">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       </div>
@@ -1157,7 +1177,7 @@ function buildSummaryMessage(planName, completedMonths, totalMonths) {
 
 function updateMonthlyDebtSummary() {
   const badgeValue = document.getElementById('monthlyTotalValue');
-  const badgeLabel = document.querySelector('.monthly-label');
+  const badgeLabel = document.querySelector('.monthly-summary-label');
   if (!badgeValue) return;
 
   const now = new Date();
@@ -1196,11 +1216,11 @@ function updateMonthlyDebtSummary() {
 
   if (totalMonthlyDebt > 0) {
     badgeValue.textContent = `- ${formatCurrency(totalMonthlyDebt)}`;
-    badgeValue.style.color = '#ff5a5a'; // Vermelho para dívida
+    badgeValue.classList.add('is-negative');
     if (badgeLabel) badgeLabel.textContent = 'TOTAL DO MÊS';
   } else {
     badgeValue.textContent = formatCurrency(0);
-    badgeValue.style.color = 'var(--primary)'; // Cor padrão se estiver limpo
+    badgeValue.classList.remove('is-negative');
     if (badgeLabel) badgeLabel.textContent = 'MÊS QUITADO';
   }
 }
@@ -1281,6 +1301,7 @@ function formatMonthYearCompact(date) {
 
 function openCreateModal() {
   createForm.reset();
+  createCountModeInput.value = 'start_month';
   const defaultRadio = document.querySelector('input[name="createPlanType"][value="debt"]');
   if (defaultRadio) {
     defaultRadio.checked = true;
@@ -1338,15 +1359,10 @@ function openEditModal(plan) {
   if (plan.isExpense) {
     if (editTotalValueField) editTotalValueField.style.display = 'none';
     if (editInstallmentLabel) editInstallmentLabel.textContent = 'Valor Mensal (Opcional)';
-    if (editSinglePaymentToggleContainer) editSinglePaymentToggleContainer.style.display = 'none';
-    isSinglePaymentMode = false;
   } else {
     if (editTotalValueField) editTotalValueField.style.display = 'flex';
     if (editInstallmentLabel) editInstallmentLabel.textContent = 'Valor da Parcela (Opcional)';
-    if (editSinglePaymentToggleContainer) editSinglePaymentToggleContainer.style.display = 'block';
-    isSinglePaymentMode = plan.isSinglePayment || false;
   }
-  updateSinglePaymentUI();
   editModal.hidden = false;
   syncModalBodyState();
   window.setTimeout(() => {
@@ -3074,11 +3090,10 @@ function scrollToSection(element) {
 }
 
 function initFinancialLogic() {
-  // Delegação de evento para máscara de moeda (mais robusto para modais)
-  document.addEventListener('input', (e) => {
-    if (e.target.classList.contains('currency-input')) {
-      handleCurrencyInput(e);
-    }
+  // Mascara os campos de moeda antes dos cálculos automáticos lerem o valor.
+  document.querySelectorAll('.currency-input').forEach((input) => {
+    input.addEventListener('input', handleCurrencyInput, { capture: true });
+    input.addEventListener('blur', handleCurrencyInput);
   });
 
   // Listeners para troca de tipo (Dívida vs Despesa)
@@ -3091,22 +3106,10 @@ function initFinancialLogic() {
       if (isExpense) {
         if (totalValueField) totalValueField.style.display = 'none';
         if (installmentLabel) installmentLabel.textContent = 'Valor Mensal (Opcional)';
-        if (singlePaymentToggleContainer) singlePaymentToggleContainer.style.display = 'none';
-        isSinglePaymentMode = false;
       } else {
         if (totalValueField) totalValueField.style.display = 'flex';
         if (installmentLabel) installmentLabel.textContent = 'Valor da Parcela (Opcional)';
-        if (singlePaymentToggleContainer) singlePaymentToggleContainer.style.display = 'block';
       }
-      updateSinglePaymentUI();
-    });
-  });
-
-  // Toggle Valor Único (Criar e Editar)
-  [toggleSinglePaymentBtn, toggleSinglePaymentEditBtn].forEach(btn => {
-    btn?.addEventListener('click', () => {
-      isSinglePaymentMode = !isSinglePaymentMode;
-      updateSinglePaymentUI();
     });
   });
 
@@ -3119,7 +3122,7 @@ function initFinancialLogic() {
       const installmentInput = isEdit ? editInstallmentValueInput : createInstallmentValueInput;
       const months = parseInt(monthsInput.value) || 0;
 
-      if (totalVal > 0 && months > 0 && !isSinglePaymentMode) {
+      if (totalVal > 0 && months > 0) {
         installmentInput.value = formatCurrencyRaw(totalVal / months);
       }
     });
@@ -3134,10 +3137,16 @@ function initFinancialLogic() {
       const totalInput = isEdit ? editTotalValueInput : createTotalValueInput;
       const months = parseInt(monthsInput.value) || 0;
 
-      if (instVal > 0 && months > 0 && !isSinglePaymentMode) {
+      if (instVal > 0 && months > 0) {
         totalInput.value = formatCurrencyRaw(instVal * months);
       }
     });
+  });
+
+  [createTotalMonthsInput, createInstallmentValueInput].forEach((input) => {
+    input?.addEventListener('input', updateCreateTotalFromInstallment);
+    input?.addEventListener('change', updateCreateTotalFromInstallment);
+    input?.addEventListener('blur', updateCreateTotalFromInstallment);
   });
 
   // Cálculo automático ao mudar os meses
@@ -3151,7 +3160,7 @@ function initFinancialLogic() {
       const totalVal = parseCurrencyToNumber(totalInput.value);
       const instVal = parseCurrencyToNumber(installmentInput.value);
 
-      if (months > 0 && !isSinglePaymentMode) {
+      if (months > 0) {
         // Se ambos estão preenchidos, priorizamos manter a parcela e ajustar o total (comum em financiamentos)
         // Mas se apenas o total estiver preenchido, ajustamos a parcela.
         if (instVal > 0) {
@@ -3161,54 +3170,6 @@ function initFinancialLogic() {
         }
       }
     });
-  });
-
-  // Listener para o lápis de editar parcela
-  monthlyContainer?.addEventListener('click', (e) => {
-    const editBtn = e.target.closest('[data-edit-value-month]');
-    if (!editBtn) return;
-    
-    const monthIndex = parseInt(editBtn.dataset.editValueMonth);
-    const plan = getSelectedPlan();
-    if (!plan) return;
-
-    openValuePrompt(plan, monthIndex);
-  });
-
-  // Listeners do modal de prompt de valor
-  const promptValueModal = document.getElementById('promptValueModal');
-  const promptValueInput = document.getElementById('promptValueInput');
-  const confirmBtn = document.getElementById('confirmPromptValueBtn');
-  const cancelBtn = document.getElementById('cancelPromptValueBtn');
-
-  let currentPromptMonth = null;
-
-  function openValuePrompt(plan, monthIndex) {
-    currentPromptMonth = monthIndex;
-    const currentVal = plan.manualMonthValues?.[monthIndex] || plan.installmentValue || 0;
-    promptValueInput.value = currentVal > 0 ? formatCurrencyRaw(currentVal) : '';
-    promptValueModal.hidden = false;
-    syncModalBodyState();
-    window.setTimeout(() => promptValueInput.focus(), 20);
-  }
-
-  cancelBtn?.addEventListener('click', () => {
-    promptValueModal.hidden = true;
-    syncModalBodyState();
-  });
-
-  confirmBtn?.addEventListener('click', () => {
-    const newVal = parseCurrencyToNumber(promptValueInput.value);
-    const plan = getSelectedPlan();
-    if (plan && currentPromptMonth) {
-      if (!plan.manualMonthValues) plan.manualMonthValues = {};
-      plan.manualMonthValues[currentPromptMonth] = isNaN(newVal) ? 0 : newVal;
-      savePlans();
-      renderPlansList();
-      renderPlanDetails(plan);
-    }
-    promptValueModal.hidden = true;
-    syncModalBodyState();
   });
 
   // --- Lógica de Pagamento Antecipado (Lance) ---
@@ -3285,28 +3246,146 @@ function initFinancialLogic() {
   }
 }
 
+function updateCreateTotalFromInstallment() {
+  const months = Number.parseInt(createTotalMonthsInput?.value, 10) || 0;
+  const installmentValue = parseCurrencyToNumber(createInstallmentValueInput?.value);
+
+  if (months > 0 && installmentValue > 0 && createTotalValueInput) {
+    createTotalValueInput.value = formatCurrencyRaw(installmentValue * months);
+  }
+}
+
+function openInstallmentValuePrompt(event, monthIndexValue) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+
+  const monthIndex = Number.parseInt(monthIndexValue, 10);
+  const plan = getSelectedPlan();
+
+  if (!plan || Number.isNaN(monthIndex) || !promptValueModal || !promptValueInput) {
+    return;
+  }
+
+  currentPromptMonth = monthIndex;
+  const currentVal = plan.manualMonthValues?.[monthIndex] ?? plan.installmentValue ?? 0;
+
+  promptValueInput.value = currentVal > 0 ? formatCurrencyRaw(currentVal) : '';
+  promptValueModal.hidden = false;
+  syncModalBodyState();
+
+  window.setTimeout(() => {
+    promptValueInput.focus();
+    promptValueInput.select();
+  }, 20);
+}
+
+function closeInstallmentValuePrompt() {
+  currentPromptMonth = null;
+
+  if (promptValueModal) {
+    promptValueModal.hidden = true;
+  }
+
+  syncModalBodyState();
+}
+
+function saveInstallmentValuePrompt() {
+  const plan = getSelectedPlan();
+
+  if (!plan || !Number.isInteger(currentPromptMonth)) {
+    closeInstallmentValuePrompt();
+    return;
+  }
+
+  const newVal = parseCurrencyToNumber(promptValueInput?.value);
+
+  if (!plan.manualMonthValues) {
+    plan.manualMonthValues = {};
+  }
+
+  plan.manualMonthValues[currentPromptMonth] = Number.isFinite(newVal) ? newVal : 0;
+  savePlans();
+  renderPlansList();
+  renderPlanDetails(plan);
+  closeInstallmentValuePrompt();
+}
+
 function handleCurrencyInput(e) {
   const input = e.target;
-  let value = input.value.replace(/\D/g, "");
-  
-  if (!value) {
+
+  if (!hasCurrencyDigits(input.value)) {
     input.value = "";
     return;
   }
-  
-  // Converte centavos para decimal
-  const numericValue = (parseInt(value) / 100);
-  
-  // Formata e atribui
+
+  const shouldUseCentMask = input.value.includes('R$') && e.inputType !== 'insertFromPaste';
+  const numericValue = shouldUseCentMask ? parseCurrencyCentMask(input.value) : parseCurrencyToNumber(input.value);
   input.value = formatCurrencyRaw(numericValue);
+
+  if (input === createInstallmentValueInput || input.id === 'createInstallmentValue') {
+    updateCreateTotalFromInstallment();
+  }
 }
 
 function parseCurrencyToNumber(value) {
   if (!value) return 0;
-  // Pega apenas os dígitos para tratar como centavos, igual à máscara
-  const digits = value.replace(/\D/g, "");
+
+  const rawValue = String(value);
+  const cleanedValue = rawValue.trim().replace(/[^\d.,-]/g, '');
+  const digits = cleanedValue.replace(/\D/g, '');
+
   if (!digits) return 0;
-  return parseInt(digits) / 100;
+
+  const signal = cleanedValue.includes('-') ? -1 : 1;
+
+  if (!cleanedValue.includes(',') && !cleanedValue.includes('.')) {
+    return signal * parseCurrencyCentMask(digits);
+  }
+
+  const unsignedValue = cleanedValue.replace(/-/g, '');
+  const decimalSeparator = getCurrencyDecimalSeparator(unsignedValue);
+
+  if (!decimalSeparator) {
+    return signal * Number.parseInt(digits, 10);
+  }
+
+  const separatorIndex = unsignedValue.lastIndexOf(decimalSeparator);
+  const integerPart = unsignedValue.slice(0, separatorIndex).replace(/\D/g, '') || '0';
+  const decimalPart = unsignedValue.slice(separatorIndex + 1).replace(/\D/g, '').slice(0, 2).padEnd(2, '0');
+
+  return signal * Number(`${integerPart}.${decimalPart}`);
+}
+
+function parseCurrencyCentMask(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return 0;
+  return Number.parseInt(digits, 10) / 100;
+}
+
+function hasCurrencyDigits(value) {
+  return /\d/.test(String(value ?? ''));
+}
+
+function getCurrencyDecimalSeparator(value) {
+  const lastCommaIndex = value.lastIndexOf(',');
+  const lastDotIndex = value.lastIndexOf('.');
+
+  if (lastCommaIndex >= 0 && lastDotIndex >= 0) {
+    return lastCommaIndex > lastDotIndex ? ',' : '.';
+  }
+
+  if (lastCommaIndex >= 0) {
+    return ',';
+  }
+
+  const dotParts = value.split('.');
+  const decimalDigits = dotParts[1]?.replace(/\D/g, '') ?? '';
+
+  if (dotParts.length === 2 && decimalDigits.length > 0 && decimalDigits.length <= 2) {
+    return '.';
+  }
+
+  return null;
 }
 
 function formatCurrencyRaw(value) {
@@ -3314,21 +3393,6 @@ function formatCurrencyRaw(value) {
     style: 'currency',
     currency: 'BRL'
   }).format(value);
-}
-
-function updateSinglePaymentUI() {
-  if (isSinglePaymentMode) {
-    createModal?.classList.add('mode-single-payment');
-    editModal?.classList.add('mode-single-payment');
-    toggleSinglePaymentBtn?.classList.add('active');
-    toggleSinglePaymentEditBtn?.classList.add('active');
-    if (createTotalMonthsInput) createTotalMonthsInput.value = '1';
-  } else {
-    createModal?.classList.remove('mode-single-payment');
-    editModal?.classList.remove('mode-single-payment');
-    toggleSinglePaymentBtn?.classList.remove('active');
-    toggleSinglePaymentEditBtn?.classList.remove('active');
-  }
 }
 
 // Chamar inicialização
