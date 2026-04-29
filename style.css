@@ -1185,20 +1185,27 @@ button.version-pill {
 @media (max-width: 480px) {
   .add-plan-section {
     position: relative;
-    padding-top: 26px;
+    padding-top: 24px;
   }
 
   .monthly-summary-badge {
     position: absolute;
-    top: 38px; /* Alinhado verticalmente com o título */
-    right: 22px;
+    top: 28px; /* Sobe para alinhar com o topo do título */
+    right: 20px;
     margin-top: 0;
-    transform: none; /* Tamanho normal como na imagem 2 */
+    min-width: 130px; /* Força o formato retangular da Imagem 2 */
+    padding: 10px 18px;
+    transform: none;
     z-index: 10;
+    align-items: flex-end;
   }
   
+  #monthlyTotalValue {
+    font-size: 1.45rem; /* Valor mais imponente como na imagem 2 */
+  }
+
   .section-heading {
-    padding-right: 140px; /* Mais espaço para o badge não bater no texto */
+    padding-right: 150px; /* Espaço extra para o badge largo */
   }
 }
 
