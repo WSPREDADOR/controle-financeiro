@@ -146,7 +146,9 @@ const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
 const BULK_PAYMENT_HISTORY_LIMIT = 10;
-const APP_SHARE_URL = 'https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/app-release.apk';
+const APP_APK_FILE_NAME = 'Controle de Dívidas.apk';
+const APP_APK_FILE_URL_NAME = encodeURIComponent(APP_APK_FILE_NAME);
+const APP_SHARE_URL = `https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/${APP_APK_FILE_URL_NAME}`;
 
 // ─── Armazenamento Persistente (protegido contra limpeza do Android) ───────────
 // Usa Capacitor Preferences quando disponível (armazenamento nativo),
@@ -212,7 +214,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.19',
+  currentVersion: '2.1.0',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -3018,8 +3020,7 @@ async function scanForDownloadedUpdate() {
 
     if (!result?.files) return;
 
-    // Procuramos por app-release.apk ou similar
-    const apkFile = result.files.find(f => f.name.toLowerCase() === 'app-release.apk');
+    const apkFile = result.files.find((file) => file.name === APP_APK_FILE_NAME);
     
     if (apkFile) {
        showUpdateBanner(
@@ -3046,7 +3047,7 @@ async function installLocalApk() {
     }
 
     const uriResult = await fs.getUri({
-      path: 'Download/app-release.apk',
+      path: `Download/${APP_APK_FILE_NAME}`,
       directory: 'EXTERNAL_STORAGE'
     });
 
@@ -3211,7 +3212,7 @@ async function fetchReleaseApiCandidate(url, timeoutMs) {
       notes: String(release?.body || '').trim() || 'Uma nova interface foi encontrada. Toque no botao verde para aplicar a atualização sem reinstalar o app.',
       bundleUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json',
       bundleFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json',
-      apkUrl: `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${tagName}/app-release.apk`
+      apkUrl: `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${tagName}/${APP_APK_FILE_URL_NAME}`
     };
   } finally {
     clearTimeout(timeoutId);

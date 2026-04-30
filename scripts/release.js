@@ -16,15 +16,17 @@ const webRuntimePath = path.join(projectRoot, 'web-runtime.js');
 const updateConfigPath = path.join(projectRoot, 'update-config.js');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
 const androidBuildPath = path.join(androidRoot, 'app', 'build.gradle');
-const localApkPath = path.join(projectRoot, 'update', 'app-release.apk');
+const releaseAssetName = 'Controle de Dívidas.apk';
+const localApkPath = path.join(projectRoot, 'update', releaseAssetName);
+const legacyLocalApkPath = path.join(projectRoot, 'update', 'app-release.apk');
 const builtApkPath = path.join(androidRoot, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
 
 const repoOwner = 'WSPREDADOR';
 const repoName = 'controle-financeiro';
-const releaseAssetName = 'app-release.apk';
+const releaseAssetUrlName = encodeURIComponent(releaseAssetName);
 
 function getReleaseApkUrl(version) {
-  return `https://github.com/${repoOwner}/${repoName}/releases/download/v${version}/${releaseAssetName}`;
+  return `https://github.com/${repoOwner}/${repoName}/releases/download/v${version}/${releaseAssetUrlName}`;
 }
 
 function parseArgs(argv) {
@@ -105,7 +107,7 @@ O comando sempre:
   - gera o bundle web
   - compila o APK release assinado
   - aponta o manifesto para a release versionada do GitHub
-  - cria/atualiza a release e o asset app-release.apk
+  - cria/atualiza a release e o asset ${releaseAssetName}
   - valida o APK remoto baixado da internet
 
 Use --resume somente para continuar uma versao que falhou no meio do release.
@@ -612,7 +614,7 @@ async function purgeJsDelivrCache() {
   const filesToPurge = [
     `${repoOwner}/${repoName}@main/update/web-manifest.json`,
     `${repoOwner}/${repoName}@main/update/web-bundle.json`,
-    `${repoOwner}/${repoName}@main/update/app-release.apk`
+    `${repoOwner}/${repoName}@main/update/${releaseAssetUrlName}`
   ];
 
   for (const file of filesToPurge) {
@@ -669,6 +671,11 @@ async function main() {
   }
 
   fs.copyFileSync(builtApkPath, localApkPath);
+
+  if (legacyLocalApkPath !== localApkPath && fs.existsSync(legacyLocalApkPath)) {
+    fs.rmSync(legacyLocalApkPath);
+  }
+
   verifyLocalApk(newVersion);
 
   const branch = getCurrentBranch();
