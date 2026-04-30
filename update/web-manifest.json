@@ -1,8 +1,8 @@
 {
-  "version": "2.1.4",
-  "notes": "Linha do tempo mais suave e indicador compacto de compromissos em atraso na lista.",
+  "version": "2.1.5",
+  "notes": "Tela de abertura animada para deixar o carregamento inicial mais intuitivo e suave.",
   "publishedAt": "2026-04-30",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777588558219",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777588558219",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.4/Controle.de.Dividas.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777590251704",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777590251704",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.5/Controle.de.Dividas.apk"
 }

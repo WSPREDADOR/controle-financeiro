@@ -7,6 +7,7 @@ const USER_ID_KEY = 'cf-user-id-v1';
 
 const resultsSection = document.getElementById('resultsSection');
 const statusMessage = document.getElementById('statusMessage');
+const startupScreen = document.getElementById('startupScreen');
 const monthlyContainer = document.getElementById('monthlyContainer');
 const plansPanel = document.querySelector('.plans-panel');
 const currentDate = document.getElementById('currentDate');
@@ -214,7 +215,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.1.4',
+  currentVersion: '2.1.5',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -223,6 +224,31 @@ const defaultUpdateConfig = {
   recheckIntervalMs: 45000
 };
 
+function finishStartupScreen() {
+  document.body.classList.remove('app-booting');
+  document.body.classList.add('app-ready');
+
+  if (!startupScreen) {
+    return;
+  }
+
+  startupScreen.setAttribute('aria-hidden', 'true');
+
+  const shouldReduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  window.setTimeout(() => {
+    startupScreen.hidden = true;
+  }, shouldReduceMotion ? 80 : 520);
+}
+
+function scheduleStartupFinish() {
+  const shouldReduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const delay = shouldReduceMotion ? 40 : 260;
+
+  window.setTimeout(() => {
+    window.requestAnimationFrame?.(finishStartupScreen) ?? finishStartupScreen();
+  }, delay);
+}
+
 currentDate.textContent = formatDate(normalizeDate(new Date()));
 updateDisplayedAppVersion();
 renderPlansList();
@@ -230,23 +256,29 @@ updateResultsNavigation();
 
 // Migra dados do localStorage para armazenamento nativo (executa em background)
 (async () => {
-  await Storage.migrate(STORAGE_KEY);
-  await Storage.migrate(NOTIFICATION_PREFERENCE_KEY);
-  await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
-  await Storage.migrate(USER_NAME_KEY);
-  await Storage.migrate(USER_ID_KEY);
+  try {
+    await Storage.migrate(STORAGE_KEY);
+    await Storage.migrate(NOTIFICATION_PREFERENCE_KEY);
+    await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
+    await Storage.migrate(USER_NAME_KEY);
+    await Storage.migrate(USER_ID_KEY);
 
-  await checkOnboarding();
+    await checkOnboarding();
 
-  // Recarrega planos do armazenamento nativo (pode ter dados mais recentes)
-  const migratedPlans = await loadPlansAsync();
-  if (migratedPlans.length > 0 && plans.length === 0) {
-    plans = migratedPlans;
-    selectedPlanId = plans[0]?.id ?? null;
-    renderPlansList();
-    if (selectedPlanId) {
-      renderPlanDetails(getSelectedPlan(), { resetTimelineScroll: true });
+    // Recarrega planos do armazenamento nativo (pode ter dados mais recentes)
+    const migratedPlans = await loadPlansAsync();
+    if (migratedPlans.length > 0 && plans.length === 0) {
+      plans = migratedPlans;
+      selectedPlanId = plans[0]?.id ?? null;
+      renderPlansList();
+      if (selectedPlanId) {
+        renderPlanDetails(getSelectedPlan(), { resetTimelineScroll: true });
+      }
     }
+  } catch (error) {
+    console.warn('Nao foi possivel concluir a preparacao inicial do app.', error);
+  } finally {
+    scheduleStartupFinish();
   }
 })();
 

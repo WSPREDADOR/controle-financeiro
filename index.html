@@ -15,7 +15,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="app-booting">
+  <div class="startup-screen" id="startupScreen" role="status" aria-live="polite" aria-label="Carregando Controle de Dívidas">
+    <div class="startup-stage">
+      <div class="startup-brand">
+        <span class="startup-logo-ring" aria-hidden="true"></span>
+        <img src="logo.png" alt="Controle de Dívidas" class="startup-logo">
+      </div>
+      <span class="startup-kicker">Controle de pagamentos</span>
+      <strong class="startup-title">Preparando seus compromissos</strong>
+      <div class="startup-steps" aria-hidden="true">
+        <span>Dados</span>
+        <span>Pagamentos</span>
+        <span>Lembretes</span>
+      </div>
+      <div class="startup-progress" aria-hidden="true">
+        <span></span>
+      </div>
+    </div>
+  </div>
+
   <div class="page-background" aria-hidden="true">
     <span class="glow glow-one"></span>
     <span class="glow glow-two"></span>
@@ -42,7 +61,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.1.4</strong>
+            <strong id="appVersionLabel">v2.1.5</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>

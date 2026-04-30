@@ -111,6 +111,192 @@ body.modal-open {
   overflow: hidden;
 }
 
+body.app-booting {
+  overflow: hidden;
+}
+
+body.app-booting .app-shell,
+body.app-booting .page-background {
+  opacity: 0;
+}
+
+body.app-ready .app-shell,
+body.app-ready .page-background {
+  opacity: 1;
+  transition: opacity 0.45s ease;
+}
+
+.startup-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: max(22px, env(safe-area-inset-top)) 22px max(32px, env(safe-area-inset-bottom));
+  background:
+    linear-gradient(135deg, rgba(85, 212, 203, 0.1), transparent 32%),
+    linear-gradient(225deg, rgba(241, 182, 111, 0.1), transparent 34%),
+    linear-gradient(180deg, #0d1115 0%, #151c22 54%, #0f1519 100%);
+  color: var(--text);
+  overflow: hidden;
+  transition: opacity 0.48s ease, visibility 0.48s ease;
+}
+
+.startup-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: radial-gradient(circle at center, black 24%, transparent 84%);
+  opacity: 0.2;
+}
+
+body.app-ready .startup-screen {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.startup-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  width: min(100%, 460px);
+  text-align: center;
+}
+
+.startup-brand {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 142px;
+  height: 142px;
+  margin-bottom: 18px;
+}
+
+.startup-logo-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(#111a20, #111a20) padding-box,
+    conic-gradient(from 0deg, var(--primary), rgba(241, 182, 111, 0.86), var(--primary)) border-box;
+  border: 1px solid transparent;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32), 0 0 42px rgba(85, 212, 203, 0.16);
+  animation: startup-ring 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.startup-logo {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 26px rgba(0, 0, 0, 0.32));
+  animation: startup-float 2.8s ease-in-out infinite;
+}
+
+.startup-kicker {
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.startup-title {
+  margin-top: 10px;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 2.08rem;
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.startup-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: min(100%, 360px);
+  margin-top: 22px;
+}
+
+.startup-steps span {
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(24, 32, 38, 0.74);
+  color: rgba(238, 244, 247, 0.82);
+  font-size: 0.78rem;
+  font-weight: 800;
+  animation: startup-step 1.8s ease-in-out infinite;
+}
+
+.startup-steps span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.startup-steps span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.startup-progress {
+  width: min(100%, 360px);
+  height: 10px;
+  margin-top: 18px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.startup-progress span {
+  display: block;
+  width: 44%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--primary));
+  box-shadow: 0 0 18px rgba(85, 212, 203, 0.28);
+  animation: startup-progress 1.28s cubic-bezier(0.42, 0, 0.2, 1) infinite;
+}
+
+@keyframes startup-progress {
+  0% { transform: translateX(-112%); }
+  100% { transform: translateX(232%); }
+}
+
+@keyframes startup-ring {
+  0%, 100% {
+    transform: scale(0.96) rotate(0deg);
+    opacity: 0.78;
+  }
+
+  50% {
+    transform: scale(1.04) rotate(16deg);
+    opacity: 1;
+  }
+}
+
+@keyframes startup-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes startup-step {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.08);
+    color: rgba(238, 244, 247, 0.72);
+  }
+
+  45% {
+    border-color: rgba(85, 212, 203, 0.26);
+    color: var(--primary-strong);
+  }
+}
+
 button,
 input,
 select {
@@ -3351,6 +3537,25 @@ button.version-pill {
 }
 
 @media (max-width: 600px) {
+  .startup-brand {
+    width: 122px;
+    height: 122px;
+  }
+
+  .startup-logo {
+    width: 88px;
+    height: 88px;
+  }
+
+  .startup-title {
+    font-size: 1.58rem;
+  }
+
+  .startup-steps span {
+    padding-inline: 8px;
+    font-size: 0.72rem;
+  }
+
   .input-group-row {
     grid-template-columns: 1fr;
   }
@@ -3374,7 +3579,12 @@ button.version-pill {
   .plan-item,
   .installment-value-row,
   .installment-amount-display,
-  .edit-installment-btn {
+  .edit-installment-btn,
+  .startup-screen,
+  .startup-logo-ring,
+  .startup-logo,
+  .startup-steps span,
+  .startup-progress span {
     animation: none !important;
     transition-duration: 0.01ms !important;
   }
