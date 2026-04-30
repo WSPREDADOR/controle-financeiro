@@ -1015,12 +1015,12 @@ button.version-pill {
 }
 
 .details-close-btn {
-  position: absolute;
-  top: 18px;
-  right: 18px;
+  position: sticky;
+  top: 0;
+  right: 0;
   z-index: 50;
   display: grid;
-  margin: 0;
+  margin: 0 0 -50px auto;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
   background: linear-gradient(135deg, #1e2930 0%, #11181d 100%);
   border-color: rgba(241, 182, 111, 0.25);
@@ -2561,9 +2561,9 @@ button.version-pill {
   }
 
   .details-close-btn {
-    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    top: 0;
+    right: 0;
     margin: 0 0 -46px auto;
-    right: auto;
     width: 44px;
     height: 44px;
     min-width: 44px;

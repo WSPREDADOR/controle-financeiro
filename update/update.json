@@ -1,6 +1,6 @@
 {
-  "version": "2.0.15",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.15/app-release.apk",
-  "notes": "Reforco da antecipacao de pagamentos com valores antigos e mensagens no modal.",
-  "publishedAt": "2026-04-29"
+  "version": "2.0.16",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.16/app-release.apk",
+  "notes": "Ajuste do botao voltar nos detalhes e remocao do aviso ao selecionar compromisso.",
+  "publishedAt": "2026-04-30"
 }

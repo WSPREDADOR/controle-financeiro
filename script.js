@@ -189,7 +189,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.15',
+  currentVersion: '2.0.16',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -330,7 +330,7 @@ plansList.addEventListener('click', (event) => {
 
   renderPlansList();
   openDetailsModal(selectedPlan, { resetTimelineScroll: true });
-  setStatus(`Exibindo os cálculos de "${selectedPlan.name}".`, 'success');
+  setStatus('', '');
 });
 
 monthlyContainer.addEventListener('click', (event) => {
