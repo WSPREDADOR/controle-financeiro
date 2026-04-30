@@ -1,6 +1,6 @@
 {
-  "version": "2.1.1",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.1/Controle.de.Dividas.apk",
-  "notes": "Corrige o link de download do APK e mantém compatibilidade com links antigos.",
+  "version": "2.1.2",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.2/Controle.de.Dividas.apk",
+  "notes": "Restaura a logo dentro do app Android e mantém fallback de imagem no bundle.",
   "publishedAt": "2026-04-30"
 }

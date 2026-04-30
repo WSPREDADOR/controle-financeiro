@@ -5,6 +5,7 @@ const APP_SHELL = [
   './style.css',
   './script.js',
   './manifest.webmanifest',
+  './logo.png',
   './assets/icon.png',
   './assets/Controle Financeiro.png'
 ];

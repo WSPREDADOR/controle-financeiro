@@ -18,6 +18,14 @@ const rootFiles = [
 const assetFiles = [
   {
     from: [
+      path.join(projectRoot, 'logo.png'),
+      path.join(projectRoot, 'Controle Financeiro.png'),
+      path.join(projectRoot, 'build', 'icon.png')
+    ],
+    to: path.join(targetDir, 'logo.png')
+  },
+  {
+    from: [
       path.join(projectRoot, 'Controle Financeiro.png'),
       path.join(projectRoot, 'logo.png'),
       path.join(projectRoot, 'build', 'icon.png')

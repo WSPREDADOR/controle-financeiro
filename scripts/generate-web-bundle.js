@@ -41,6 +41,7 @@ function extractBodyHtml(indexHtml) {
   body = body.replace(/\s*<script\s+src="script\.js"><\/script>\s*/gi, '\n');
   
   // Fix imagem
+  body = body.replace(/src="logo\.png"/g, 'src="logo.png" data-fallback-src="assets/Controle Financeiro.png"');
   body = body.replace(/src="Controle Financeiro\.png"/g, 'src="assets/Controle Financeiro.png" data-fallback-src="Controle Financeiro.png"');
   
   return body.trim();
