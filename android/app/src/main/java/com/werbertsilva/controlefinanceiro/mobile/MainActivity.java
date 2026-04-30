@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(UpdateInstallerPlugin.class);
+        registerPlugin(NativeSharePlugin.class);
         registerPlugin(NotificationPermissionsPlugin.class);
         registerPlugin(com.capacitorjs.plugins.filesystem.FilesystemPlugin.class);
         registerPlugin(com.capacitorjs.plugins.app.AppPlugin.class);

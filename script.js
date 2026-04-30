@@ -214,7 +214,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.1.2',
+  currentVersion: '2.1.3',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -704,13 +704,24 @@ function toggleShareOptionsPanel() {
 }
 
 async function shareAppWithSystem() {
+  const nativeShare = getNativeSharePlugin();
+  const payload = {
+    title: 'Controle de Dívidas',
+    text: 'Baixe o app Controle de Dívidas.',
+    url: APP_SHARE_URL
+  };
+
+  if (isNativeAndroidApp() && nativeShare?.share) {
+    try {
+      await nativeShare.share(payload);
+      setShareCopyStatus('');
+      return;
+    } catch (_) {}
+  }
+
   if (navigator.share) {
     try {
-      await navigator.share({
-        title: 'Controle de Dívidas',
-        text: 'Baixe o app Controle de Dívidas.',
-        url: APP_SHARE_URL
-      });
+      await navigator.share(payload);
       setShareCopyStatus('');
       return;
     } catch (error) {
@@ -2551,6 +2562,10 @@ function getFilesystemPlugin() {
 
 function getUpdateInstallerPlugin() {
   return window.Capacitor?.Plugins?.UpdateInstaller ?? null;
+}
+
+function getNativeSharePlugin() {
+  return window.Capacitor?.Plugins?.NativeShare ?? null;
 }
 
 function getNativePlatform() {
