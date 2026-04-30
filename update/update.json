@@ -1,6 +1,6 @@
 {
-  "version": "2.1.0",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.0/Controle.de.Dividas.apk",
-  "notes": "Renomeia o arquivo APK de download para Controle de Dívidas.",
+  "version": "2.1.1",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.1/Controle.de.Dividas.apk",
+  "notes": "Corrige o link de download do APK e mantém compatibilidade com links antigos.",
   "publishedAt": "2026-04-30"
 }

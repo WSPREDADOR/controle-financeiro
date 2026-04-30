@@ -94,11 +94,22 @@ public class UpdateInstallerPlugin extends Plugin {
             ? "controle-de-dividas-update.apk"
             : "controle-de-dividas-" + version + ".apk";
 
+        File existingApk = new File(
+            getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+            activeFileName
+        );
+
+        if (existingApk.exists()) {
+            existingApk.delete();
+        }
+
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
         request.setTitle("Atualização do Controle de Dívidas");
         request.setDescription("Baixando a versão " + (version.isEmpty() ? "mais recente" : version));
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
         request.setMimeType("application/vnd.android.package-archive");
+        request.addRequestHeader("User-Agent", "ControleDeDividasAndroid/1.0");
+        request.addRequestHeader("Accept", "application/vnd.android.package-archive, application/octet-stream, */*");
         request.setAllowedOverMetered(true);
         request.setAllowedOverRoaming(true);
         request.setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, activeFileName);

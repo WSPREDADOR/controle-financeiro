@@ -17,6 +17,7 @@ const updateConfigPath = path.join(projectRoot, 'update-config.js');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
 const androidBuildPath = path.join(androidRoot, 'app', 'build.gradle');
 const releaseAssetName = 'Controle.de.Dividas.apk';
+const legacyReleaseAssetName = 'app-release.apk';
 const localApkPath = path.join(projectRoot, 'update', releaseAssetName);
 const legacyLocalApkPath = path.join(projectRoot, 'update', 'app-release.apk');
 const accentedLocalApkPath = path.join(projectRoot, 'update', 'Controle de Dívidas.apk');
@@ -565,12 +566,16 @@ function publishGitHubRelease(version, notes, branch) {
   const tag = `v${version}`;
   const title = `Controle de Dívidas v${version}`;
   const apkArg = path.relative(projectRoot, localApkPath);
+  const legacyApkPath = path.join(os.tmpdir(), legacyReleaseAssetName);
+  fs.copyFileSync(localApkPath, legacyApkPath);
+  const legacyApkArg = path.relative(projectRoot, legacyApkPath);
 
   ensureGhCli();
 
   if (releaseExists(tag)) {
     run('gh', ['release', 'edit', tag, '--title', title, '--notes', notes]);
     run('gh', ['release', 'upload', tag, apkArg, '--clobber']);
+    run('gh', ['release', 'upload', tag, legacyApkArg, '--clobber']);
     return;
   }
 
@@ -579,6 +584,7 @@ function publishGitHubRelease(version, notes, branch) {
     'create',
     tag,
     apkArg,
+    legacyApkArg,
     '--target',
     branch,
     '--title',
@@ -615,7 +621,8 @@ async function purgeJsDelivrCache() {
   const filesToPurge = [
     `${repoOwner}/${repoName}@main/update/web-manifest.json`,
     `${repoOwner}/${repoName}@main/update/web-bundle.json`,
-    `${repoOwner}/${repoName}@main/update/${releaseAssetUrlName}`
+    `${repoOwner}/${repoName}@main/update/${releaseAssetUrlName}`,
+    `${repoOwner}/${repoName}@main/update/${encodeURIComponent(legacyReleaseAssetName)}`
   ];
 
   for (const file of filesToPurge) {

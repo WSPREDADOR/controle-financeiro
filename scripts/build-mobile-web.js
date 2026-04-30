@@ -16,7 +16,14 @@ const rootFiles = [
 ];
 
 const assetFiles = [
-  { from: path.join(projectRoot, 'Controle Financeiro.png'), to: path.join(assetsDir, 'Controle Financeiro.png') },
+  {
+    from: [
+      path.join(projectRoot, 'Controle Financeiro.png'),
+      path.join(projectRoot, 'logo.png'),
+      path.join(projectRoot, 'build', 'icon.png')
+    ],
+    to: path.join(assetsDir, 'Controle Financeiro.png')
+  },
   { from: path.join(projectRoot, 'build', 'icon.png'), to: path.join(assetsDir, 'icon.png') }
 ];
 
@@ -26,12 +33,16 @@ function cleanDirectory(dir) {
 }
 
 function copyFile(source, destination) {
-  if (!fs.existsSync(source)) {
+  const sourcePath = Array.isArray(source)
+    ? source.find((candidate) => fs.existsSync(candidate))
+    : source;
+
+  if (!sourcePath || !fs.existsSync(sourcePath)) {
     throw new Error(`Arquivo nao encontrado: ${source}`);
   }
 
   fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.copyFileSync(source, destination);
+  fs.copyFileSync(sourcePath, destination);
 }
 
 function updateIndexHtml(html) {

@@ -214,7 +214,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.1.0',
+  currentVersion: '2.1.1',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -3207,12 +3207,18 @@ async function fetchReleaseApiCandidate(url, timeoutMs) {
       throw new Error('Release do GitHub invalida.');
     }
 
+    const apkAsset = Array.isArray(release?.assets)
+      ? release.assets.find((asset) => asset?.name === APP_APK_FILE_NAME)
+        || release.assets.find((asset) => String(asset?.browser_download_url || '').endsWith(`/${APP_APK_FILE_URL_NAME}`))
+        || release.assets.find((asset) => /\.apk$/i.test(String(asset?.name || asset?.browser_download_url || '')))
+      : null;
+
     return {
       version: tagName,
       notes: String(release?.body || '').trim() || 'Uma nova interface foi encontrada. Toque no botao verde para aplicar a atualização sem reinstalar o app.',
       bundleUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json',
       bundleFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json',
-      apkUrl: `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${tagName}/${APP_APK_FILE_URL_NAME}`
+      apkUrl: apkAsset?.browser_download_url || `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${tagName}/${APP_APK_FILE_URL_NAME}`
     };
   } finally {
     clearTimeout(timeoutId);
