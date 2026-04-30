@@ -184,6 +184,11 @@ button,
   will-change: opacity, backdrop-filter;
 }
 
+#promptValueModal,
+#bulkPaymentModal {
+  z-index: 72;
+}
+
 .edit-modal {
   position: relative;
   width: min(100%, 620px);

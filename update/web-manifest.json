@@ -1,8 +1,8 @@
 {
-  "version": "2.0.16",
-  "notes": "Ajuste do botao voltar nos detalhes e remocao do aviso ao selecionar compromisso.",
+  "version": "2.0.17",
+  "notes": "Correcao do botao Antecipar Pagamento e modal acima dos detalhes.",
   "publishedAt": "2026-04-30",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777523444169",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777523444170",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.16/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777543036147",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777543036148",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.17/app-release.apk"
 }

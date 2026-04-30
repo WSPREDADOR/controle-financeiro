@@ -28,6 +28,14 @@ const appDetailsSection = document.getElementById('appDetailsSection');
 const settingsAppVersion = document.getElementById('settingsAppVersion');
 const settingsAppRelease = document.getElementById('settingsAppRelease');
 const contactDevBtn = document.getElementById('contactDevBtn');
+const openNativeAppSettingsBtn = document.getElementById('openNativeAppSettingsBtn');
+const notificationBanner = document.getElementById('notificationBanner');
+const notificationBannerTitle = document.getElementById('notificationBannerTitle');
+const notificationBannerMessage = document.getElementById('notificationBannerMessage');
+const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
+const dismissNotificationsBtn = document.getElementById('dismissNotificationsBtn');
+const permissionChecklist = document.getElementById('permissionChecklist');
+const settingsPermissionChecklist = document.getElementById('settingsPermissionChecklist');
 const onboardingModal = document.getElementById('onboardingModal');
 const userNameInput = document.getElementById('userNameInput');
 const saveOnboardingBtn = document.getElementById('saveOnboardingBtn');
@@ -189,7 +197,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.16',
+  currentVersion: '2.0.17',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
