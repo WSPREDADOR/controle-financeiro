@@ -1440,6 +1440,29 @@ button.version-pill {
   box-shadow: 0 22px 44px rgba(0, 0, 0, 0.26), 0 0 0 1px rgba(85, 212, 203, 0.12);
 }
 
+.plan-item.has-overdue {
+  border-color: rgba(255, 112, 112, 0.3);
+  box-shadow: 0 22px 44px rgba(98, 16, 16, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.plan-item.active.has-overdue {
+  border-color: rgba(255, 158, 112, 0.36);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 112, 112, 0.2), transparent 36%),
+    linear-gradient(135deg, rgba(85, 212, 203, 0.12), rgba(41, 24, 27, 0.98)),
+    rgba(20, 28, 34, 0.92);
+}
+
+.plan-item.is-soft-updated {
+  border-color: rgba(91, 215, 167, 0.32);
+  box-shadow: 0 24px 48px rgba(91, 215, 167, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.plan-item.has-overdue.is-soft-updated {
+  border-color: rgba(255, 158, 112, 0.38);
+  box-shadow: 0 24px 48px rgba(98, 16, 16, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 .plan-select-btn {
   display: grid;
   gap: 10px;
@@ -1512,6 +1535,7 @@ button.version-pill {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  min-height: 22px;
 }
 
 .plan-progress-label {
@@ -1520,6 +1544,27 @@ button.version-pill {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(198, 210, 223, 0.72);
+}
+
+.plan-item.has-overdue .plan-progress-label {
+  color: #ffd0d0;
+}
+
+.plan-overdue-inline {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 112, 112, 0.24);
+  background: rgba(255, 112, 112, 0.12);
+  color: #ffd59b;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .plan-progress-value {
@@ -1544,6 +1589,12 @@ button.version-pill {
   border-radius: inherit;
   background: linear-gradient(90deg, #f1b66f 0%, #79e6df 100%);
   box-shadow: 0 0 16px rgba(121, 230, 223, 0.24);
+  transition: width 0.42s cubic-bezier(0.22, 1, 0.36, 1), background 0.28s ease;
+}
+
+.plan-item.has-overdue .plan-progress-fill {
+  background: linear-gradient(90deg, #ff8f8f 0%, #ffd59b 100%);
+  box-shadow: 0 0 16px rgba(255, 112, 112, 0.22);
 }
 
 .plan-stat-grid {
@@ -1925,10 +1976,36 @@ button.version-pill {
   border-radius: 22px;
   padding: 18px;
   box-shadow: var(--shadow-soft);
-  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    background 0.34s ease,
+    border-color 0.34s ease,
+    box-shadow 0.34s ease,
+    filter 0.28s ease,
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
   overflow: hidden;
   animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  will-change: transform, border-color, box-shadow;
+}
+
+.month-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.08) 42%, transparent 72%);
+  transform: translateX(-18%);
+  transition: opacity 0.28s ease, transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.month-card.is-state-changing {
+  transform: translateY(-2px);
+}
+
+.month-card.is-state-changing::after {
+  opacity: 1;
+  transform: translateX(18%);
 }
 
 .month-card:nth-child(1) { animation-delay: 0.05s; }
@@ -1985,6 +2062,7 @@ button.version-pill {
   padding: 8px 12px;
   border-radius: 999px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition: background 0.28s ease, color 0.28s ease, box-shadow 0.28s ease;
 }
 
 .month-status.paid {
@@ -2042,6 +2120,7 @@ button.version-pill {
   width: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--accent), var(--primary));
+  transition: width 0.42s cubic-bezier(0.22, 1, 0.36, 1), background 0.28s ease;
 }
 
 .month-card-footer {
@@ -2067,7 +2146,7 @@ button.version-pill {
   color: var(--primary-strong);
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.24s ease, background 0.24s ease, color 0.24s ease, box-shadow 0.24s ease;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -3165,6 +3244,7 @@ button.version-pill {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   width: fit-content;
+  transition: background 0.24s ease, border-color 0.24s ease, transform 0.24s ease, opacity 0.24s ease;
 }
 
 .installment-amount-display {
@@ -3172,6 +3252,7 @@ button.version-pill {
   color: var(--primary);
   font-weight: 700;
   font-size: 1.15rem;
+  transition: color 0.24s ease;
 }
 
 .installment-value-copy {
@@ -3198,7 +3279,7 @@ button.version-pill {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  transition: all 0.4s cubic-bezier(0.2, 0.9, 0.1, 1);
+  transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.1, 1), background 0.24s ease, color 0.24s ease, border-color 0.24s ease;
   animation: slide-down-fade 0.5s cubic-bezier(0.2, 0.9, 0.1, 1);
   will-change: transform, opacity;
 }
@@ -3276,5 +3357,25 @@ button.version-pill {
 
   .bulk-payment-history-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .month-card,
+  .month-card::after,
+  .month-status,
+  .month-progress-bar,
+  .month-toggle-btn,
+  .plan-progress-fill,
+  .plan-item,
+  .installment-value-row,
+  .installment-amount-display,
+  .edit-installment-btn {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
   }
 }

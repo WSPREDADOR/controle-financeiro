@@ -214,7 +214,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.1.3',
+  currentVersion: '2.1.4',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1031,6 +1031,17 @@ function renderPlanDetails(plan, options = {}) {
     return;
   }
 
+  const detailsContext = updatePlanDetailsSummary(plan, options);
+
+  renderMonthlyTimeline(plan, detailsContext.effectiveStartDate, detailsContext.today, options);
+  updateResultsNavigation();
+
+  if (detailsContext.shouldShowDetails) {
+    syncModalBodyState();
+  }
+}
+
+function updatePlanDetailsSummary(plan, options = {}) {
   const shouldShowDetails = Boolean(options.openDetails || !resultsSection.hidden);
   const today = normalizeDate(new Date());
   const startDate = parseDateInput(plan.startDate);
@@ -1055,8 +1066,15 @@ function renderPlanDetails(plan, options = {}) {
   document.getElementById('summaryStart').textContent = formatDate(effectiveStartDate);
 
   if (isExpense) {
+    document.getElementById('percentage').textContent = '∞';
+    document.getElementById('remainingTime').textContent = 'Contínuo';
     document.getElementById('planStatus').textContent = 'Despesa Contínua';
     document.getElementById('completedMonths').textContent = `${completedMonths}`;
+    document.getElementById('summaryMonths').textContent = String(plan.totalMonths);
+    document.getElementById('summaryDays').textContent = `${totalDays} dias exibidos`;
+    document.getElementById('summaryEnd').textContent = 'Livre';
+    document.getElementById('countModeLabel').textContent = getCountModeLabel(plan.countMode);
+    document.getElementById('progressFill').style.width = '100%';
     document.getElementById('summaryPaidValue').textContent = formatCurrency(financials.totalPaid);
     document.getElementById('summaryRemainingValue').parentElement.style.display = 'none';
   } else {
@@ -1075,13 +1093,7 @@ function renderPlanDetails(plan, options = {}) {
     document.getElementById('summaryRemainingValue').parentElement.style.display = 'flex';
   }
 
-  renderMonthlyTimeline(plan, effectiveStartDate, today, options);
-
-  updateResultsNavigation();
-
-  if (shouldShowDetails) {
-    syncModalBodyState();
-  }
+  return { today, effectiveStartDate, shouldShowDetails };
 }
 
 function updateMonthlyTotal() {
@@ -1150,6 +1162,7 @@ function renderPlansList() {
     const paidMonthsCount = getPaidMonths(plan).length;
     const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
     const currentInstallment = nextUnpaidMonth ? getMonthRemainingValue(plan, nextUnpaidMonth) : 0;
+    const overdueInfo = getPlanOverdueInfo(plan);
     const valueDisplay = currentInstallment > 0 ? `<div class="plan-item-value" style="font-family: 'Space Grotesk'; color: var(--primary); font-weight: 700; font-size: 0.95rem; white-space: nowrap;">${formatCurrencyRaw(currentInstallment)}</div>` : '';
 
     const item = document.createElement('div');
@@ -1157,7 +1170,7 @@ function renderPlansList() {
     item.dataset.planNumber = String(index + 1);
     item.dataset.planId = plan.id;
     item.innerHTML = `
-      <article class="plan-item${plan.id === selectedPlanId ? ' active' : ''}" style="--plan-progress:${progressRatio};" data-plan-number="${String(index + 1)}" data-plan-id="${plan.id}">
+      <article class="plan-item${plan.id === selectedPlanId ? ' active' : ''}${overdueInfo.hasOverdue ? ' has-overdue' : ''}" style="--plan-progress:${progressRatio};" data-plan-number="${String(index + 1)}" data-plan-id="${plan.id}">
         <button type="button" class="plan-select-btn" data-plan-id="${plan.id}">
           <div class="plan-item-head">
             <span class="plan-item-tag">${String(index + 1).padStart(2, '0')}</span>
@@ -1169,12 +1182,12 @@ function renderPlansList() {
           </div>
 
           <div class="plan-progress-meta">
-            <span class="plan-progress-label">Andamento</span>
-
+            <span class="plan-progress-label">${overdueInfo.hasOverdue ? 'Atraso' : 'Andamento'}</span>
+            ${buildPlanOverdueInlineHtml(overdueInfo)}
           </div>
           <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
             <div class="plan-progress" aria-hidden="true" style="flex: 1; margin: 0; ${plan.isExpense ? 'opacity: 0.2;' : ''}">
-            <span class="plan-progress-fill" ${plan.isExpense ? 'style="width: 100%; background: var(--text-muted);"' : ''}></span>
+            <span class="plan-progress-fill" ${plan.isExpense ? 'style="width: 100%; background: var(--muted);"' : ''}></span>
             </div>
             <strong class="plan-progress-value" style="font-size: 0.85rem; min-width: 35px; text-align: right;">${plan.isExpense ? '∞' : `${progressPercent}%`}</strong>
           </div>
@@ -1217,110 +1230,509 @@ function renderPlansList() {
   updateMonthlyTotal();
 }
 
-function renderMonthlyTimeline(plan, startDate, today, options = {}) {
-  monthlyContainer.innerHTML = '';
+function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
+  if (!plan) {
+    return { hasOverdue: false, count: 0, amount: 0 };
+  }
+
+  const startDate = parseDateInput(plan.startDate);
+  const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
   const paidMonths = new Set(getPaidMonths(plan));
-  const focusMonthIndex = Number.parseInt(options.focusMonthIndex, 10);
-  const hasFocusMonth = Number.isInteger(focusMonthIndex) && focusMonthIndex > 0;
-  
+  const maxMonths = getPlanMonthLimit(plan);
+  let count = 0;
+  let amount = 0;
+  let firstMonthIndex = null;
+  let firstPeriodStart = null;
+  let firstDueDate = null;
+
+  for (let monthIndex = 1; monthIndex <= maxMonths; monthIndex += 1) {
+    if (paidMonths.has(monthIndex)) {
+      continue;
+    }
+
+    const dueDate = addMonths(effectiveStartDate, monthIndex);
+
+    if (today < dueDate) {
+      continue;
+    }
+
+    count += 1;
+    amount += getMonthRemainingValue(plan, monthIndex);
+
+    if (!firstMonthIndex) {
+      firstMonthIndex = monthIndex;
+      firstPeriodStart = addMonths(effectiveStartDate, monthIndex - 1);
+      firstDueDate = dueDate;
+    }
+  }
+
+  return {
+    hasOverdue: count > 0,
+    count,
+    amount: roundMoney(amount),
+    firstMonthIndex,
+    firstPeriodStart,
+    firstDueDate
+  };
+}
+
+function getPlanOverdueSummary(overdueInfo) {
+  if (!overdueInfo?.hasOverdue) {
+    return { shortLabel: '', details: '' };
+  }
+
+  const countLabel = overdueInfo.count === 1
+    ? '1 etapa vencida'
+    : `${overdueInfo.count} etapas vencidas`;
+  const shortLabel = overdueInfo.count === 1
+    ? '1 vencida'
+    : `${overdueInfo.count} venc.`;
+  const amountLabel = overdueInfo.amount > MONEY_EPSILON
+    ? formatCurrencyRaw(overdueInfo.amount)
+    : 'valor pendente';
+  const sinceLabel = overdueInfo.firstPeriodStart
+    ? `desde ${formatMonthYear(overdueInfo.firstPeriodStart)}`
+    : 'com atraso aberto';
+
+  return {
+    shortLabel,
+    details: `${countLabel}, ${amountLabel}, ${sinceLabel}`
+  };
+}
+
+function buildPlanOverdueInlineHtml(overdueInfo) {
+  if (!overdueInfo?.hasOverdue) {
+    return '';
+  }
+
+  const summary = getPlanOverdueSummary(overdueInfo);
+
+  return `
+            <span class="plan-overdue-inline" title="${escapeHtml(summary.details)}" aria-label="${escapeHtml(summary.details)}">${summary.shortLabel}</span>
+  `;
+}
+
+function getTimelineDisplayMonths(plan, startDate, today, focusMonthIndex) {
+  const parsedFocusMonth = Number.parseInt(focusMonthIndex, 10);
+  const hasFocusMonth = Number.isInteger(parsedFocusMonth) && parsedFocusMonth > 0;
   const diffMonths = (today.getFullYear() - startDate.getFullYear()) * 12 + (today.getMonth() - startDate.getMonth());
   const elapsedMonths = Math.max(0, diffMonths);
-  const displayMonths = plan.isExpense
-    ? Math.min(plan.totalMonths, Math.max(elapsedMonths + 12, hasFocusMonth ? focusMonthIndex : 0))
-    : plan.totalMonths;
 
-  for (let monthIndex = 1; monthIndex <= displayMonths; monthIndex += 1) {
-    const periodStart = addMonths(startDate, monthIndex - 1);
-    const dueDate = addMonths(startDate, monthIndex);
-    const periodEnd = addDays(dueDate, -1);
-    const monthDays = Math.max(1, daysBetween(periodStart, dueDate));
-    const monthElapsed = clamp(daysBetween(periodStart, today), 0, monthDays);
-    const isPaid = paidMonths.has(monthIndex);
-    const progress = isPaid ? 100 : Math.round((monthElapsed / monthDays) * 100);
-    const status = getMonthStatus(today, periodStart, dueDate, isPaid);
-    const cardStateClass =
-      isPaid
-        ? ' is-paid'
-        : status.className === 'overdue'
-          ? ' is-overdue'
-          : status.className === 'current'
-            ? ' is-current'
-            : '';
+  return plan.isExpense
+    ? Math.min(getPlanMonthLimit(plan), Math.max(elapsedMonths + 12, hasFocusMonth ? parsedFocusMonth : 0))
+    : getPlanMonthLimit(plan);
+}
 
-    const baseValue = getMonthBaseValue(plan, monthIndex);
-    const partialCredit = getPartialMonthCredit(plan, monthIndex);
-    const displayValue = isPaid ? baseValue : getMonthRemainingValue(plan, monthIndex);
-    const partialCreditHtml = partialCredit > MONEY_EPSILON && !isPaid ? `
-        <span class="installment-credit-display">Antecipado ${formatCurrencyRaw(partialCredit)}</span>
+function buildMonthTimelineModel(plan, startDate, today, monthIndex, paidMonths = new Set(getPaidMonths(plan))) {
+  const periodStart = addMonths(startDate, monthIndex - 1);
+  const dueDate = addMonths(startDate, monthIndex);
+  const monthDays = Math.max(1, daysBetween(periodStart, dueDate));
+  const monthElapsed = clamp(daysBetween(periodStart, today), 0, monthDays);
+  const isPaid = paidMonths.has(monthIndex);
+  const progress = isPaid ? 100 : Math.round((monthElapsed / monthDays) * 100);
+  const status = getMonthStatus(today, periodStart, dueDate, isPaid);
+  const stateClass =
+    isPaid
+      ? 'is-paid'
+      : status.className === 'overdue'
+        ? 'is-overdue'
+        : status.className === 'current'
+          ? 'is-current'
+          : '';
+  const baseValue = getMonthBaseValue(plan, monthIndex);
+  const partialCredit = getPartialMonthCredit(plan, monthIndex);
+  const displayValue = isPaid ? baseValue : getMonthRemainingValue(plan, monthIndex);
+
+  return {
+    monthIndex,
+    periodStart,
+    dueDate,
+    monthDays,
+    isPaid,
+    progress,
+    status,
+    stateClass,
+    baseValue,
+    partialCredit,
+    displayValue
+  };
+}
+
+function buildMonthValueHtml(model) {
+  if (model.baseValue <= MONEY_EPSILON) {
+    return '';
+  }
+
+  const partialCreditHtml = model.partialCredit > MONEY_EPSILON && !model.isPaid ? `
+        <span class="installment-credit-display">Antecipado ${formatCurrencyRaw(model.partialCredit)}</span>
       ` : '';
-    const valueHtml = baseValue > 0 ? `
+
+  return `
       <div class="installment-value-row">
         <div class="installment-value-copy">
-          <span class="installment-amount-display">${partialCreditHtml ? 'Restante ' : ''}${formatCurrencyRaw(displayValue)}</span>
+          <span class="installment-amount-display">${partialCreditHtml ? 'Restante ' : ''}${formatCurrencyRaw(model.displayValue)}</span>
           ${partialCreditHtml}
         </div>
-        <button type="button" class="edit-installment-btn" data-edit-value-month="${monthIndex}" onclick="openInstallmentValuePrompt(event, ${monthIndex})" title="Editar valor desta parcela">
+        <button type="button" class="edit-installment-btn" data-edit-value-month="${model.monthIndex}" onclick="openInstallmentValuePrompt(event, ${model.monthIndex})" title="Editar valor desta parcela">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       </div>
-    ` : '';
+    `;
+}
 
-    const card = document.createElement('article');
-    card.className = `month-card${cardStateClass}`;
-    card.dataset.monthIndex = String(monthIndex);
-    card.innerHTML = `
+function createMonthTimelineCard(model) {
+  const card = document.createElement('article');
+  card.className = `month-card${model.stateClass ? ` ${model.stateClass}` : ''}`;
+  card.dataset.monthIndex = String(model.monthIndex);
+  card.innerHTML = `
       <div class="month-card-header">
         <div class="month-card-heading">
-          <strong class="month-index">${formatMonthYear(periodStart)}</strong>
+          <strong class="month-index">${formatMonthYear(model.periodStart)}</strong>
           <span class="month-date-label">Período</span>
-          <span class="month-date">${formatDate(periodStart)}</span>
+          <span class="month-date">${formatDate(model.periodStart)}</span>
         </div>
-        <span class="month-status ${status.className}">${status.label}</span>
+        <span class="month-status ${model.status.className}">${model.status.label}</span>
       </div>
       <div class="month-card-body">
-        ${valueHtml}
+        ${buildMonthValueHtml(model)}
         <div class="month-progress" aria-hidden="true">
-          <div class="month-progress-bar" style="width:${progress}%"></div>
+          <div class="month-progress-bar" style="width:${model.progress}%"></div>
         </div>
         <div class="month-card-footer">
-          <strong class="month-progress-label">${progress}% desta etapa</strong>
-          <span class="month-days">${monthDays} dias previstos</span>
+          <strong class="month-progress-label">${model.progress}% desta etapa</strong>
+          <span class="month-days">${model.monthDays} dias previstos</span>
         </div>
       </div>
       <button
         type="button"
         class="month-toggle-btn"
         data-toggle-paid="true"
-        data-month-index="${monthIndex}"
+        data-month-index="${model.monthIndex}"
+        aria-pressed="${model.isPaid ? 'true' : 'false'}"
       >
-        ${isPaid ? 'Desfazer pagamento' : 'Marcar como pago'}
+        ${model.isPaid ? 'Desfazer pagamento' : 'Marcar como pago'}
       </button>
     `;
 
-    monthlyContainer.appendChild(card);
+  return card;
+}
+
+function updateMonthTimelineCard(card, model, options = {}) {
+  if (!card) {
+    return;
+  }
+
+  card.dataset.monthIndex = String(model.monthIndex);
+  card.classList.remove('is-paid', 'is-current', 'is-overdue');
+
+  if (model.stateClass) {
+    card.classList.add(model.stateClass);
+  }
+
+  const statusElement = card.querySelector('.month-status');
+  if (statusElement) {
+    statusElement.textContent = model.status.label;
+    statusElement.className = `month-status ${model.status.className}`;
+  }
+
+  const cardBody = card.querySelector('.month-card-body');
+  const currentValueRow = cardBody?.querySelector('.installment-value-row');
+  const nextValueHtml = buildMonthValueHtml(model);
+
+  if (nextValueHtml) {
+    if (currentValueRow) {
+      currentValueRow.outerHTML = nextValueHtml;
+    } else {
+      cardBody?.insertAdjacentHTML('afterbegin', nextValueHtml);
+    }
+  } else {
+    currentValueRow?.remove();
+  }
+
+  const progressBar = card.querySelector('.month-progress-bar');
+  if (progressBar) {
+    progressBar.style.width = `${model.progress}%`;
+  }
+
+  const progressLabel = card.querySelector('.month-progress-label');
+  if (progressLabel) {
+    progressLabel.textContent = `${model.progress}% desta etapa`;
+  }
+
+  const daysElement = card.querySelector('.month-days');
+  if (daysElement) {
+    daysElement.textContent = `${model.monthDays} dias previstos`;
+  }
+
+  const toggleButton = card.querySelector('[data-toggle-paid]');
+  if (toggleButton) {
+    toggleButton.dataset.monthIndex = String(model.monthIndex);
+    toggleButton.textContent = model.isPaid ? 'Desfazer pagamento' : 'Marcar como pago';
+    toggleButton.setAttribute('aria-pressed', model.isPaid ? 'true' : 'false');
+  }
+
+  if (options.highlight) {
+    card.classList.remove('is-state-changing');
+    void card.offsetWidth;
+    card.classList.add('is-state-changing');
+
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const transitionTime = prefersReducedMotion ? 80 : 420;
+    window.setTimeout(() => {
+      card.classList.remove('is-state-changing');
+    }, transitionTime);
+  }
+}
+
+function scrollMonthlyTimelineToTarget(focusMonthIndex, hasFocusMonth) {
+  const focusCard = hasFocusMonth
+    ? monthlyContainer.querySelector(`.month-card[data-month-index="${focusMonthIndex}"]`)
+    : null;
+  const firstUnpaidCard = monthlyContainer.querySelector('.month-card:not(.is-paid)');
+  const lastCard = monthlyContainer.querySelector('.month-card:last-child');
+  const targetCard = focusCard || firstUnpaidCard || lastCard;
+
+  if (targetCard) {
+    window.setTimeout(() => {
+      targetCard.scrollIntoView({
+        behavior: 'smooth',
+        block: hasFocusMonth ? 'center' : 'nearest',
+        inline: hasFocusMonth ? 'center' : 'start'
+      });
+    }, 80);
+  } else {
+    monthlyContainer.scrollLeft = 0;
+  }
+}
+
+function refreshMonthlyTimelineCards(plan, options = {}) {
+  const today = normalizeDate(new Date());
+  const effectiveStartDate = getEffectiveStartDate(parseDateInput(plan.startDate), plan.countMode);
+  const focusMonthIndex = Number.parseInt(options.focusMonthIndex, 10);
+  const highlightMonthIndex = Number.parseInt(options.highlightMonthIndex, 10);
+  const onlyMonthIndex = Number.parseInt(options.onlyMonthIndex, 10);
+  const hasFocusMonth = Number.isInteger(focusMonthIndex) && focusMonthIndex > 0;
+  const hasOnlyMonth = Number.isInteger(onlyMonthIndex) && onlyMonthIndex > 0;
+  const displayMonths = getTimelineDisplayMonths(plan, effectiveStartDate, today, focusMonthIndex);
+  const cards = monthlyContainer.querySelectorAll('.month-card');
+
+  if (cards.length !== displayMonths) {
+    renderMonthlyTimeline(plan, effectiveStartDate, today, options);
+    return false;
+  }
+
+  const paidMonths = new Set(getPaidMonths(plan));
+  const monthIndexes = hasOnlyMonth
+    ? [onlyMonthIndex]
+    : Array.from({ length: displayMonths }, (_, index) => index + 1);
+
+  for (const monthIndex of monthIndexes) {
+    const card = monthlyContainer.querySelector(`.month-card[data-month-index="${monthIndex}"]`);
+
+    if (!card) {
+      renderMonthlyTimeline(plan, effectiveStartDate, today, options);
+      return false;
+    }
+
+    updateMonthTimelineCard(
+      card,
+      buildMonthTimelineModel(plan, effectiveStartDate, today, monthIndex, paidMonths),
+      { highlight: Number.isInteger(highlightMonthIndex) && highlightMonthIndex === monthIndex }
+    );
   }
 
   if (options.resetTimelineScroll || hasFocusMonth) {
-    const focusCard = hasFocusMonth
-      ? monthlyContainer.querySelector(`.month-card[data-month-index="${focusMonthIndex}"]`)
-      : null;
-    const firstUnpaidCard = monthlyContainer.querySelector('.month-card:not(.is-paid)');
-    const lastCard = monthlyContainer.querySelector('.month-card:last-child');
-    const targetCard = focusCard || firstUnpaidCard || lastCard;
-    
-    if (targetCard) {
-      // Usamos um pequeno timeout para garantir que o modal já terminou de abrir
-      // e que o container está pronto para o scroll.
-      window.setTimeout(() => {
-        targetCard.scrollIntoView({
-          behavior: 'smooth', 
-          block: hasFocusMonth ? 'center' : 'nearest',
-          inline: hasFocusMonth ? 'center' : 'start'
-        });
-      }, 100);
+    scrollMonthlyTimelineToTarget(focusMonthIndex, hasFocusMonth);
+  }
+
+  return true;
+}
+
+function renderMonthlyTimeline(plan, startDate, today, options = {}) {
+  const paidMonths = new Set(getPaidMonths(plan));
+  const focusMonthIndex = Number.parseInt(options.focusMonthIndex, 10);
+  const hasFocusMonth = Number.isInteger(focusMonthIndex) && focusMonthIndex > 0;
+  const displayMonths = getTimelineDisplayMonths(plan, startDate, today, focusMonthIndex);
+  const fragment = document.createDocumentFragment();
+
+  for (let monthIndex = 1; monthIndex <= displayMonths; monthIndex += 1) {
+    const model = buildMonthTimelineModel(plan, startDate, today, monthIndex, paidMonths);
+    fragment.appendChild(createMonthTimelineCard(model));
+  }
+
+  monthlyContainer.classList.add('is-rendering');
+  monthlyContainer.replaceChildren(fragment);
+
+  window.requestAnimationFrame(() => {
+    monthlyContainer.classList.remove('is-rendering');
+  });
+
+  if (options.resetTimelineScroll || hasFocusMonth) {
+    scrollMonthlyTimelineToTarget(focusMonthIndex, hasFocusMonth);
+  }
+}
+
+function findRenderedPlanEntry(planId) {
+  return [...plansList.querySelectorAll('.plan-entry')]
+    .find((entry) => entry.dataset.planId === planId);
+}
+
+function refreshPlanListEntry(plan) {
+  if (!plan) {
+    return;
+  }
+
+  updateMonthlyDebtSummary();
+  updateMonthlyTotal();
+
+  const filteredPlans = getFilteredPlans();
+  const planIndex = filteredPlans.findIndex((item) => item.id === plan.id);
+
+  if (planIndex < 0) {
+    renderPlansList();
+    return;
+  }
+
+  const entry = findRenderedPlanEntry(plan.id);
+
+  if (!entry) {
+    renderPlansList();
+    return;
+  }
+
+  const planNumber = planIndex + 1;
+  const planStartDate = parseDateInput(plan.startDate);
+  const planEndDate = addMonths(getEffectiveStartDate(planStartDate, plan.countMode), plan.totalMonths);
+  const financials = calculatePlanFinancials(plan);
+  const paidMonthsCount = getPaidMonths(plan).length;
+  const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
+  const currentInstallment = nextUnpaidMonth ? getMonthRemainingValue(plan, nextUnpaidMonth) : 0;
+  const overdueInfo = getPlanOverdueInfo(plan);
+
+  entry.dataset.planNumber = String(planNumber);
+
+  const item = entry.querySelector('.plan-item');
+  if (item) {
+    item.dataset.planNumber = String(planNumber);
+    item.dataset.planId = plan.id;
+    item.style.setProperty('--plan-progress', financials.progressRatio);
+    item.classList.toggle('active', plan.id === selectedPlanId);
+    item.classList.toggle('has-overdue', overdueInfo.hasOverdue);
+    item.classList.remove('is-soft-updated');
+    void item.offsetWidth;
+    item.classList.add('is-soft-updated');
+
+    window.setTimeout(() => {
+      item.classList.remove('is-soft-updated');
+    }, 420);
+  }
+
+  const selectButton = entry.querySelector('.plan-select-btn');
+  if (selectButton) {
+    selectButton.dataset.planId = plan.id;
+  }
+
+  const planTag = entry.querySelector('.plan-item-tag');
+  if (planTag) {
+    planTag.textContent = String(planNumber).padStart(2, '0');
+  }
+
+  const durationPill = entry.querySelector('.plan-duration-pill');
+  if (durationPill) {
+    durationPill.textContent = plan.isExpense
+      ? 'Despesa'
+      : `${plan.totalMonths} ${plan.totalMonths === 1 ? 'mês' : 'meses'}`;
+  }
+
+  const planName = entry.querySelector('.plan-item-name');
+  if (planName) {
+    planName.textContent = plan.name;
+  }
+
+  const mainRow = entry.querySelector('.plan-item-main-row');
+  const valueDisplay = entry.querySelector('.plan-item-value');
+  const progressMeta = entry.querySelector('.plan-progress-meta');
+  const progressLabel = entry.querySelector('.plan-progress-label');
+  const overdueInline = entry.querySelector('.plan-overdue-inline');
+  const nextOverdueInlineHtml = buildPlanOverdueInlineHtml(overdueInfo);
+
+  if (progressLabel) {
+    progressLabel.textContent = overdueInfo.hasOverdue ? 'Atraso' : 'Andamento';
+  }
+
+  if (nextOverdueInlineHtml) {
+    if (overdueInline) {
+      overdueInline.outerHTML = nextOverdueInlineHtml;
     } else {
-      monthlyContainer.scrollLeft = 0;
+      progressMeta?.insertAdjacentHTML('beforeend', nextOverdueInlineHtml);
     }
+  } else {
+    overdueInline?.remove();
+  }
+
+  if (currentInstallment > MONEY_EPSILON) {
+    if (valueDisplay) {
+      valueDisplay.textContent = formatCurrencyRaw(currentInstallment);
+    } else {
+      mainRow?.insertAdjacentHTML(
+        'beforeend',
+        `<div class="plan-item-value" style="font-family: 'Space Grotesk'; color: var(--primary); font-weight: 700; font-size: 0.95rem; white-space: nowrap;">${formatCurrencyRaw(currentInstallment)}</div>`
+      );
+    }
+  } else {
+    valueDisplay?.remove();
+  }
+
+  const progressValue = entry.querySelector('.plan-progress-value');
+  if (progressValue) {
+    progressValue.textContent = plan.isExpense ? '∞' : `${financials.progressPercent}%`;
+  }
+
+  const progressFill = entry.querySelector('.plan-progress-fill');
+  if (progressFill) {
+    if (plan.isExpense) {
+      progressFill.style.width = '100%';
+      progressFill.style.background = 'var(--muted)';
+    } else {
+      progressFill.style.removeProperty('width');
+      progressFill.style.removeProperty('background');
+    }
+  }
+
+  const statCards = entry.querySelectorAll('.plan-stat-card');
+  const startValue = statCards[0]?.querySelector('.plan-stat-value');
+  const paidValue = statCards[1]?.querySelector('.stat-value');
+  const endValue = statCards[2]?.querySelector('.plan-stat-value');
+
+  if (startValue) {
+    startValue.textContent = formatDateShort(planStartDate);
+  }
+
+  if (paidValue) {
+    paidValue.textContent = plan.isExpense ? paidMonthsCount : `${paidMonthsCount}/${plan.totalMonths}`;
+  }
+
+  if (endValue) {
+    endValue.textContent = plan.isExpense ? 'Livre' : formatMonthYearCompact(planEndDate);
+  }
+
+  const visibleNumber = getVisiblePlanNumber();
+  updatePlansSummary(visibleNumber);
+  updateFocusedPlanCard(visibleNumber);
+}
+
+function refreshPlanUiAfterPaymentChange(plan, options = {}) {
+  if (!plan) {
+    return;
+  }
+
+  updatePlanDetailsSummary(plan);
+  refreshMonthlyTimelineCards(plan, options);
+  refreshPlanListEntry(plan);
+  updateResultsNavigation();
+
+  if (!resultsSection.hidden) {
+    syncModalBodyState();
   }
 }
 
@@ -2425,8 +2837,7 @@ function toggleMonthPaid(monthIndex) {
   selectedPlan.paidMonths = [...paidMonths].sort((a, b) => a - b);
   cleanupPartialMonthCredits(selectedPlan);
   savePlans();
-  renderPlansList();
-  renderPlanDetails(selectedPlan);
+  refreshPlanUiAfterPaymentChange(selectedPlan, { highlightMonthIndex: monthIndex, onlyMonthIndex: monthIndex });
 }
 
 function deletePlan(planId) {
@@ -4031,8 +4442,7 @@ function initFinancialLogic() {
     if (result.applied) {
       const focusMonthIndex = getNextUnpaidMonthIndex(plan) || getPlanMonthLimit(plan);
       savePlans();
-      renderPlansList();
-      renderPlanDetails(plan, { focusMonthIndex });
+      refreshPlanUiAfterPaymentChange(plan, { focusMonthIndex, highlightMonthIndex: focusMonthIndex });
       setStatus(result.message, 'success');
       closeBulkPaymentModal();
       return;
@@ -4065,8 +4475,7 @@ function initFinancialLogic() {
 
       const focusMonthIndex = getNextUnpaidMonthIndex(plan) || getPlanMonthLimit(plan);
       savePlans();
-      renderPlansList();
-      renderPlanDetails(plan, { focusMonthIndex });
+      refreshPlanUiAfterPaymentChange(plan, { focusMonthIndex, highlightMonthIndex: focusMonthIndex });
       setStatus(result.message, 'success');
       closeBulkPaymentModal();
       return;
@@ -4133,11 +4542,11 @@ function saveInstallmentValuePrompt() {
     plan.manualMonthValues = {};
   }
 
-  plan.manualMonthValues[currentPromptMonth] = Number.isFinite(newVal) ? newVal : 0;
+  const changedMonthIndex = currentPromptMonth;
+  plan.manualMonthValues[changedMonthIndex] = Number.isFinite(newVal) ? newVal : 0;
   cleanupPartialMonthCredits(plan);
   savePlans();
-  renderPlansList();
-  renderPlanDetails(plan);
+  refreshPlanUiAfterPaymentChange(plan, { highlightMonthIndex: changedMonthIndex, onlyMonthIndex: changedMonthIndex });
   closeInstallmentValuePrompt();
 }
 

@@ -1,6 +1,6 @@
 {
-  "version": "2.1.3",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.3/Controle.de.Dividas.apk",
-  "notes": "Corrige o botão Outros apps para abrir o compartilhamento nativo do Android.",
+  "version": "2.1.4",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.4/Controle.de.Dividas.apk",
+  "notes": "Linha do tempo mais suave e indicador compacto de compromissos em atraso na lista.",
   "publishedAt": "2026-04-30"
 }
