@@ -94,6 +94,7 @@ let reorderActivePointerId = null;
 let reorderActiveDragItem = null;
 let reorderAutoScrollFrameId = null;
 let reorderAutoScrollPointerY = null;
+let reorderAutosaveTimeoutId = null;
 let reorderSavedOrderSignature = '';
 let planFocusFrameId = null;
 let availableUpdate = null;
@@ -140,16 +141,24 @@ const Storage = {
   },
 
   async set(key, value) {
+    let localMirrorUpdated = false;
+
+    try {
+      localStorage.setItem(key, value);
+      localMirrorUpdated = true;
+    } catch (_) {}
+
     try {
       const prefs = this._prefs();
       if (prefs) {
         await prefs.set({ key, value });
-        // Mantém localStorage como espelho para compatibilidade
-        localStorage.setItem(key, value);
         return;
       }
     } catch (_) {}
-    localStorage.setItem(key, value);
+
+    if (!localMirrorUpdated) {
+      localStorage.setItem(key, value);
+    }
   },
 
   async remove(key) {
@@ -178,7 +187,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.12',
+  currentVersion: '2.0.13',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -434,18 +443,25 @@ function handleReorderMove(clientY) {
   const draggedItem = reorderList.querySelector(`.reorder-item[data-plan-id="${draggedReorderPlanId}"]`);
   if (!draggedItem) return;
 
+  const previousOrderSignature = getReorderDomOrderSignature();
   const nextItem = getReorderInsertTarget(clientY);
+
   if (!nextItem) {
     reorderList.appendChild(draggedItem);
   } else if (nextItem !== draggedItem) {
     reorderList.insertBefore(draggedItem, nextItem);
   }
+
   syncReorderNumbersFromDom();
+
+  if (getReorderDomOrderSignature() !== previousOrderSignature) {
+    scheduleReorderAutosave();
+  }
 }
 
 function handleReorderEnd() {
   if (!draggedReorderPlanId) return;
-  saveReorderFromDom({ silentWhenUnchanged: true });
+  flushReorderAutosave({ silentWhenUnchanged: true });
   clearReorderDragState();
 }
 
@@ -1405,6 +1421,7 @@ function openReorderModal() {
 }
 
 function closeReorderModal() {
+  flushReorderAutosave({ silentWhenUnchanged: true, silent: true });
   reorderDraftPlanIds = [];
   reorderSavedOrderSignature = '';
   clearReorderDragState();
@@ -3036,6 +3053,35 @@ function getPlanOrderSignature(items) {
   return items.map((plan) => plan.id).join('|');
 }
 
+function getReorderDomOrderSignature() {
+  return [...reorderList.querySelectorAll('.reorder-item')]
+    .map((item) => item.dataset.planId)
+    .filter(Boolean)
+    .join('|');
+}
+
+function cancelReorderAutosave() {
+  if (reorderAutosaveTimeoutId) {
+    window.clearTimeout(reorderAutosaveTimeoutId);
+  }
+
+  reorderAutosaveTimeoutId = null;
+}
+
+function scheduleReorderAutosave() {
+  cancelReorderAutosave();
+
+  reorderAutosaveTimeoutId = window.setTimeout(() => {
+    reorderAutosaveTimeoutId = null;
+    saveReorderFromDom({ silentWhenUnchanged: true, silent: true });
+  }, 120);
+}
+
+function flushReorderAutosave(options = {}) {
+  cancelReorderAutosave();
+  return saveReorderFromDom(options);
+}
+
 function saveReorderFromDom(options = {}) {
   persistReorderDraftFromDom();
   const orderedPlans = getOrderedPlansFromReorderDom();
@@ -3043,7 +3089,7 @@ function saveReorderFromDom(options = {}) {
   if (orderedPlans.length !== plans.length) {
     renderReorderList();
     setStatus('Não foi possível salvar a nova ordem dos compromissos.', 'error');
-    return;
+    return false;
   }
 
   const nextOrderSignature = getPlanOrderSignature(orderedPlans);
@@ -3052,7 +3098,7 @@ function saveReorderFromDom(options = {}) {
     if (!options.silentWhenUnchanged) {
       setStatus('A ordem dos compromissos já está atualizada.', 'success');
     }
-    return;
+    return false;
   }
 
   plans = orderedPlans;
@@ -3066,11 +3112,16 @@ function saveReorderFromDom(options = {}) {
     renderPlanDetails(selectedPlan, { resetTimelineScroll: true });
   }
 
-  setStatus('Ordem dos compromissos salva automaticamente.', 'success');
+  if (!options.silent) {
+    setStatus('Ordem dos compromissos salva automaticamente.', 'success');
+  }
+
+  return true;
 }
 
 function clearReorderDragState() {
   stopReorderAutoScroll();
+  cancelReorderAutosave();
   draggedReorderPlanId = null;
   reorderActivePointerId = null;
   reorderActiveDragItem = null;
