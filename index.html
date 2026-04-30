@@ -42,7 +42,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.0.17</strong>
+            <strong id="appVersionLabel">v2.0.18</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -539,7 +539,7 @@
   </div>
 
   <div class="modal-overlay" id="bulkPaymentModal" hidden>
-    <section class="edit-modal" role="dialog" aria-modal="true" style="width: min(100%, 360px); padding: 26px; border-radius: 30px;">
+    <section class="edit-modal" role="dialog" aria-modal="true" style="width: min(100%, 420px); padding: 26px; border-radius: 30px;">
       <div class="modal-heading" style="margin-bottom: 22px;">
         <span class="section-kicker">Antecipação</span>
         <h2 style="font-size: 1.4rem; margin: 4px 0;">Registrar Lance / Pagamento</h2>
@@ -550,6 +550,10 @@
         <input type="text" id="bulkPaymentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric" style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">
       </label>
       <p id="bulkPaymentStatus" class="bulk-payment-status" hidden></p>
+      <div class="bulk-payment-history-actions" id="bulkPaymentHistoryActions" hidden>
+        <button type="button" id="adjustLastBulkPaymentBtn" class="btn-secondary">Alterar último lance</button>
+        <button type="button" id="deleteLastBulkPaymentBtn" class="btn-danger">Apagar último lance</button>
+      </div>
       <div class="button-row modal-actions" style="margin-top: 26px; display: flex; gap: 10px;">
         <button type="button" id="confirmBulkPaymentBtn" class="btn-primary" style="flex: 1;">Confirmar Baixa</button>
         <button type="button" id="cancelBulkPaymentBtn" class="btn-secondary" style="flex: 1;">Cancelar</button>

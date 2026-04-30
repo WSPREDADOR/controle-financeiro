@@ -114,6 +114,7 @@ let updateBannerHoldUntil = 0;
 let notificationSyncTimeoutId = null;
 let paymentNotificationListenersRegistered = false;
 let notificationBannerMode = 'notification';
+let bulkPaymentModalMode = 'create';
 
 const bulkPaymentModal = document.getElementById('bulkPaymentModal');
 const bulkPaymentValueInput = document.getElementById('bulkPaymentValue');
@@ -121,6 +122,9 @@ const bulkPaymentStatus = document.getElementById('bulkPaymentStatus');
 const confirmBulkPaymentBtn = document.getElementById('confirmBulkPaymentBtn');
 const cancelBulkPaymentBtn = document.getElementById('cancelBulkPaymentBtn');
 const openBulkPaymentBtn = document.getElementById('openBulkPaymentBtn');
+const bulkPaymentHistoryActions = document.getElementById('bulkPaymentHistoryActions');
+const adjustLastBulkPaymentBtn = document.getElementById('adjustLastBulkPaymentBtn');
+const deleteLastBulkPaymentBtn = document.getElementById('deleteLastBulkPaymentBtn');
 
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
@@ -132,6 +136,7 @@ const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
 const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
+const BULK_PAYMENT_HISTORY_LIMIT = 10;
 
 // ─── Armazenamento Persistente (protegido contra limpeza do Android) ───────────
 // Usa Capacitor Preferences quando disponível (armazenamento nativo),
@@ -197,7 +202,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.17',
+  currentVersion: '2.0.18',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1073,10 +1078,14 @@ function renderPlansList() {
 function renderMonthlyTimeline(plan, startDate, today, options = {}) {
   monthlyContainer.innerHTML = '';
   const paidMonths = new Set(getPaidMonths(plan));
+  const focusMonthIndex = Number.parseInt(options.focusMonthIndex, 10);
+  const hasFocusMonth = Number.isInteger(focusMonthIndex) && focusMonthIndex > 0;
   
   const diffMonths = (today.getFullYear() - startDate.getFullYear()) * 12 + (today.getMonth() - startDate.getMonth());
   const elapsedMonths = Math.max(0, diffMonths);
-  const displayMonths = plan.isExpense ? Math.min(plan.totalMonths, elapsedMonths + 12) : plan.totalMonths;
+  const displayMonths = plan.isExpense
+    ? Math.min(plan.totalMonths, Math.max(elapsedMonths + 12, hasFocusMonth ? focusMonthIndex : 0))
+    : plan.totalMonths;
 
   for (let monthIndex = 1; monthIndex <= displayMonths; monthIndex += 1) {
     const periodStart = addMonths(startDate, monthIndex - 1);
@@ -1116,6 +1125,7 @@ function renderMonthlyTimeline(plan, startDate, today, options = {}) {
 
     const card = document.createElement('article');
     card.className = `month-card${cardStateClass}`;
+    card.dataset.monthIndex = String(monthIndex);
     card.innerHTML = `
       <div class="month-card-header">
         <div class="month-card-heading">
@@ -1148,18 +1158,22 @@ function renderMonthlyTimeline(plan, startDate, today, options = {}) {
     monthlyContainer.appendChild(card);
   }
 
-  if (options.resetTimelineScroll) {
-    // Busca o primeiro card que não está pago para focar nele automaticamente
+  if (options.resetTimelineScroll || hasFocusMonth) {
+    const focusCard = hasFocusMonth
+      ? monthlyContainer.querySelector(`.month-card[data-month-index="${focusMonthIndex}"]`)
+      : null;
     const firstUnpaidCard = monthlyContainer.querySelector('.month-card:not(.is-paid)');
+    const lastCard = monthlyContainer.querySelector('.month-card:last-child');
+    const targetCard = focusCard || firstUnpaidCard || lastCard;
     
-    if (firstUnpaidCard) {
+    if (targetCard) {
       // Usamos um pequeno timeout para garantir que o modal já terminou de abrir
       // e que o container está pronto para o scroll.
       window.setTimeout(() => {
-        firstUnpaidCard.scrollIntoView({ 
+        targetCard.scrollIntoView({
           behavior: 'smooth', 
-          block: 'nearest', 
-          inline: 'start' 
+          block: hasFocusMonth ? 'center' : 'nearest',
+          inline: hasFocusMonth ? 'center' : 'start'
         });
       }, 100);
     } else {
@@ -1320,22 +1334,87 @@ function setBulkPaymentStatus(message, type = '') {
   }
 }
 
+function updateBulkPaymentHistoryActions(plan) {
+  if (!bulkPaymentHistoryActions) {
+    return;
+  }
+
+  const lastAction = getLastBulkPaymentAction(plan);
+  const hasLastAction = Boolean(lastAction);
+
+  bulkPaymentHistoryActions.hidden = !hasLastAction;
+
+  if (adjustLastBulkPaymentBtn) {
+    adjustLastBulkPaymentBtn.textContent = bulkPaymentModalMode === 'edit-last'
+      ? 'Novo lance'
+      : 'Alterar último lance';
+  }
+
+  if (deleteLastBulkPaymentBtn) {
+    deleteLastBulkPaymentBtn.hidden = !hasLastAction;
+  }
+}
+
+function setBulkPaymentCreateMode(plan, options = {}) {
+  bulkPaymentModalMode = 'create';
+
+  if (confirmBulkPaymentBtn) {
+    confirmBulkPaymentBtn.textContent = 'Confirmar Baixa';
+  }
+
+  if (!options.keepValue) {
+    bulkPaymentValueInput.value = '';
+  }
+
+  const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
+  const nextValue = nextUnpaidMonth ? getMonthRemainingValue(plan, nextUnpaidMonth) : 0;
+  const lastAction = getLastBulkPaymentAction(plan);
+  const lastMessage = lastAction
+    ? ` Último lance: ${formatCurrency(lastAction.amount)}.`
+    : '';
+
+  if (nextValue > MONEY_EPSILON) {
+    setBulkPaymentStatus(`Próxima baixa disponível: ${formatCurrency(nextValue)}.${lastMessage}`, 'info');
+  } else {
+    setBulkPaymentStatus(`Configure o valor da parcela para usar a antecipação.${lastMessage}`, 'error');
+  }
+
+  updateBulkPaymentHistoryActions(plan);
+}
+
+function setBulkPaymentEditMode(plan) {
+  const lastAction = getLastBulkPaymentAction(plan);
+
+  if (!lastAction) {
+    setBulkPaymentStatus('Nenhum lance anterior encontrado para alterar.', 'error');
+    setBulkPaymentCreateMode(plan, { keepValue: true });
+    return;
+  }
+
+  bulkPaymentModalMode = 'edit-last';
+  bulkPaymentValueInput.value = formatCurrencyRaw(lastAction.amount);
+
+  if (confirmBulkPaymentBtn) {
+    confirmBulkPaymentBtn.textContent = 'Salvar Alteração';
+  }
+
+  setBulkPaymentStatus(
+    `Editando o último lance de ${formatCurrency(lastAction.amount)}. Ajuste o valor ou apague esse lançamento.`,
+    'info'
+  );
+  updateBulkPaymentHistoryActions(plan);
+  window.setTimeout(() => {
+    bulkPaymentValueInput.focus();
+    bulkPaymentValueInput.select();
+  }, 20);
+}
+
 function openBulkPaymentModal(plan) {
   if (!bulkPaymentModal || !bulkPaymentValueInput) {
     return;
   }
 
-  const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
-  const nextValue = nextUnpaidMonth ? getMonthRemainingValue(plan, nextUnpaidMonth) : 0;
-
-  bulkPaymentValueInput.value = '';
-
-  if (nextValue > MONEY_EPSILON) {
-    setBulkPaymentStatus(`Próxima baixa disponível: ${formatCurrency(nextValue)}.`, 'info');
-  } else {
-    setBulkPaymentStatus('Configure o valor da parcela para usar a antecipação.', 'error');
-  }
-
+  setBulkPaymentCreateMode(plan);
   bulkPaymentModal.hidden = false;
   syncModalBodyState();
   window.setTimeout(() => bulkPaymentValueInput.focus(), 20);
@@ -1347,6 +1426,7 @@ function closeBulkPaymentModal() {
   }
 
   bulkPaymentModal.hidden = true;
+  bulkPaymentModalMode = 'create';
   setBulkPaymentStatus('');
   syncModalBodyState();
 }
@@ -1851,6 +1931,224 @@ function getNextUnpaidMonthIndex(plan) {
   }
 
   return null;
+}
+
+function createPaymentStateSnapshot(plan) {
+  cleanupPartialMonthCredits(plan);
+
+  const partialMonthCredits = {};
+  const credits = getPartialMonthCredits(plan);
+
+  Object.keys(credits).forEach((monthKey) => {
+    const monthIndex = Number.parseInt(monthKey, 10);
+    const credit = roundMoney(normalizeMoneyValue(credits[monthKey]));
+
+    if (Number.isInteger(monthIndex) && monthIndex > 0 && credit > MONEY_EPSILON) {
+      partialMonthCredits[String(monthIndex)] = credit;
+    }
+  });
+
+  return {
+    paidMonths: getPaidMonths(plan),
+    partialMonthCredits
+  };
+}
+
+function clonePaymentStateSnapshot(snapshot = {}) {
+  return {
+    paidMonths: Array.isArray(snapshot.paidMonths)
+      ? snapshot.paidMonths.map((month) => Number.parseInt(month, 10)).filter(Number.isInteger)
+      : [],
+    partialMonthCredits: snapshot.partialMonthCredits && typeof snapshot.partialMonthCredits === 'object'
+      ? Object.keys(snapshot.partialMonthCredits).reduce((accumulator, monthKey) => {
+          const monthIndex = Number.parseInt(monthKey, 10);
+          const credit = roundMoney(normalizeMoneyValue(snapshot.partialMonthCredits[monthKey]));
+
+          if (Number.isInteger(monthIndex) && monthIndex > 0 && credit > MONEY_EPSILON) {
+            accumulator[String(monthIndex)] = credit;
+          }
+
+          return accumulator;
+        }, {})
+      : {}
+  };
+}
+
+function applyPaymentStateSnapshot(plan, snapshot = {}) {
+  const maxMonths = getPlanMonthLimit(plan);
+  const nextSnapshot = clonePaymentStateSnapshot(snapshot);
+
+  plan.paidMonths = sanitizePaidMonths(nextSnapshot.paidMonths, maxMonths);
+  plan.partialMonthCredits = { ...nextSnapshot.partialMonthCredits };
+  cleanupPartialMonthCredits(plan);
+}
+
+function normalizePaymentSnapshot(snapshot = {}) {
+  const cloned = clonePaymentStateSnapshot(snapshot);
+  const partialMonthCredits = {};
+
+  Object.keys(cloned.partialMonthCredits)
+    .sort((a, b) => Number(a) - Number(b))
+    .forEach((monthKey) => {
+      partialMonthCredits[monthKey] = cloned.partialMonthCredits[monthKey];
+    });
+
+  return {
+    paidMonths: [...new Set(cloned.paidMonths)].sort((a, b) => a - b),
+    partialMonthCredits
+  };
+}
+
+function arePaymentSnapshotsEqual(firstSnapshot, secondSnapshot) {
+  return JSON.stringify(normalizePaymentSnapshot(firstSnapshot)) ===
+    JSON.stringify(normalizePaymentSnapshot(secondSnapshot));
+}
+
+function isValidBulkPaymentAction(action) {
+  return Boolean(
+    action &&
+      normalizeMoneyValue(action.amount) > MONEY_EPSILON &&
+      action.before &&
+      action.after
+  );
+}
+
+function getBulkPaymentHistory(plan) {
+  if (!Array.isArray(plan?.bulkPaymentHistory)) {
+    return [];
+  }
+
+  return plan.bulkPaymentHistory
+    .filter(isValidBulkPaymentAction)
+    .map((action) => ({
+      ...action,
+      amount: roundMoney(normalizeMoneyValue(action.amount)),
+      before: clonePaymentStateSnapshot(action.before),
+      after: clonePaymentStateSnapshot(action.after)
+    }));
+}
+
+function setBulkPaymentHistory(plan, history) {
+  const normalizedHistory = Array.isArray(history)
+    ? history.filter(isValidBulkPaymentAction).slice(-BULK_PAYMENT_HISTORY_LIMIT)
+    : [];
+
+  if (normalizedHistory.length > 0) {
+    plan.bulkPaymentHistory = normalizedHistory;
+  } else {
+    delete plan.bulkPaymentHistory;
+  }
+}
+
+function getLastBulkPaymentAction(plan) {
+  const history = getBulkPaymentHistory(plan);
+  return history[history.length - 1] ?? null;
+}
+
+function recordBulkPaymentAction(plan, amount, beforeSnapshot, result = {}) {
+  const history = getBulkPaymentHistory(plan);
+  const entry = {
+    id: `bulk-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    amount: roundMoney(normalizeMoneyValue(amount)),
+    createdAt: new Date().toISOString(),
+    paidCount: Number.parseInt(result.paidCount, 10) || 0,
+    partialAmount: roundMoney(normalizeMoneyValue(result.partialAmount)),
+    before: clonePaymentStateSnapshot(beforeSnapshot),
+    after: createPaymentStateSnapshot(plan)
+  };
+
+  history.push(entry);
+  setBulkPaymentHistory(plan, history);
+  return entry;
+}
+
+function changeLastBulkPaymentAction(plan, amount) {
+  const history = getBulkPaymentHistory(plan);
+  const lastAction = history[history.length - 1];
+  const nextAmount = roundMoney(normalizeMoneyValue(amount));
+
+  if (!lastAction) {
+    return {
+      applied: false,
+      type: 'error',
+      message: 'Nenhum lance anterior encontrado para alterar.'
+    };
+  }
+
+  if (nextAmount <= MONEY_EPSILON) {
+    return {
+      applied: false,
+      type: 'error',
+      message: 'Informe um valor válido para alterar o último lance.'
+    };
+  }
+
+  const currentSnapshot = createPaymentStateSnapshot(plan);
+
+  if (!arePaymentSnapshotsEqual(currentSnapshot, lastAction.after)) {
+    return {
+      applied: false,
+      type: 'error',
+      message: 'Esse compromisso mudou depois do último lance. Para evitar conflito, ajuste as parcelas manualmente ou lance um novo pagamento.'
+    };
+  }
+
+  applyPaymentStateSnapshot(plan, lastAction.before);
+  const result = applyBulkPaymentToPlan(plan, nextAmount);
+
+  if (!result.applied) {
+    applyPaymentStateSnapshot(plan, currentSnapshot);
+    return result;
+  }
+
+  history[history.length - 1] = {
+    ...lastAction,
+    amount: nextAmount,
+    updatedAt: new Date().toISOString(),
+    paidCount: Number.parseInt(result.paidCount, 10) || 0,
+    partialAmount: roundMoney(normalizeMoneyValue(result.partialAmount)),
+    after: createPaymentStateSnapshot(plan)
+  };
+  setBulkPaymentHistory(plan, history);
+
+  return {
+    ...result,
+    message: `Último lance alterado para ${formatCurrency(nextAmount)}.`
+  };
+}
+
+function deleteLastBulkPaymentAction(plan) {
+  const history = getBulkPaymentHistory(plan);
+  const lastAction = history[history.length - 1];
+
+  if (!lastAction) {
+    return {
+      applied: false,
+      type: 'error',
+      message: 'Nenhum lance anterior encontrado para apagar.'
+    };
+  }
+
+  const currentSnapshot = createPaymentStateSnapshot(plan);
+
+  if (!arePaymentSnapshotsEqual(currentSnapshot, lastAction.after)) {
+    return {
+      applied: false,
+      type: 'error',
+      message: 'Esse compromisso mudou depois do último lance. Para evitar conflito, ajuste as parcelas manualmente.'
+    };
+  }
+
+  applyPaymentStateSnapshot(plan, lastAction.before);
+  history.pop();
+  setBulkPaymentHistory(plan, history);
+
+  return {
+    applied: true,
+    type: 'success',
+    amount: lastAction.amount,
+    message: `Último lance de ${formatCurrency(lastAction.amount)} apagado.`
+  };
 }
 
 function applyBulkPaymentToPlan(plan, amount) {
@@ -3557,6 +3855,37 @@ function initFinancialLogic() {
     closeBulkPaymentModal();
   });
 
+  adjustLastBulkPaymentBtn?.addEventListener('click', () => {
+    const plan = getSelectedPlan();
+    if (!plan) return;
+
+    if (bulkPaymentModalMode === 'edit-last') {
+      setBulkPaymentCreateMode(plan);
+      return;
+    }
+
+    setBulkPaymentEditMode(plan);
+  });
+
+  deleteLastBulkPaymentBtn?.addEventListener('click', () => {
+    const plan = getSelectedPlan();
+    if (!plan) return;
+
+    const result = deleteLastBulkPaymentAction(plan);
+
+    if (result.applied) {
+      const focusMonthIndex = getNextUnpaidMonthIndex(plan) || getPlanMonthLimit(plan);
+      savePlans();
+      renderPlansList();
+      renderPlanDetails(plan, { focusMonthIndex });
+      setStatus(result.message, 'success');
+      closeBulkPaymentModal();
+      return;
+    }
+
+    setBulkPaymentStatus(result.message, result.type);
+  });
+
   confirmBulkPaymentBtn?.addEventListener('click', () => {
     const amount = parseCurrencyToNumber(bulkPaymentValueInput.value);
     if (isNaN(amount) || amount <= 0) {
@@ -3567,12 +3896,22 @@ function initFinancialLogic() {
     const plan = getSelectedPlan();
     if (!plan) return;
 
-    const result = applyBulkPaymentToPlan(plan, amount);
+    const beforeSnapshot = bulkPaymentModalMode === 'create'
+      ? createPaymentStateSnapshot(plan)
+      : null;
+    const result = bulkPaymentModalMode === 'edit-last'
+      ? changeLastBulkPaymentAction(plan, amount)
+      : applyBulkPaymentToPlan(plan, amount);
 
     if (result.applied) {
+      if (bulkPaymentModalMode === 'create') {
+        recordBulkPaymentAction(plan, amount, beforeSnapshot, result);
+      }
+
+      const focusMonthIndex = getNextUnpaidMonthIndex(plan) || getPlanMonthLimit(plan);
       savePlans();
       renderPlansList();
-      renderPlanDetails(plan);
+      renderPlanDetails(plan, { focusMonthIndex });
       setStatus(result.message, 'success');
       closeBulkPaymentModal();
       return;

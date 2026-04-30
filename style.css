@@ -3136,8 +3136,37 @@ button.version-pill {
   color: #ffb8b8;
 }
 
+.bulk-payment-status.success {
+  border-color: rgba(91, 215, 167, 0.28);
+  background: rgba(91, 215, 167, 0.1);
+  color: #a9f3d2;
+}
+
+.bulk-payment-history-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.bulk-payment-history-actions[hidden] {
+  display: none;
+}
+
+.bulk-payment-history-actions .btn-secondary,
+.bulk-payment-history-actions .btn-danger {
+  min-height: 44px;
+  padding: 11px 12px;
+  font-size: 0.78rem;
+  white-space: normal;
+}
+
 @media (max-width: 600px) {
   .input-group-row {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-payment-history-actions {
     grid-template-columns: 1fr;
   }
 }

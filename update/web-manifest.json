@@ -1,8 +1,8 @@
 {
-  "version": "2.0.17",
-  "notes": "Correcao do botao Antecipar Pagamento e modal acima dos detalhes.",
+  "version": "2.0.18",
+  "notes": "Adiciona alteracao e exclusao do ultimo lance em Antecipar Pagamento.",
   "publishedAt": "2026-04-30",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777543036147",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777543036148",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.17/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777549055133",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777549055133",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.18/app-release.apk"
 }
