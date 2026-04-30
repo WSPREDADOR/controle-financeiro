@@ -17,7 +17,7 @@ const packagePath = path.join(projectRoot, 'package.json');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
 const manifestOutPath = path.join(projectRoot, 'update', 'web-manifest.json');
 const bundleOutPath = path.join(projectRoot, 'update', 'web-bundle.json');
-const releaseAssetName = 'Controle de Dívidas.apk';
+const releaseAssetName = 'Controle.de.Dividas.apk';
 const releaseAssetUrlName = encodeURIComponent(releaseAssetName);
 
 function minifyCss(css) {

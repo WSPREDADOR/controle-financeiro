@@ -146,7 +146,7 @@ const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
 const BULK_PAYMENT_HISTORY_LIMIT = 10;
-const APP_APK_FILE_NAME = 'Controle de Dívidas.apk';
+const APP_APK_FILE_NAME = 'Controle.de.Dividas.apk';
 const APP_APK_FILE_URL_NAME = encodeURIComponent(APP_APK_FILE_NAME);
 const APP_SHARE_URL = `https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/${APP_APK_FILE_URL_NAME}`;
 

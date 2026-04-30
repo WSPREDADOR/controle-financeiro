@@ -10,7 +10,7 @@ Use sempre o mesmo comando, tanto no VS Code quanto no Antigravity:
 npm run release
 ```
 
-Esse comando incrementa o patch, atualiza todos os metadados, gera o bundle web, sincroniza o Capacitor, compila o APK Android assinado, copia para `update/Controle de Dívidas.apk`, cria/atualiza a release do GitHub e valida baixando o APK remoto da internet.
+Esse comando incrementa o patch, atualiza todos os metadados, gera o bundle web, sincroniza o Capacitor, compila o APK Android assinado, copia para `update/Controle.de.Dividas.apk`, cria/atualiza a release do GitHub e valida baixando o APK remoto da internet.
 
 Atalhos:
 
@@ -25,10 +25,10 @@ npm run release -- 1.6.0 --notes "Resumo da atualizacao"
 Regra importante: o `apkUrl` publicado no manifesto sempre deve apontar para a release versionada do GitHub, por exemplo:
 
 ```text
-https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.0/Controle%20de%20D%C3%ADvidas.apk
+https://github.com/WSPREDADOR/controle-financeiro/releases/download/v1.5.0/Controle.de.Dividas.apk
 ```
 
-Nao use `cdn.jsdelivr.net/.../update/Controle%20de%20D%C3%ADvidas.apk` para APK nativo. O CDN pode manter binario antigo e fazer o celular instalar a versao errada.
+Nao use `cdn.jsdelivr.net/.../update/Controle.de.Dividas.apk` para APK nativo. O CDN pode manter binario antigo e fazer o celular instalar a versao errada.
 
 ### APK nativo
 

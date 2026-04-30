@@ -16,9 +16,10 @@ const webRuntimePath = path.join(projectRoot, 'web-runtime.js');
 const updateConfigPath = path.join(projectRoot, 'update-config.js');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
 const androidBuildPath = path.join(androidRoot, 'app', 'build.gradle');
-const releaseAssetName = 'Controle de Dívidas.apk';
+const releaseAssetName = 'Controle.de.Dividas.apk';
 const localApkPath = path.join(projectRoot, 'update', releaseAssetName);
 const legacyLocalApkPath = path.join(projectRoot, 'update', 'app-release.apk');
+const accentedLocalApkPath = path.join(projectRoot, 'update', 'Controle de Dívidas.apk');
 const builtApkPath = path.join(androidRoot, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
 
 const repoOwner = 'WSPREDADOR';
@@ -674,6 +675,10 @@ async function main() {
 
   if (legacyLocalApkPath !== localApkPath && fs.existsSync(legacyLocalApkPath)) {
     fs.rmSync(legacyLocalApkPath);
+  }
+
+  if (accentedLocalApkPath !== localApkPath && fs.existsSync(accentedLocalApkPath)) {
+    fs.rmSync(accentedLocalApkPath);
   }
 
   verifyLocalApk(newVersion);
