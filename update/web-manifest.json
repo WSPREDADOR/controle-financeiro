@@ -1,8 +1,8 @@
 {
-  "version": "2.0.18",
-  "notes": "Adiciona alteracao e exclusao do ultimo lance em Antecipar Pagamento.",
+  "version": "2.0.19",
+  "notes": "Adiciona opcoes de compartilhamento do app nas configuracoes.",
   "publishedAt": "2026-04-30",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777549055133",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777549055133",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.18/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777551429553",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777551429553",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.19/app-release.apk"
 }

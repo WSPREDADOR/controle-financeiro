@@ -2181,6 +2181,98 @@ button.version-pill {
   color: var(--muted);
 }
 
+.share-options-panel {
+  padding: 18px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(16, 26, 31, 0.92), rgba(10, 16, 21, 0.94));
+  border: 1px solid rgba(85, 212, 203, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: slide-down-fade 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.share-options-panel[hidden] {
+  display: none;
+}
+
+.share-options-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.share-options-header strong {
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.share-options-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.share-option-btn {
+  min-width: 0;
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(22, 31, 38, 0.74);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.share-option-btn svg,
+.btn-share-app svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.share-option-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(85, 212, 203, 0.34);
+  background: rgba(35, 48, 56, 0.92);
+}
+
+.share-option-btn.whatsapp { color: #79e6a0; }
+.share-option-btn.telegram { color: #72c7ff; }
+.share-option-btn.email { color: #ffd38f; }
+.share-option-btn.sms { color: #a9f3d2; }
+.share-option-btn.copy { color: var(--primary-strong); }
+
+.share-copy-status {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(85, 212, 203, 0.08);
+  border: 1px solid rgba(85, 212, 203, 0.16);
+  color: var(--primary-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.share-copy-status.error {
+  border-color: rgba(255, 112, 112, 0.28);
+  background: rgba(255, 112, 112, 0.1);
+  color: #ffb8b8;
+}
+
 .settings-permission-checklist {
   display: grid;
   gap: 12px;
@@ -2240,6 +2332,13 @@ button.version-pill {
 .vertical-actions button {
   width: 100% !important;
   margin: 0;
+}
+
+.btn-share-app {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 /* ─── Onboarding Premium ────────────────────────────────────────────────────── */
@@ -2573,6 +2672,15 @@ button.version-pill {
     height: 44px;
     min-width: 44px;
     font-size: 1rem;
+  }
+
+  .share-options-panel {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .share-options-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .reorder-list {

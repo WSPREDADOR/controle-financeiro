@@ -29,6 +29,15 @@ const settingsAppVersion = document.getElementById('settingsAppVersion');
 const settingsAppRelease = document.getElementById('settingsAppRelease');
 const contactDevBtn = document.getElementById('contactDevBtn');
 const openNativeAppSettingsBtn = document.getElementById('openNativeAppSettingsBtn');
+const shareAppBtn = document.getElementById('shareAppBtn');
+const shareOptionsPanel = document.getElementById('shareOptionsPanel');
+const nativeShareAppBtn = document.getElementById('nativeShareAppBtn');
+const shareWhatsappBtn = document.getElementById('shareWhatsappBtn');
+const shareTelegramBtn = document.getElementById('shareTelegramBtn');
+const shareEmailBtn = document.getElementById('shareEmailBtn');
+const shareSmsBtn = document.getElementById('shareSmsBtn');
+const copyAppLinkBtn = document.getElementById('copyAppLinkBtn');
+const shareCopyStatus = document.getElementById('shareCopyStatus');
 const notificationBanner = document.getElementById('notificationBanner');
 const notificationBannerTitle = document.getElementById('notificationBannerTitle');
 const notificationBannerMessage = document.getElementById('notificationBannerMessage');
@@ -137,6 +146,7 @@ const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
 const BULK_PAYMENT_HISTORY_LIMIT = 10;
+const APP_SHARE_URL = 'https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/app-release.apk';
 
 // ─── Armazenamento Persistente (protegido contra limpeza do Android) ───────────
 // Usa Capacitor Preferences quando disponível (armazenamento nativo),
@@ -202,7 +212,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.18',
+  currentVersion: '2.0.19',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -633,6 +643,125 @@ contactDevBtn?.addEventListener('click', async () => {
   const message = encodeURIComponent(`Olá Sr Werbert Silva, me chamo ${name}, vim através do seu app Controle de Dívidas!`);
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 });
+
+shareAppBtn?.addEventListener('click', () => {
+  toggleShareOptionsPanel();
+});
+
+nativeShareAppBtn?.addEventListener('click', async () => {
+  await shareAppWithSystem();
+});
+
+shareWhatsappBtn?.addEventListener('click', () => {
+  window.open(`https://wa.me/?text=${encodeURIComponent(getAppShareMessage())}`, '_blank');
+});
+
+shareTelegramBtn?.addEventListener('click', () => {
+  window.open(
+    `https://t.me/share/url?url=${encodeURIComponent(APP_SHARE_URL)}&text=${encodeURIComponent('Controle de Dívidas')}`,
+    '_blank'
+  );
+});
+
+shareEmailBtn?.addEventListener('click', () => {
+  const subject = encodeURIComponent('Controle de Dívidas');
+  const body = encodeURIComponent(getAppShareMessage());
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+});
+
+shareSmsBtn?.addEventListener('click', () => {
+  window.location.href = `sms:?body=${encodeURIComponent(getAppShareMessage())}`;
+});
+
+copyAppLinkBtn?.addEventListener('click', async () => {
+  const copied = await copyTextToClipboard(APP_SHARE_URL);
+  setShareCopyStatus(
+    copied ? 'Link copiado.' : 'Não foi possível copiar o link.',
+    copied ? 'success' : 'error'
+  );
+});
+
+function getAppShareMessage() {
+  return `Baixe o app Controle de Dívidas: ${APP_SHARE_URL}`;
+}
+
+function toggleShareOptionsPanel() {
+  if (!shareOptionsPanel) {
+    return;
+  }
+
+  const shouldShow = shareOptionsPanel.hidden;
+  shareOptionsPanel.hidden = !shouldShow;
+  setShareCopyStatus('');
+
+  if (shouldShow) {
+    window.setTimeout(() => {
+      nativeShareAppBtn?.focus();
+    }, 20);
+  }
+}
+
+async function shareAppWithSystem() {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Controle de Dívidas',
+        text: 'Baixe o app Controle de Dívidas.',
+        url: APP_SHARE_URL
+      });
+      setShareCopyStatus('');
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        return;
+      }
+    }
+  }
+
+  const copied = await copyTextToClipboard(APP_SHARE_URL);
+  setShareCopyStatus(
+    copied ? 'Link copiado.' : 'Compartilhamento indisponível neste dispositivo.',
+    copied ? 'success' : 'error'
+  );
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) {}
+
+  try {
+    const input = document.createElement('textarea');
+    input.value = text;
+    input.setAttribute('readonly', '');
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    document.body.appendChild(input);
+    input.select();
+    const copied = document.execCommand('copy');
+    input.remove();
+    return copied;
+  } catch (_) {
+    return false;
+  }
+}
+
+function setShareCopyStatus(message, type = '') {
+  if (!shareCopyStatus) {
+    return;
+  }
+
+  shareCopyStatus.textContent = message;
+  shareCopyStatus.hidden = !message;
+  shareCopyStatus.className = 'share-copy-status';
+
+  if (type === 'error') {
+    shareCopyStatus.classList.add('error');
+  }
+}
 
 // ─── Onboarding e Identidade do Usuário ──────────────────────────────────────
 function generateSupportId() {
@@ -1586,6 +1715,8 @@ async function openAppSettingsModal() {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
   if (settingsAppVersion) settingsAppVersion.textContent = `v${getCurrentAppVersion(config)}`;
   if (settingsAppRelease) settingsAppRelease.textContent = config.expirationDate || '28/04/2026';
+  if (shareOptionsPanel) shareOptionsPanel.hidden = true;
+  setShareCopyStatus('');
 
   appSettingsModal.hidden = false;
   syncModalBodyState();
@@ -1600,6 +1731,8 @@ function closeAppSettingsModal() {
   }
 
   appSettingsModal.hidden = true;
+  if (shareOptionsPanel) shareOptionsPanel.hidden = true;
+  setShareCopyStatus('');
   syncModalBodyState();
 }
 
