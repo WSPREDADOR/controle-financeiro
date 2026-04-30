@@ -1,8 +1,8 @@
 {
-  "version": "2.0.13",
-  "notes": "Salvamento automatico da reorganizacao de compromissos.",
+  "version": "2.0.14",
+  "notes": "Correcao da antecipacao de pagamentos e abatimento parcial.",
   "publishedAt": "2026-04-30",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777509545463",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777509545463",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.13/app-release.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777510420967",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777510420967",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.0.14/app-release.apk"
 }

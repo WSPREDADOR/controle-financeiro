@@ -1,5 +1,6 @@
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const MONEY_EPSILON = 0.005;
 const STORAGE_KEY = 'payment-plans-v1';
 const USER_NAME_KEY = 'cf-user-name-v1';
 const USER_ID_KEY = 'cf-user-id-v1';
@@ -187,7 +188,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.13',
+  currentVersion: '2.0.14',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -269,6 +270,7 @@ createForm.addEventListener('submit', (event) => {
     totalValue: parseCurrencyToNumber(createTotalValueInput?.value),
     installmentValue: parseCurrencyToNumber(createInstallmentValueInput?.value),
     manualMonthValues: {},
+    partialMonthCredits: {},
     paidMonths: []
   };
 
@@ -543,6 +545,8 @@ editForm.addEventListener('submit', (event) => {
     totalValue: totalVal,
     installmentValue: instVal,
   };
+
+  cleanupPartialMonthCredits(updatedPlan);
 
   plans[existingPlanIndex] = updatedPlan;
   selectedPlanId = updatedPlan.id;
@@ -934,19 +938,20 @@ function updateMonthlyTotal() {
   plans.forEach((plan) => {
     const startDate = parseDateInput(plan.startDate);
     const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
+    const paidMonths = new Set(getPaidMonths(plan));
     
     // Para despesas e dívidas, percorremos as parcelas possíveis
     // e somamos apenas a que corresponde ao mês atual.
-    const maxMonths = plan.isExpense ? (plan.totalMonths || 1200) : plan.totalMonths;
+    const maxMonths = getPlanMonthLimit(plan);
     
     for (let i = 1; i <= maxMonths; i++) {
       const periodStart = addMonths(effectiveStartDate, i - 1);
       const dueDate = addMonths(effectiveStartDate, i);
       
       if (today >= periodStart && today < dueDate) {
-        const manualValue = plan.manualMonthValues?.[i];
-        const displayValue = manualValue !== undefined ? manualValue : (plan.installmentValue || 0);
-        total += displayValue;
+        if (!paidMonths.has(i)) {
+          total += getMonthRemainingValue(plan, i);
+        }
         break; // Achou o mês atual, pula para o próximo plano
       }
     }
@@ -987,7 +992,8 @@ function renderPlansList() {
     const progressRatio = financials.progressRatio;
     const progressPercent = financials.progressPercent;
     const paidMonthsCount = getPaidMonths(plan).length;
-    const currentInstallment = plan.manualMonthValues?.[paidMonthsCount + 1] || plan.installmentValue || 0;
+    const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
+    const currentInstallment = nextUnpaidMonth ? getMonthRemainingValue(plan, nextUnpaidMonth) : 0;
     const valueDisplay = currentInstallment > 0 ? `<div class="plan-item-value" style="font-family: 'Space Grotesk'; color: var(--primary); font-weight: 700; font-size: 0.95rem; white-space: nowrap;">${formatCurrencyRaw(currentInstallment)}</div>` : '';
 
     const item = document.createElement('div');
@@ -1081,11 +1087,18 @@ function renderMonthlyTimeline(plan, startDate, today, options = {}) {
             ? ' is-current'
             : '';
 
-    const manualValue = plan.manualMonthValues?.[monthIndex];
-    const displayValue = manualValue !== undefined ? manualValue : (plan.installmentValue || 0);
-    const valueHtml = displayValue > 0 ? `
+    const baseValue = getMonthBaseValue(plan, monthIndex);
+    const partialCredit = getPartialMonthCredit(plan, monthIndex);
+    const displayValue = isPaid ? baseValue : getMonthRemainingValue(plan, monthIndex);
+    const partialCreditHtml = partialCredit > MONEY_EPSILON && !isPaid ? `
+        <span class="installment-credit-display">Antecipado ${formatCurrencyRaw(partialCredit)}</span>
+      ` : '';
+    const valueHtml = baseValue > 0 ? `
       <div class="installment-value-row">
-        <span class="installment-amount-display">${formatCurrencyRaw(displayValue)}</span>
+        <div class="installment-value-copy">
+          <span class="installment-amount-display">${partialCreditHtml ? 'Restante ' : ''}${formatCurrencyRaw(displayValue)}</span>
+          ${partialCreditHtml}
+        </div>
         <button type="button" class="edit-installment-btn" data-edit-value-month="${monthIndex}" onclick="openInstallmentValuePrompt(event, ${monthIndex})" title="Editar valor desta parcela">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
@@ -1224,8 +1237,7 @@ function updateMonthlyDebtSummary() {
       // Verificamos se já foi paga
       const paidMonths = new Set(getPaidMonths(plan));
       if (!paidMonths.has(currentInstallmentIndex)) {
-        const value = plan.manualMonthValues?.[currentInstallmentIndex] || plan.installmentValue || 0;
-        totalMonthlyDebt += value;
+        totalMonthlyDebt += getMonthRemainingValue(plan, currentInstallmentIndex);
       }
     }
   });
@@ -1621,8 +1633,163 @@ function getCountModeLabel(value) {
   return 'Comeca no mes informado';
 }
 
+function roundMoney(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0;
+}
+
+function normalizeMoneyValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > MONEY_EPSILON ? number : 0;
+}
+
 function getPaidMonths(plan) {
   return Array.isArray(plan.paidMonths) ? [...plan.paidMonths].sort((a, b) => a - b) : [];
+}
+
+function getPlanMonthLimit(plan) {
+  const totalMonths = Number.parseInt(plan?.totalMonths, 10);
+
+  if (Number.isInteger(totalMonths) && totalMonths > 0) {
+    return totalMonths;
+  }
+
+  return plan?.isExpense ? 1200 : 0;
+}
+
+function getMonthBaseValue(plan, monthIndex) {
+  const manualValue = plan?.manualMonthValues?.[monthIndex];
+
+  if (manualValue !== undefined && manualValue !== null && manualValue !== '') {
+    return roundMoney(normalizeMoneyValue(manualValue));
+  }
+
+  const installmentValue = normalizeMoneyValue(plan?.installmentValue);
+
+  if (installmentValue > 0) {
+    return roundMoney(installmentValue);
+  }
+
+  const totalValue = normalizeMoneyValue(plan?.totalValue);
+  const totalMonths = getPlanMonthLimit(plan);
+
+  if (!plan?.isExpense && totalValue > 0 && totalMonths > 0) {
+    return roundMoney(totalValue / totalMonths);
+  }
+
+  return 0;
+}
+
+function getPartialMonthCredits(plan) {
+  if (
+    !plan?.partialMonthCredits ||
+    typeof plan.partialMonthCredits !== 'object' ||
+    Array.isArray(plan.partialMonthCredits)
+  ) {
+    return {};
+  }
+
+  return plan.partialMonthCredits;
+}
+
+function getPartialMonthCredit(plan, monthIndex) {
+  const baseValue = getMonthBaseValue(plan, monthIndex);
+
+  if (baseValue <= MONEY_EPSILON) {
+    return 0;
+  }
+
+  const credit = normalizeMoneyValue(getPartialMonthCredits(plan)[monthIndex]);
+  return roundMoney(Math.min(credit, baseValue));
+}
+
+function setPartialMonthCredit(plan, monthIndex, value) {
+  if (!plan) {
+    return;
+  }
+
+  if (
+    !plan.partialMonthCredits ||
+    typeof plan.partialMonthCredits !== 'object' ||
+    Array.isArray(plan.partialMonthCredits)
+  ) {
+    plan.partialMonthCredits = {};
+  }
+
+  const baseValue = getMonthBaseValue(plan, monthIndex);
+  const credit = baseValue > MONEY_EPSILON
+    ? roundMoney(Math.min(normalizeMoneyValue(value), baseValue))
+    : 0;
+
+  if (credit <= MONEY_EPSILON) {
+    delete plan.partialMonthCredits[monthIndex];
+  } else {
+    plan.partialMonthCredits[monthIndex] = credit;
+  }
+}
+
+function removePartialMonthCredit(plan, monthIndex) {
+  if (!plan?.partialMonthCredits || typeof plan.partialMonthCredits !== 'object') {
+    return;
+  }
+
+  delete plan.partialMonthCredits[monthIndex];
+}
+
+function cleanupPartialMonthCredits(plan) {
+  if (!plan?.partialMonthCredits || typeof plan.partialMonthCredits !== 'object') {
+    return;
+  }
+
+  const paidMonths = new Set(getPaidMonths(plan));
+  const maxMonths = getPlanMonthLimit(plan);
+
+  Object.keys(plan.partialMonthCredits).forEach((monthKey) => {
+    const monthIndex = Number.parseInt(monthKey, 10);
+    const baseValue = getMonthBaseValue(plan, monthIndex);
+
+    if (
+      !Number.isInteger(monthIndex) ||
+      monthIndex < 1 ||
+      monthIndex > maxMonths ||
+      paidMonths.has(monthIndex) ||
+      baseValue <= MONEY_EPSILON
+    ) {
+      delete plan.partialMonthCredits[monthKey];
+      return;
+    }
+
+    const credit = roundMoney(Math.min(normalizeMoneyValue(plan.partialMonthCredits[monthKey]), baseValue));
+
+    if (credit <= MONEY_EPSILON) {
+      delete plan.partialMonthCredits[monthKey];
+    } else {
+      plan.partialMonthCredits[monthKey] = credit;
+    }
+  });
+}
+
+function getMonthRemainingValue(plan, monthIndex) {
+  const baseValue = getMonthBaseValue(plan, monthIndex);
+
+  if (baseValue <= MONEY_EPSILON) {
+    return 0;
+  }
+
+  return roundMoney(Math.max(0, baseValue - getPartialMonthCredit(plan, monthIndex)));
+}
+
+function getNextUnpaidMonthIndex(plan) {
+  const paidMonths = new Set(getPaidMonths(plan));
+  const maxMonths = getPlanMonthLimit(plan);
+
+  for (let monthIndex = 1; monthIndex <= maxMonths; monthIndex += 1) {
+    if (!paidMonths.has(monthIndex)) {
+      return monthIndex;
+    }
+  }
+
+  return null;
 }
 
 function sanitizePaidMonths(paidMonths, totalMonths) {
@@ -1654,9 +1821,11 @@ function toggleMonthPaid(monthIndex) {
     paidMonths.delete(monthIndex);
   } else {
     paidMonths.add(monthIndex);
+    removePartialMonthCredit(selectedPlan, monthIndex);
   }
 
   selectedPlan.paidMonths = [...paidMonths].sort((a, b) => a - b);
+  cleanupPartialMonthCredits(selectedPlan);
   savePlans();
   renderPlansList();
   renderPlanDetails(selectedPlan);
@@ -3248,52 +3417,74 @@ function initFinancialLogic() {
     const plan = getSelectedPlan();
     if (!plan) return;
 
-    processBulkPayment(plan, amount);
-    
-    bulkPaymentModal.hidden = true;
-    syncModalBodyState();
+    const didApplyPayment = processBulkPayment(plan, amount);
+
+    if (didApplyPayment) {
+      bulkPaymentModal.hidden = true;
+      syncModalBodyState();
+    }
   });
 
   function processBulkPayment(plan, amount) {
-    let remainingAmount = amount;
+    let remainingAmount = roundMoney(amount);
     const paidMonths = new Set(getPaidMonths(plan));
-    const maxMonths = plan.isExpense ? 1200 : plan.totalMonths;
-    let count = 0;
+    const maxMonths = getPlanMonthLimit(plan);
+    let paidCount = 0;
+    let partialAmount = 0;
+
+    cleanupPartialMonthCredits(plan);
 
     // Percorre as parcelas futuras que não estão pagas
-    for (let i = 1; i <= maxMonths; i++) {
+    for (let i = 1; i <= maxMonths && remainingAmount > MONEY_EPSILON; i++) {
       if (paidMonths.has(i)) continue;
 
-      const installmentValue = plan.manualMonthValues?.[i] || plan.installmentValue || 0;
-      
-      // Se a parcela não tiver valor, consideramos o valor padrão do plano
-      const valueToCompare = installmentValue > 0 ? installmentValue : (plan.installmentValue || 0);
-      
-      if (valueToCompare <= 0) continue; 
+      const remainingInstallmentValue = getMonthRemainingValue(plan, i);
 
-      if (remainingAmount >= valueToCompare) {
+      if (remainingInstallmentValue <= MONEY_EPSILON) continue;
+
+      if (remainingAmount + MONEY_EPSILON >= remainingInstallmentValue) {
         paidMonths.add(i);
-        remainingAmount -= valueToCompare;
-        count++;
+        removePartialMonthCredit(plan, i);
+        remainingAmount = roundMoney(remainingAmount - remainingInstallmentValue);
+        paidCount++;
       } else {
-        // O saldo acabou ou não cobre a próxima parcela inteira
-        break;
+        const currentCredit = getPartialMonthCredit(plan, i);
+        partialAmount = remainingAmount;
+        setPartialMonthCredit(plan, i, currentCredit + remainingAmount);
+        remainingAmount = 0;
       }
-      
-      if (remainingAmount <= 0) break;
     }
 
-    if (count > 0) {
+    if (paidCount > 0 || partialAmount > MONEY_EPSILON) {
       plan.paidMonths = [...paidMonths].sort((a, b) => a - b);
+      cleanupPartialMonthCredits(plan);
       savePlans();
       renderPlansList();
       renderPlanDetails(plan);
-      
-      const changeMsg = remainingAmount > 0 ? ` (Sobrou ${formatCurrency(remainingAmount)} de saldo não utilizado)` : '';
-      setStatus(`Excelente! ${count} parcelas foram quitadas automaticamente com o valor de ${formatCurrency(amount)}.${changeMsg}`, 'success');
-    } else {
-      setStatus(`O valor informado não é suficiente para quitar a próxima parcela de ${formatCurrency(plan.installmentValue)}.`, 'error');
+
+      const paidMessage = paidCount > 0
+        ? `${paidCount} ${paidCount === 1 ? 'parcela quitada' : 'parcelas quitadas'}`
+        : '';
+      const partialMessage = partialAmount > MONEY_EPSILON
+        ? `${formatCurrency(partialAmount)} abatidos da próxima parcela`
+        : '';
+      const appliedMessage = [paidMessage, partialMessage].filter(Boolean).join(' e ');
+      const changeMsg = remainingAmount > MONEY_EPSILON ? ` Sobrou ${formatCurrency(remainingAmount)} sem uso.` : '';
+      setStatus(`Antecipação registrada: ${appliedMessage}.${changeMsg}`, 'success');
+      return true;
     }
+
+    const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
+    const nextValue = nextUnpaidMonth ? getMonthRemainingValue(plan, nextUnpaidMonth) : 0;
+    const fallbackValue = normalizeMoneyValue(plan.installmentValue);
+
+    if (nextValue <= MONEY_EPSILON && fallbackValue <= MONEY_EPSILON) {
+      setStatus('Configure o valor da parcela antes de antecipar pagamento.', 'error');
+    } else {
+      setStatus('Não há parcelas em aberto para receber esse pagamento.', 'success');
+    }
+
+    return false;
   }
 }
 
@@ -3318,7 +3509,7 @@ function openInstallmentValuePrompt(event, monthIndexValue) {
   }
 
   currentPromptMonth = monthIndex;
-  const currentVal = plan.manualMonthValues?.[monthIndex] ?? plan.installmentValue ?? 0;
+  const currentVal = getMonthBaseValue(plan, monthIndex);
 
   promptValueInput.value = currentVal > 0 ? formatCurrencyRaw(currentVal) : '';
   promptValueModal.hidden = false;
@@ -3355,6 +3546,7 @@ function saveInstallmentValuePrompt() {
   }
 
   plan.manualMonthValues[currentPromptMonth] = Number.isFinite(newVal) ? newVal : 0;
+  cleanupPartialMonthCredits(plan);
   savePlans();
   renderPlansList();
   renderPlanDetails(plan);
@@ -3452,14 +3644,41 @@ initFinancialLogic();
 
 function calculatePlanFinancials(plan) {
   const paidMonthsList = getPaidMonths(plan);
+  const paidMonths = new Set(paidMonthsList);
+  const maxMonths = getPlanMonthLimit(plan);
   let totalPaid = 0;
+  let calculatedTotalValue = 0;
+  let calculatedRemainingValue = 0;
 
-  paidMonthsList.forEach(monthIdx => {
-    const manualVal = plan.manualMonthValues?.[monthIdx];
-    totalPaid += (manualVal !== undefined) ? manualVal : (plan.installmentValue || 0);
-  });
+  for (let monthIndex = 1; monthIndex <= maxMonths; monthIndex += 1) {
+    const baseValue = getMonthBaseValue(plan, monthIndex);
 
-  const totalValue = plan.totalValue || (plan.totalMonths * (plan.installmentValue || 0)) || 0;
+    if (baseValue <= MONEY_EPSILON) {
+      continue;
+    }
+
+    calculatedTotalValue += baseValue;
+
+    if (paidMonths.has(monthIndex)) {
+      totalPaid += baseValue;
+      continue;
+    }
+
+    const partialCredit = getPartialMonthCredit(plan, monthIndex);
+    totalPaid += partialCredit;
+    calculatedRemainingValue += Math.max(0, baseValue - partialCredit);
+  }
+
+  totalPaid = roundMoney(totalPaid);
+  calculatedTotalValue = roundMoney(calculatedTotalValue);
+  calculatedRemainingValue = roundMoney(calculatedRemainingValue);
+
+  const totalValue = plan.isExpense
+    ? calculatedTotalValue
+    : Math.max(normalizeMoneyValue(plan.totalValue), calculatedTotalValue);
+  const remainingValue = totalValue > calculatedTotalValue
+    ? Math.max(0, roundMoney(totalValue - totalPaid))
+    : calculatedRemainingValue;
   
   let progressRatio = 0;
   if (plan.isExpense) {
@@ -3474,7 +3693,7 @@ function calculatePlanFinancials(plan) {
   return {
     totalPaid,
     totalValue,
-    remainingValue: Math.max(0, totalValue - totalPaid),
+    remainingValue,
     progressRatio,
     progressPercent: Math.round(progressRatio * 100)
   };
