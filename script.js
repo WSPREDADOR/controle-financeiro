@@ -109,6 +109,7 @@ let notificationBannerMode = 'notification';
 
 const bulkPaymentModal = document.getElementById('bulkPaymentModal');
 const bulkPaymentValueInput = document.getElementById('bulkPaymentValue');
+const bulkPaymentStatus = document.getElementById('bulkPaymentStatus');
 const confirmBulkPaymentBtn = document.getElementById('confirmBulkPaymentBtn');
 const cancelBulkPaymentBtn = document.getElementById('cancelBulkPaymentBtn');
 const openBulkPaymentBtn = document.getElementById('openBulkPaymentBtn');
@@ -188,7 +189,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.0.14',
+  currentVersion: '2.0.15',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1297,6 +1298,51 @@ function setStatus(message, type) {
   }
 }
 
+function setBulkPaymentStatus(message, type = '') {
+  if (!bulkPaymentStatus) {
+    return;
+  }
+
+  bulkPaymentStatus.textContent = message;
+  bulkPaymentStatus.hidden = !message;
+  bulkPaymentStatus.className = 'bulk-payment-status';
+
+  if (type) {
+    bulkPaymentStatus.classList.add(type);
+  }
+}
+
+function openBulkPaymentModal(plan) {
+  if (!bulkPaymentModal || !bulkPaymentValueInput) {
+    return;
+  }
+
+  const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
+  const nextValue = nextUnpaidMonth ? getMonthRemainingValue(plan, nextUnpaidMonth) : 0;
+
+  bulkPaymentValueInput.value = '';
+
+  if (nextValue > MONEY_EPSILON) {
+    setBulkPaymentStatus(`Próxima baixa disponível: ${formatCurrency(nextValue)}.`, 'info');
+  } else {
+    setBulkPaymentStatus('Configure o valor da parcela para usar a antecipação.', 'error');
+  }
+
+  bulkPaymentModal.hidden = false;
+  syncModalBodyState();
+  window.setTimeout(() => bulkPaymentValueInput.focus(), 20);
+}
+
+function closeBulkPaymentModal() {
+  if (!bulkPaymentModal) {
+    return;
+  }
+
+  bulkPaymentModal.hidden = true;
+  setBulkPaymentStatus('');
+  syncModalBodyState();
+}
+
 function formatDate(date) {
   return date.toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -1639,12 +1685,19 @@ function roundMoney(value) {
 }
 
 function normalizeMoneyValue(value) {
-  const number = Number(value);
+  const number = typeof value === 'string' ? parseCurrencyToNumber(value) : Number(value);
   return Number.isFinite(number) && number > MONEY_EPSILON ? number : 0;
 }
 
 function getPaidMonths(plan) {
-  return Array.isArray(plan.paidMonths) ? [...plan.paidMonths].sort((a, b) => a - b) : [];
+  if (!Array.isArray(plan?.paidMonths)) {
+    return [];
+  }
+
+  return [...new Set(plan.paidMonths
+    .map((month) => Number.parseInt(month, 10))
+    .filter((month) => Number.isInteger(month) && month >= 1)
+  )].sort((a, b) => a - b);
 }
 
 function getPlanMonthLimit(plan) {
@@ -1792,12 +1845,105 @@ function getNextUnpaidMonthIndex(plan) {
   return null;
 }
 
+function applyBulkPaymentToPlan(plan, amount) {
+  const paymentAmount = roundMoney(normalizeMoneyValue(amount));
+
+  if (!plan || paymentAmount <= MONEY_EPSILON) {
+    return {
+      applied: false,
+      type: 'error',
+      message: 'Informe um valor de pagamento válido.'
+    };
+  }
+
+  cleanupPartialMonthCredits(plan);
+
+  const paidMonths = new Set(getPaidMonths(plan));
+  const maxMonths = getPlanMonthLimit(plan);
+  let remainingAmount = paymentAmount;
+  let paidCount = 0;
+  let partialAmount = 0;
+  let hasOpenMonth = false;
+  let hasConfiguredValue = false;
+
+  for (let monthIndex = 1; monthIndex <= maxMonths && remainingAmount > MONEY_EPSILON; monthIndex += 1) {
+    if (paidMonths.has(monthIndex)) {
+      continue;
+    }
+
+    hasOpenMonth = true;
+    const baseValue = getMonthBaseValue(plan, monthIndex);
+
+    if (baseValue > MONEY_EPSILON) {
+      hasConfiguredValue = true;
+    }
+
+    const remainingInstallmentValue = getMonthRemainingValue(plan, monthIndex);
+
+    if (remainingInstallmentValue <= MONEY_EPSILON) {
+      continue;
+    }
+
+    if (remainingAmount + MONEY_EPSILON >= remainingInstallmentValue) {
+      paidMonths.add(monthIndex);
+      removePartialMonthCredit(plan, monthIndex);
+      remainingAmount = roundMoney(remainingAmount - remainingInstallmentValue);
+      paidCount += 1;
+    } else {
+      const currentCredit = getPartialMonthCredit(plan, monthIndex);
+      partialAmount = roundMoney(remainingAmount);
+      setPartialMonthCredit(plan, monthIndex, currentCredit + remainingAmount);
+      remainingAmount = 0;
+    }
+  }
+
+  if (paidCount === 0 && partialAmount <= MONEY_EPSILON) {
+    const message = !hasOpenMonth
+      ? 'Não há parcelas em aberto para receber esse pagamento.'
+      : hasConfiguredValue
+        ? 'Não há saldo pendente para alterar a próxima parcela.'
+        : 'Configure o valor da parcela antes de antecipar pagamento.';
+
+    return {
+      applied: false,
+      type: !hasOpenMonth ? 'success' : 'error',
+      message
+    };
+  }
+
+  plan.paidMonths = [...paidMonths].sort((a, b) => a - b);
+  cleanupPartialMonthCredits(plan);
+
+  const paidMessage = paidCount > 0
+    ? `${paidCount} ${paidCount === 1 ? 'parcela quitada' : 'parcelas quitadas'}`
+    : '';
+  const partialMessage = partialAmount > MONEY_EPSILON
+    ? `${formatCurrency(partialAmount)} abatidos da próxima parcela`
+    : '';
+  const appliedMessage = [paidMessage, partialMessage].filter(Boolean).join(' e ');
+  const unusedMessage = remainingAmount > MONEY_EPSILON
+    ? ` Sobrou ${formatCurrency(remainingAmount)} sem uso.`
+    : '';
+
+  return {
+    applied: true,
+    type: 'success',
+    paidCount,
+    partialAmount,
+    unusedAmount: remainingAmount,
+    message: `Antecipação registrada: ${appliedMessage}.${unusedMessage}`
+  };
+}
+
 function sanitizePaidMonths(paidMonths, totalMonths) {
   if (!Array.isArray(paidMonths)) {
     return [];
   }
 
-  return [...new Set(paidMonths)].filter((month) => Number.isInteger(month) && month >= 1 && month <= totalMonths);
+  return [...new Set(paidMonths
+    .map((month) => Number.parseInt(month, 10))
+    .filter((month) => Number.isInteger(month) && month >= 1 && month <= totalMonths)
+  )];
 }
 
 function isValidPaidMonths(paidMonths, totalMonths) {
@@ -3396,96 +3542,36 @@ function initFinancialLogic() {
   openBulkPaymentBtn?.addEventListener('click', () => {
     const plan = getSelectedPlan();
     if (!plan) return;
-    bulkPaymentValueInput.value = '';
-    bulkPaymentModal.hidden = false;
-    syncModalBodyState();
-    window.setTimeout(() => bulkPaymentValueInput.focus(), 20);
+    openBulkPaymentModal(plan);
   });
 
   cancelBulkPaymentBtn?.addEventListener('click', () => {
-    bulkPaymentModal.hidden = true;
-    syncModalBodyState();
+    closeBulkPaymentModal();
   });
 
   confirmBulkPaymentBtn?.addEventListener('click', () => {
     const amount = parseCurrencyToNumber(bulkPaymentValueInput.value);
     if (isNaN(amount) || amount <= 0) {
-      alert('Por favor, informe um valor válido para o pagamento.');
+      setBulkPaymentStatus('Por favor, informe um valor válido para o pagamento.', 'error');
       return;
     }
 
     const plan = getSelectedPlan();
     if (!plan) return;
 
-    const didApplyPayment = processBulkPayment(plan, amount);
+    const result = applyBulkPaymentToPlan(plan, amount);
 
-    if (didApplyPayment) {
-      bulkPaymentModal.hidden = true;
-      syncModalBodyState();
-    }
-  });
-
-  function processBulkPayment(plan, amount) {
-    let remainingAmount = roundMoney(amount);
-    const paidMonths = new Set(getPaidMonths(plan));
-    const maxMonths = getPlanMonthLimit(plan);
-    let paidCount = 0;
-    let partialAmount = 0;
-
-    cleanupPartialMonthCredits(plan);
-
-    // Percorre as parcelas futuras que não estão pagas
-    for (let i = 1; i <= maxMonths && remainingAmount > MONEY_EPSILON; i++) {
-      if (paidMonths.has(i)) continue;
-
-      const remainingInstallmentValue = getMonthRemainingValue(plan, i);
-
-      if (remainingInstallmentValue <= MONEY_EPSILON) continue;
-
-      if (remainingAmount + MONEY_EPSILON >= remainingInstallmentValue) {
-        paidMonths.add(i);
-        removePartialMonthCredit(plan, i);
-        remainingAmount = roundMoney(remainingAmount - remainingInstallmentValue);
-        paidCount++;
-      } else {
-        const currentCredit = getPartialMonthCredit(plan, i);
-        partialAmount = remainingAmount;
-        setPartialMonthCredit(plan, i, currentCredit + remainingAmount);
-        remainingAmount = 0;
-      }
-    }
-
-    if (paidCount > 0 || partialAmount > MONEY_EPSILON) {
-      plan.paidMonths = [...paidMonths].sort((a, b) => a - b);
-      cleanupPartialMonthCredits(plan);
+    if (result.applied) {
       savePlans();
       renderPlansList();
       renderPlanDetails(plan);
-
-      const paidMessage = paidCount > 0
-        ? `${paidCount} ${paidCount === 1 ? 'parcela quitada' : 'parcelas quitadas'}`
-        : '';
-      const partialMessage = partialAmount > MONEY_EPSILON
-        ? `${formatCurrency(partialAmount)} abatidos da próxima parcela`
-        : '';
-      const appliedMessage = [paidMessage, partialMessage].filter(Boolean).join(' e ');
-      const changeMsg = remainingAmount > MONEY_EPSILON ? ` Sobrou ${formatCurrency(remainingAmount)} sem uso.` : '';
-      setStatus(`Antecipação registrada: ${appliedMessage}.${changeMsg}`, 'success');
-      return true;
+      setStatus(result.message, 'success');
+      closeBulkPaymentModal();
+      return;
     }
 
-    const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
-    const nextValue = nextUnpaidMonth ? getMonthRemainingValue(plan, nextUnpaidMonth) : 0;
-    const fallbackValue = normalizeMoneyValue(plan.installmentValue);
-
-    if (nextValue <= MONEY_EPSILON && fallbackValue <= MONEY_EPSILON) {
-      setStatus('Configure o valor da parcela antes de antecipar pagamento.', 'error');
-    } else {
-      setStatus('Não há parcelas em aberto para receber esse pagamento.', 'success');
-    }
-
-    return false;
-  }
+    setBulkPaymentStatus(result.message, result.type);
+  });
 }
 
 function updateCreateTotalFromInstallment() {
