@@ -230,7 +230,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.1.8',
+  currentVersion: '2.1.9',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1440,11 +1440,9 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
   const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
   const paidMonths = new Set(getPaidMonths(plan));
   const maxMonths = getPlanMonthLimit(plan);
-  const isAccount = isAccountPlan(plan);
   let count = 0;
   let amount = 0;
   let firstMonthIndex = null;
-  let firstPeriodStart = null;
   let firstDueDate = null;
 
   for (let monthIndex = 1; monthIndex <= maxMonths; monthIndex += 1) {
@@ -1452,9 +1450,9 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
       continue;
     }
 
-    const dueDate = getPlanDueDate(plan, effectiveStartDate, monthIndex);
+    const paymentDate = getPlanPaymentDate(plan, effectiveStartDate, monthIndex);
 
-    if (isAccount ? today <= dueDate : today < dueDate) {
+    if (today <= paymentDate) {
       continue;
     }
 
@@ -1463,8 +1461,7 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
 
     if (!firstMonthIndex) {
       firstMonthIndex = monthIndex;
-      firstPeriodStart = getPlanPeriodStart(plan, effectiveStartDate, monthIndex);
-      firstDueDate = dueDate;
+      firstDueDate = paymentDate;
     }
   }
 
@@ -1473,9 +1470,8 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
     count,
     amount: roundMoney(amount),
     firstMonthIndex,
-    firstPeriodStart,
     firstDueDate,
-    isAccount
+    isAccount: isAccountPlan(plan)
   };
 }
 
@@ -1507,9 +1503,9 @@ function getPastDueMonthIndexes(startInput, countMode, totalMonths, today = norm
   const paidMonthIndexes = [];
 
   for (let monthIndex = 1; monthIndex <= monthLimit; monthIndex += 1) {
-    const dueDate = addMonths(effectiveStartDate, monthIndex);
+    const dueDate = addMonths(effectiveStartDate, monthIndex - 1);
 
-    if (today < dueDate) {
+    if (today <= dueDate) {
       break;
     }
 
@@ -1702,10 +1698,8 @@ function getPlanOverdueSummary(overdueInfo) {
   const amountLabel = overdueInfo.amount > MONEY_EPSILON
     ? formatCurrencyRaw(overdueInfo.amount)
     : 'valor pendente';
-  const sinceLabel = overdueInfo.isAccount && overdueInfo.firstDueDate
+  const sinceLabel = overdueInfo.firstDueDate
     ? `desde ${formatDate(overdueInfo.firstDueDate)}`
-    : overdueInfo.firstPeriodStart
-    ? `desde ${formatMonthYear(overdueInfo.firstPeriodStart)}`
     : 'com atraso aberto';
 
   return {
@@ -1741,19 +1735,47 @@ function getTimelineDisplayMonths(plan, startDate, today, focusMonthIndex) {
     : getPlanMonthLimit(plan);
 }
 
-function buildMonthTimelineModel(plan, startDate, today, monthIndex, paidMonths = new Set(getPaidMonths(plan))) {
+function getNextPendingPaymentMonthIndex(plan, startDate, today, paidMonths = new Set(getPaidMonths(plan))) {
+  const maxMonths = getPlanMonthLimit(plan);
+
+  for (let monthIndex = 1; monthIndex <= maxMonths; monthIndex += 1) {
+    if (paidMonths.has(monthIndex)) {
+      continue;
+    }
+
+    const paymentDate = getPlanPaymentDate(plan, startDate, monthIndex);
+
+    if (today <= paymentDate) {
+      return monthIndex;
+    }
+  }
+
+  return null;
+}
+
+function buildMonthTimelineModel(
+  plan,
+  startDate,
+  today,
+  monthIndex,
+  paidMonths = new Set(getPaidMonths(plan)),
+  nextPendingPaymentMonthIndex = getNextPendingPaymentMonthIndex(plan, startDate, today, paidMonths)
+) {
   const periodStart = getPlanPeriodStart(plan, startDate, monthIndex);
   const dueDate = getPlanDueDate(plan, startDate, monthIndex);
+  const paymentDate = getPlanPaymentDate(plan, startDate, monthIndex);
   const monthDays = Math.max(1, daysBetween(periodStart, dueDate));
   const monthElapsed = clamp(daysBetween(periodStart, today), 0, monthDays);
   const isPaid = paidMonths.has(monthIndex);
   const isAccount = isAccountPlan(plan);
+  const isOverdue = !isPaid && today > paymentDate;
+  const isNextPendingPayment = !isAccount && monthIndex === nextPendingPaymentMonthIndex;
   const progress = isAccount
     ? (isPaid || today > dueDate ? 100 : 0)
-    : isPaid ? 100 : Math.round((monthElapsed / monthDays) * 100);
+    : (isPaid || isOverdue) ? 100 : Math.round((monthElapsed / monthDays) * 100);
   const status = isAccount
     ? getAccountMonthStatus(today, dueDate, isPaid)
-    : getMonthStatus(today, periodStart, dueDate, isPaid);
+    : getMonthStatus(today, paymentDate, isPaid, isNextPendingPayment);
   const stateClass =
     isPaid
       ? 'is-paid'
@@ -1971,6 +1993,7 @@ function refreshMonthlyTimelineCards(plan, options = {}) {
   }
 
   const paidMonths = new Set(getPaidMonths(plan));
+  const nextPendingPaymentMonthIndex = getNextPendingPaymentMonthIndex(plan, effectiveStartDate, today, paidMonths);
   const monthIndexes = hasOnlyMonth
     ? [onlyMonthIndex]
     : Array.from({ length: displayMonths }, (_, index) => index + 1);
@@ -1985,7 +2008,7 @@ function refreshMonthlyTimelineCards(plan, options = {}) {
 
     updateMonthTimelineCard(
       card,
-      buildMonthTimelineModel(plan, effectiveStartDate, today, monthIndex, paidMonths),
+      buildMonthTimelineModel(plan, effectiveStartDate, today, monthIndex, paidMonths, nextPendingPaymentMonthIndex),
       { highlight: Number.isInteger(highlightMonthIndex) && highlightMonthIndex === monthIndex }
     );
   }
@@ -1999,13 +2022,14 @@ function refreshMonthlyTimelineCards(plan, options = {}) {
 
 function renderMonthlyTimeline(plan, startDate, today, options = {}) {
   const paidMonths = new Set(getPaidMonths(plan));
+  const nextPendingPaymentMonthIndex = getNextPendingPaymentMonthIndex(plan, startDate, today, paidMonths);
   const focusMonthIndex = Number.parseInt(options.focusMonthIndex, 10);
   const hasFocusMonth = Number.isInteger(focusMonthIndex) && focusMonthIndex > 0;
   const displayMonths = getTimelineDisplayMonths(plan, startDate, today, focusMonthIndex);
   const fragment = document.createDocumentFragment();
 
   for (let monthIndex = 1; monthIndex <= displayMonths; monthIndex += 1) {
-    const model = buildMonthTimelineModel(plan, startDate, today, monthIndex, paidMonths);
+    const model = buildMonthTimelineModel(plan, startDate, today, monthIndex, paidMonths, nextPendingPaymentMonthIndex);
     fragment.appendChild(createMonthTimelineCard(model));
   }
 
@@ -2191,16 +2215,16 @@ function refreshPlanUiAfterPaymentChange(plan, options = {}) {
   }
 }
 
-function getMonthStatus(today, periodStart, dueDate, isPaid) {
+function getMonthStatus(today, paymentDate, isPaid, isNextPendingPayment = false) {
   if (isPaid) {
     return { label: 'Pago', className: 'paid' };
   }
 
-  if (today >= dueDate) {
+  if (today > paymentDate) {
     return { label: 'Não pago', className: 'overdue' };
   }
 
-  if (today >= periodStart && today < dueDate) {
+  if (today.getTime() === paymentDate.getTime() || isNextPendingPayment) {
     return { label: 'Aguardando', className: 'current' };
   }
 
@@ -2921,6 +2945,14 @@ function getPlanDueDate(plan, effectiveStartDate, monthIndex) {
   return addMonths(effectiveStartDate, monthIndex);
 }
 
+function getPlanPaymentDate(plan, effectiveStartDate, monthIndex) {
+  if (isAccountPlan(plan)) {
+    return effectiveStartDate;
+  }
+
+  return getPlanPeriodStart(plan, effectiveStartDate, monthIndex);
+}
+
 function getPlanPeriodStart(plan, effectiveStartDate, monthIndex) {
   if (isAccountPlan(plan)) {
     return effectiveStartDate;
@@ -3497,7 +3529,7 @@ function toggleMonthPaid(monthIndex) {
   selectedPlan.paidMonths = [...paidMonths].sort((a, b) => a - b);
   cleanupPartialMonthCredits(selectedPlan);
   savePlans();
-  refreshPlanUiAfterPaymentChange(selectedPlan, { highlightMonthIndex: monthIndex, onlyMonthIndex: monthIndex });
+  refreshPlanUiAfterPaymentChange(selectedPlan, { highlightMonthIndex: monthIndex });
 }
 
 function deletePlan(planId) {

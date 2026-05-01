@@ -1,6 +1,6 @@
 {
-  "version": "2.1.8",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.8/Controle.de.Dividas.apk",
-  "notes": "Atualizacao do aplicativo Android via APK na versao 2.1.8.",
+  "version": "2.1.9",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.9/Controle.de.Dividas.apk",
+  "notes": "Ajusta a linha do tempo para marcar parcelas como não pagas no dia seguinte ao período de pagamento, mantendo o próximo card em aberto como aguardando pagamento.",
   "publishedAt": "2026-05-01"
 }
