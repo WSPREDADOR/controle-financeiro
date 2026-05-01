@@ -61,7 +61,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.1.9</strong>
+            <strong id="appVersionLabel">v2.2.0</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -230,14 +230,39 @@
 
     <main class="dashboard">
       <section class="calculator-card calculator-card-compact">
-        <div class="section-heading" style="position: relative;">
-          <span class="section-kicker">Área de Cadastro</span>
-          <div class="monthly-summary-badge">
-            <span class="monthly-summary-label">Total do Mês</span>
-            <strong id="monthlyTotalValue">R$ 0,00</strong>
+        <div class="section-heading add-plan-header">
+          <div class="add-plan-copy">
+            <span class="section-kicker">Área de Cadastro</span>
+            <h2>Adicionar compromisso</h2>
+            <p>Registre aqui suas novas faturas e parcelas para acompanhamento.</p>
           </div>
-          <h2>Adicionar compromisso</h2>
-          <p>Registre aqui suas novas faturas e parcelas para acompanhamento.</p>
+
+          <div class="monthly-summary-badge">
+            <span class="monthly-summary-label">Total Devedor</span>
+            <strong id="monthlyTotalValue">R$ 0,00</strong>
+            <div class="monthly-balance-divider" aria-hidden="true"></div>
+            <div class="monthly-balance-header">
+              <span class="monthly-balance-label">Saldo do mês</span>
+              <button type="button" class="monthly-balance-edit-btn" id="openMonthlyBalanceModalBtn" aria-label="Editar saldo do mês" title="Editar saldo do mês">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/>
+                </svg>
+              </button>
+            </div>
+            <strong id="monthlyBalanceValue">R$ 0,00</strong>
+            <span id="monthlyBalanceRemaining" class="monthly-balance-remaining">Saldo não informado</span>
+            <button type="button" class="monthly-details-btn" id="openMonthlyOverviewModalBtn">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 19V5"/>
+                <path d="M4 19h16"/>
+                <path d="M8 16v-5"/>
+                <path d="M12 16V8"/>
+                <path d="M16 16v-7"/>
+              </svg>
+              <span>Detalhes</span>
+            </button>
+          </div>
         </div>
 
         <div class="create-launcher">
@@ -629,6 +654,107 @@
       <div class="button-row modal-actions" style="margin-top: 24px; display: flex; gap: 10px;">
         <button type="button" id="confirmPromptValueBtn" class="btn-primary" style="flex: 1;">Salvar</button>
         <button type="button" id="cancelPromptValueBtn" class="btn-secondary" style="flex: 1;">Voltar</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="monthlyBalanceModal" hidden>
+    <section class="edit-modal monthly-balance-modal" role="dialog" aria-modal="true" aria-labelledby="monthlyBalanceModalTitle">
+      <button type="button" class="modal-close-btn" id="closeMonthlyBalanceModalBtn" aria-label="Fechar saldo do mês" title="Fechar">
+        X
+      </button>
+      <div class="modal-heading">
+        <span class="section-kicker">Saldo mensal</span>
+        <h2 id="monthlyBalanceModalTitle">Saldo do mês</h2>
+      </div>
+      <label class="input-group monthly-balance-input-group">
+        <span>Valor para adicionar ao saldo</span>
+        <input type="text" id="monthlyBalanceInput" class="input-field currency-input" placeholder="R$ 0,00" inputmode="decimal">
+      </label>
+      <p id="monthlyBalanceCurrentValue" class="monthly-balance-current">Saldo recebido no mês: R$ 0,00</p>
+      <p id="monthlyBalanceStatus" class="bulk-payment-status" hidden></p>
+      <div class="button-row modal-actions monthly-balance-actions">
+        <button type="button" id="saveMonthlyBalanceBtn" class="btn-primary">Adicionar</button>
+        <button type="button" id="replaceMonthlyBalanceBtn" class="btn-secondary">Corrigir total</button>
+        <button type="button" id="cancelMonthlyBalanceBtn" class="btn-secondary">Cancelar</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="monthlyOverviewModal" hidden>
+    <section class="edit-modal monthly-overview-modal" role="dialog" aria-modal="true" aria-labelledby="monthlyOverviewModalTitle">
+      <button type="button" class="modal-close-btn" id="closeMonthlyOverviewModalBtn" aria-label="Fechar detalhes mensais" title="Fechar">
+        X
+      </button>
+      <div class="modal-header monthly-overview-header">
+        <div class="modal-heading">
+          <span class="section-kicker">Detalhes</span>
+          <h2 id="monthlyOverviewModalTitle">Resumo mensal</h2>
+          <p id="monthlyOverviewPeriod">Mês atual</p>
+        </div>
+      </div>
+
+      <div class="monthly-overview-summary">
+        <article class="monthly-overview-stat">
+          <span>Saldo do mês</span>
+          <strong id="overviewBalanceValue">R$ 0,00</strong>
+        </article>
+        <article class="monthly-overview-stat">
+          <span>Total devedor</span>
+          <strong id="overviewDebtValue">R$ 0,00</strong>
+        </article>
+        <article class="monthly-overview-stat" id="overviewAvailableCard">
+          <span>Sobra</span>
+          <strong id="overviewAvailableValue">R$ 0,00</strong>
+        </article>
+        <article class="monthly-overview-stat">
+          <span>Em aberto</span>
+          <strong id="overviewOpenCount">0</strong>
+        </article>
+      </div>
+
+      <div class="monthly-overview-grid">
+        <article class="monthly-overview-panel">
+          <div class="monthly-overview-panel-heading">
+            <span class="section-kicker">Gráfico</span>
+            <h3>Saldo comprometido</h3>
+          </div>
+          <div class="monthly-donut-wrap">
+            <div class="monthly-donut" id="monthlyBalanceChart" style="--debt-angle: 0deg;">
+              <span id="monthlyBalanceChartCenter">0%</span>
+            </div>
+            <div class="monthly-chart-legend">
+              <span><i class="legend-dot legend-debt"></i>Pagamentos do mês</span>
+              <span><i class="legend-dot legend-free"></i>Sobra</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="monthly-overview-panel">
+          <div class="monthly-overview-panel-heading">
+            <span class="section-kicker">Composição</span>
+            <h3>Compromissos do mês</h3>
+          </div>
+          <div class="monthly-breakdown-list" id="monthlyDebtBreakdownList"></div>
+        </article>
+      </div>
+
+      <div class="monthly-overview-grid monthly-overview-history-grid">
+        <article class="monthly-overview-panel">
+          <div class="monthly-overview-panel-heading">
+            <span class="section-kicker">Histórico</span>
+            <h3>Saldos registrados</h3>
+          </div>
+          <div class="monthly-history-list" id="monthlyHistoryList"></div>
+        </article>
+
+        <article class="monthly-overview-panel">
+          <div class="monthly-overview-panel-heading">
+            <span class="section-kicker">Pagamentos</span>
+            <h3>Últimos lançamentos</h3>
+          </div>
+          <div class="monthly-payment-history-list" id="monthlyPaymentHistoryList"></div>
+        </article>
       </div>
     </section>
   </div>

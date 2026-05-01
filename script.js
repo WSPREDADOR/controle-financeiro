@@ -2,6 +2,7 @@
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const MONEY_EPSILON = 0.005;
 const STORAGE_KEY = 'payment-plans-v1';
+const MONTHLY_BALANCES_KEY = 'monthly-balances-v1';
 const USER_NAME_KEY = 'cf-user-name-v1';
 const USER_ID_KEY = 'cf-user-id-v1';
 const DEFAULT_COUNT_MODE = 'start_month';
@@ -64,6 +65,31 @@ const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
 const openCreateModalBtn = document.getElementById('openCreateModalBtn');
 const plansFilterNav = document.getElementById('plansFilterNav');
 const openReorderModalBtn = document.getElementById('openReorderModalBtn');
+const openMonthlyBalanceModalBtn = document.getElementById('openMonthlyBalanceModalBtn');
+const openMonthlyOverviewModalBtn = document.getElementById('openMonthlyOverviewModalBtn');
+const monthlyBalanceModal = document.getElementById('monthlyBalanceModal');
+const monthlyBalanceInput = document.getElementById('monthlyBalanceInput');
+const monthlyBalanceValue = document.getElementById('monthlyBalanceValue');
+const monthlyBalanceRemaining = document.getElementById('monthlyBalanceRemaining');
+const monthlyBalanceCurrentValue = document.getElementById('monthlyBalanceCurrentValue');
+const monthlyBalanceStatus = document.getElementById('monthlyBalanceStatus');
+const closeMonthlyBalanceModalBtn = document.getElementById('closeMonthlyBalanceModalBtn');
+const cancelMonthlyBalanceBtn = document.getElementById('cancelMonthlyBalanceBtn');
+const saveMonthlyBalanceBtn = document.getElementById('saveMonthlyBalanceBtn');
+const replaceMonthlyBalanceBtn = document.getElementById('replaceMonthlyBalanceBtn');
+const monthlyOverviewModal = document.getElementById('monthlyOverviewModal');
+const closeMonthlyOverviewModalBtn = document.getElementById('closeMonthlyOverviewModalBtn');
+const monthlyOverviewPeriod = document.getElementById('monthlyOverviewPeriod');
+const overviewBalanceValue = document.getElementById('overviewBalanceValue');
+const overviewDebtValue = document.getElementById('overviewDebtValue');
+const overviewAvailableValue = document.getElementById('overviewAvailableValue');
+const overviewAvailableCard = document.getElementById('overviewAvailableCard');
+const overviewOpenCount = document.getElementById('overviewOpenCount');
+const monthlyBalanceChart = document.getElementById('monthlyBalanceChart');
+const monthlyBalanceChartCenter = document.getElementById('monthlyBalanceChartCenter');
+const monthlyDebtBreakdownList = document.getElementById('monthlyDebtBreakdownList');
+const monthlyHistoryList = document.getElementById('monthlyHistoryList');
+const monthlyPaymentHistoryList = document.getElementById('monthlyPaymentHistoryList');
 const plansTotalCount = document.getElementById('plansTotalCount');
 const plansVisibleCount = document.getElementById('plansVisibleCount');
 const plansSelectedCount = document.getElementById('plansSelectedCount');
@@ -117,10 +143,12 @@ const confirmPromptValueBtn = document.getElementById('confirmPromptValueBtn');
 const cancelPromptValueBtn = document.getElementById('cancelPromptValueBtn');
 
 let plans = loadPlans();
+let monthlyBalances = loadMonthlyBalances();
 let currentPlanFilter = 'all';
 let selectedPlanId = plans[0]?.id ?? null;
 let editingPlanId = null;
 let currentPromptMonth = null;
+let currentMonthlyDebtTotal = 0;
 let pendingDeletePlanId = null;
 let reorderDraftPlanIds = [];
 let draggedReorderPlanId = null;
@@ -230,7 +258,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.1.9',
+  currentVersion: '2.2.0',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -273,12 +301,16 @@ updateResultsNavigation();
 (async () => {
   try {
     await Storage.migrate(STORAGE_KEY);
+    await Storage.migrate(MONTHLY_BALANCES_KEY);
     await Storage.migrate(NOTIFICATION_PREFERENCE_KEY);
     await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
     await Storage.migrate(USER_NAME_KEY);
     await Storage.migrate(USER_ID_KEY);
 
     await checkOnboarding();
+
+    monthlyBalances = await loadMonthlyBalancesAsync();
+    updateMonthlyBalanceSummary(currentMonthlyDebtTotal);
 
     // Recarrega planos do armazenamento nativo (pode ter dados mais recentes)
     const migratedPlans = await loadPlansAsync();
@@ -450,6 +482,19 @@ monthlyContainer.addEventListener('click', (event) => {
 
 cancelPromptValueBtn?.addEventListener('click', closeInstallmentValuePrompt);
 confirmPromptValueBtn?.addEventListener('click', saveInstallmentValuePrompt);
+openMonthlyBalanceModalBtn?.addEventListener('click', openMonthlyBalanceModal);
+closeMonthlyBalanceModalBtn?.addEventListener('click', closeMonthlyBalanceModal);
+cancelMonthlyBalanceBtn?.addEventListener('click', closeMonthlyBalanceModal);
+saveMonthlyBalanceBtn?.addEventListener('click', saveMonthlyBalanceModal);
+replaceMonthlyBalanceBtn?.addEventListener('click', replaceMonthlyBalanceModal);
+openMonthlyOverviewModalBtn?.addEventListener('click', openMonthlyOverviewModal);
+closeMonthlyOverviewModalBtn?.addEventListener('click', closeMonthlyOverviewModal);
+monthlyBalanceInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    saveMonthlyBalanceModal();
+  }
+});
 
 plansList.addEventListener('scroll', () => {
   schedulePlanFocusUpdate();
@@ -956,6 +1001,18 @@ promptValueModal?.addEventListener('click', (event) => {
   }
 });
 
+monthlyBalanceModal?.addEventListener('click', (event) => {
+  if (event.target === monthlyBalanceModal) {
+    closeMonthlyBalanceModal();
+  }
+});
+
+monthlyOverviewModal?.addEventListener('click', (event) => {
+  if (event.target === monthlyOverviewModal) {
+    closeMonthlyOverviewModal();
+  }
+});
+
 appSettingsModal?.addEventListener('click', (event) => {
   if (event.target === appSettingsModal) {
     closeAppSettingsModal();
@@ -988,6 +1045,16 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
+  if (event.key === 'Escape' && monthlyBalanceModal && !monthlyBalanceModal.hidden) {
+    closeMonthlyBalanceModal();
+    return;
+  }
+
+  if (event.key === 'Escape' && monthlyOverviewModal && !monthlyOverviewModal.hidden) {
+    closeMonthlyOverviewModal();
+    return;
+  }
+
   if (event.key === 'Escape' && appSettingsModal && !appSettingsModal.hidden) {
     closeAppSettingsModal();
     return;
@@ -1011,6 +1078,10 @@ if (window.Capacitor?.Plugins?.App) {
       closeReorderModal();
     } else if (promptValueModal && !promptValueModal.hidden) {
       closeInstallmentValuePrompt();
+    } else if (monthlyBalanceModal && !monthlyBalanceModal.hidden) {
+      closeMonthlyBalanceModal();
+    } else if (monthlyOverviewModal && !monthlyOverviewModal.hidden) {
+      closeMonthlyOverviewModal();
     } else if (appSettingsModal && !appSettingsModal.hidden) {
       closeAppSettingsModal();
     } else if (!resultsSection.hidden) {
@@ -1283,53 +1354,590 @@ function updatePlanDetailsSummary(plan, options = {}) {
   return { today, effectiveStartDate, shouldShowDetails };
 }
 
+function renderMonthlyTotalBadge(total) {
+  const monthlyTotalEl = document.getElementById('monthlyTotalValue');
+  const badgeLabel = document.querySelector('.monthly-summary-label');
+  if (!monthlyTotalEl) return;
+
+  const normalizedTotal = roundMoney(Math.max(0, Number(total) || 0));
+  currentMonthlyDebtTotal = normalizedTotal;
+
+  if (normalizedTotal > MONEY_EPSILON) {
+    monthlyTotalEl.textContent = `- ${formatCurrency(normalizedTotal)}`;
+    monthlyTotalEl.classList.add('is-negative');
+  } else {
+    monthlyTotalEl.textContent = formatCurrency(0);
+    monthlyTotalEl.classList.remove('is-negative');
+  }
+
+  if (badgeLabel) badgeLabel.textContent = 'TOTAL DEVEDOR';
+  updateMonthlyBalanceSummary(normalizedTotal);
+
+  if (monthlyOverviewModal && !monthlyOverviewModal.hidden) {
+    renderMonthlyOverviewDetails();
+  }
+}
+
+function updateMonthlyBalanceSummary(monthlyTotal = currentMonthlyDebtTotal) {
+  if (!monthlyBalanceValue || !monthlyBalanceRemaining) {
+    return;
+  }
+
+  const balance = getCurrentMonthBalance();
+  const monthlyPaid = getMonthlyPaidBreakdown(new Date());
+  const monthlyCommitments = getMonthlyCommitmentBreakdown(new Date());
+  const currentBalance = roundMoney(balance - monthlyPaid.total);
+  const projectedBalance = roundMoney(balance - monthlyCommitments.total);
+  const hasBalance = balance > MONEY_EPSILON;
+
+  monthlyBalanceValue.textContent = formatCurrency(currentBalance);
+  monthlyBalanceValue.classList.toggle('is-empty', !hasBalance);
+  monthlyBalanceValue.classList.toggle('is-negative', hasBalance && currentBalance < -MONEY_EPSILON);
+
+  monthlyBalanceRemaining.classList.remove('is-negative', 'is-empty');
+
+  if (!hasBalance) {
+    monthlyBalanceRemaining.textContent = 'Saldo não informado';
+    monthlyBalanceRemaining.classList.add('is-empty');
+    return;
+  }
+
+  if (projectedBalance < -MONEY_EPSILON) {
+    monthlyBalanceRemaining.textContent = `Falta: ${formatCurrency(Math.abs(projectedBalance))}`;
+    monthlyBalanceRemaining.classList.add('is-negative');
+    return;
+  }
+
+  monthlyBalanceRemaining.textContent = `Sobra: ${formatCurrency(projectedBalance)}`;
+}
+
+function setMonthlyBalanceStatus(message, type = '') {
+  if (!monthlyBalanceStatus) {
+    return;
+  }
+
+  monthlyBalanceStatus.textContent = message;
+  monthlyBalanceStatus.hidden = !message;
+  monthlyBalanceStatus.className = 'bulk-payment-status';
+
+  if (type) {
+    monthlyBalanceStatus.classList.add(type);
+  }
+}
+
+function openMonthlyBalanceModal(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+
+  if (!monthlyBalanceModal || !monthlyBalanceInput) {
+    return;
+  }
+
+  const currentBalance = getCurrentMonthBalance();
+  monthlyBalanceInput.value = '';
+  if (monthlyBalanceCurrentValue) {
+    monthlyBalanceCurrentValue.textContent = `Saldo recebido no mês: ${formatCurrency(currentBalance)}`;
+  }
+  setMonthlyBalanceStatus('', '');
+  monthlyBalanceModal.hidden = false;
+  syncModalBodyState();
+
+  window.setTimeout(() => {
+    monthlyBalanceInput.focus();
+    monthlyBalanceInput.select();
+  }, 20);
+}
+
+function closeMonthlyBalanceModal() {
+  if (monthlyBalanceModal) {
+    monthlyBalanceModal.hidden = true;
+  }
+
+  setMonthlyBalanceStatus('', '');
+  syncModalBodyState();
+}
+
+function saveMonthlyBalanceModal() {
+  if (!monthlyBalanceInput) {
+    closeMonthlyBalanceModal();
+    return;
+  }
+
+  const amountToAdd = parseCurrencyToNumber(monthlyBalanceInput.value);
+
+  if (!Number.isFinite(amountToAdd) || amountToAdd <= MONEY_EPSILON) {
+    setMonthlyBalanceStatus('Informe um valor válido para adicionar ao saldo.', 'error');
+    return;
+  }
+
+  setCurrentMonthBalance(roundMoney(getCurrentMonthBalance() + amountToAdd));
+  saveMonthlyBalances();
+  updateMonthlyBalanceSummary(currentMonthlyDebtTotal);
+  if (monthlyOverviewModal && !monthlyOverviewModal.hidden) {
+    renderMonthlyOverviewDetails();
+  }
+  closeMonthlyBalanceModal();
+  setStatus(`Saldo adicionado: ${formatCurrency(amountToAdd)}. Total recebido no mês: ${formatCurrency(getCurrentMonthBalance())}.`, 'success');
+}
+
+function replaceMonthlyBalanceModal() {
+  if (!monthlyBalanceInput) {
+    closeMonthlyBalanceModal();
+    return;
+  }
+
+  const nextBalance = parseCurrencyToNumber(monthlyBalanceInput.value);
+
+  if (!Number.isFinite(nextBalance) || nextBalance < 0) {
+    setMonthlyBalanceStatus('Informe um valor válido para corrigir o saldo.', 'error');
+    return;
+  }
+
+  setCurrentMonthBalance(nextBalance);
+  saveMonthlyBalances();
+  updateMonthlyBalanceSummary(currentMonthlyDebtTotal);
+  if (monthlyOverviewModal && !monthlyOverviewModal.hidden) {
+    renderMonthlyOverviewDetails();
+  }
+  closeMonthlyBalanceModal();
+  setStatus(`Saldo recebido no mês corrigido para ${formatCurrency(getCurrentMonthBalance())}.`, 'success');
+}
+
+function openMonthlyOverviewModal(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+
+  if (!monthlyOverviewModal) {
+    return;
+  }
+
+  renderMonthlyOverviewDetails();
+  monthlyOverviewModal.hidden = false;
+  syncModalBodyState();
+
+  window.setTimeout(() => {
+    closeMonthlyOverviewModalBtn?.focus();
+  }, 20);
+}
+
+function closeMonthlyOverviewModal() {
+  if (monthlyOverviewModal) {
+    monthlyOverviewModal.hidden = true;
+  }
+
+  syncModalBodyState();
+}
+
+function renderMonthlyOverviewDetails() {
+  const currentDateRef = normalizeDate(new Date());
+  const debtBreakdown = getMonthlyDebtBreakdown(currentDateRef);
+  const commitmentBreakdown = getMonthlyCommitmentBreakdown(currentDateRef);
+  const paidBreakdown = getMonthlyPaidBreakdown(currentDateRef);
+  const receivedBalance = getCurrentMonthBalance();
+  const currentBalance = roundMoney(receivedBalance - paidBreakdown.total);
+  const available = roundMoney(receivedBalance - commitmentBreakdown.total);
+  const hasBalance = receivedBalance > MONEY_EPSILON;
+  const committedRatio = hasBalance
+    ? clamp(commitmentBreakdown.total / receivedBalance, 0, 1)
+    : commitmentBreakdown.total > MONEY_EPSILON
+      ? 1
+      : 0;
+  const committedPercent = Math.round(committedRatio * 100);
+
+  if (monthlyOverviewPeriod) {
+    monthlyOverviewPeriod.textContent = formatMonthYear(currentDateRef);
+  }
+
+  if (overviewBalanceValue) {
+    overviewBalanceValue.textContent = formatCurrency(currentBalance);
+    overviewBalanceValue.classList.toggle('is-negative', hasBalance && currentBalance < -MONEY_EPSILON);
+  }
+
+  if (overviewDebtValue) {
+    overviewDebtValue.textContent = formatCurrency(debtBreakdown.total);
+  }
+
+  if (overviewAvailableValue) {
+    overviewAvailableValue.textContent = hasBalance
+      ? formatCurrency(available)
+      : 'Sem saldo';
+  }
+
+  if (overviewAvailableCard) {
+    overviewAvailableCard.classList.toggle('is-negative', hasBalance && available < -MONEY_EPSILON);
+    overviewAvailableCard.classList.toggle('is-empty', !hasBalance);
+  }
+
+  if (overviewOpenCount) {
+    overviewOpenCount.textContent = String(debtBreakdown.items.length);
+  }
+
+  if (monthlyBalanceChart) {
+    monthlyBalanceChart.style.setProperty('--debt-angle', `${committedRatio * 360}deg`);
+    monthlyBalanceChart.classList.toggle('is-empty', !hasBalance && commitmentBreakdown.total <= MONEY_EPSILON);
+  }
+
+  if (monthlyBalanceChartCenter) {
+    monthlyBalanceChartCenter.textContent = `${committedPercent}%`;
+  }
+
+  renderMonthlyDebtBreakdown(commitmentBreakdown.items);
+  renderMonthlyBalanceHistory();
+  renderMonthlyPaymentHistory();
+}
+
+function renderMonthlyDebtBreakdown(items) {
+  if (!monthlyDebtBreakdownList) {
+    return;
+  }
+
+  if (!items.length) {
+    monthlyDebtBreakdownList.innerHTML = '<div class="monthly-overview-empty">Nenhum compromisso previsto neste mês.</div>';
+    return;
+  }
+
+  const maxAmount = Math.max(...items.map((item) => item.amount), 1);
+  monthlyDebtBreakdownList.innerHTML = items
+    .slice(0, 8)
+    .map((item) => {
+      const scale = clamp(item.amount / maxAmount, 0, 1);
+      const monthLabel = isExpensePlan(item.plan)
+        ? 'Despesa mensal'
+        : isAccountPlan(item.plan)
+          ? 'Conta do mês'
+          : `Parcela ${item.monthIndex}/${item.totalMonths}`;
+      const dueLabel = item.paymentDate ? formatDateShort(item.paymentDate) : formatMonthYearCompact(item.periodStart);
+      const statusLabel = item.isPaid ? 'Pago' : 'Em aberto';
+      const statusClass = item.isPaid ? 'is-paid' : 'is-open';
+
+      return `
+        <div class="monthly-breakdown-item" style="--bar-scale:${scale};">
+          <div class="monthly-breakdown-top">
+            <strong>${escapeHtml(item.name)}</strong>
+            <span>${formatCurrency(item.amount)}</span>
+          </div>
+          <div class="monthly-breakdown-meta">
+            <span>${escapeHtml(monthLabel)}</span>
+            <span>${dueLabel}</span>
+          </div>
+          <span class="monthly-breakdown-status ${statusClass}">${statusLabel}</span>
+          <div class="monthly-breakdown-bar" aria-hidden="true"><span></span></div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function renderMonthlyBalanceHistory() {
+  if (!monthlyHistoryList) {
+    return;
+  }
+
+  const history = getMonthlyOverviewHistory(6);
+  const maxValue = Math.max(
+    ...history.flatMap((entry) => [entry.balance, entry.totalCommitted]),
+    1
+  );
+
+  monthlyHistoryList.innerHTML = history
+    .map((entry) => {
+      const balanceScale = clamp(entry.balance / maxValue, 0, 1);
+      const debtScale = clamp(entry.totalCommitted / maxValue, 0, 1);
+      const hasBalance = entry.balance > MONEY_EPSILON;
+      const available = roundMoney(entry.balance - entry.totalCommitted);
+      const resultLabel = hasBalance
+        ? available < -MONEY_EPSILON
+          ? `Falta ${formatCurrency(Math.abs(available))}`
+          : `Livre ${formatCurrency(available)}`
+        : 'Saldo não informado';
+
+      return `
+        <div class="monthly-history-item${hasBalance && available < -MONEY_EPSILON ? ' is-negative' : ''}" style="--balance-scale:${balanceScale}; --debt-scale:${debtScale};">
+          <div class="monthly-history-top">
+            <strong>${formatMonthYear(entry.date)}</strong>
+            <span>${resultLabel}</span>
+          </div>
+          <div class="monthly-history-bars" aria-hidden="true">
+            <span class="history-balance-bar"></span>
+            <span class="history-debt-bar"></span>
+          </div>
+          <div class="monthly-history-values">
+            <span>Saldo ${hasBalance ? formatCurrency(entry.balance) : '--'}</span>
+            <span>Pagamentos ${formatCurrency(entry.totalCommitted)}</span>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function renderMonthlyPaymentHistory() {
+  if (!monthlyPaymentHistoryList) {
+    return;
+  }
+
+  const history = getRecentPaymentHistory(6);
+
+  if (!history.length) {
+    monthlyPaymentHistoryList.innerHTML = '<div class="monthly-overview-empty">Nenhum lançamento registrado ainda.</div>';
+    return;
+  }
+
+  monthlyPaymentHistoryList.innerHTML = history
+    .map((entry) => `
+      <div class="monthly-payment-history-item">
+        <div>
+          <strong>${escapeHtml(entry.planName)}</strong>
+          <span>${entry.updated ? 'Lance alterado' : 'Lance registrado'} em ${formatDateShort(entry.date)}</span>
+        </div>
+        <strong>${formatCurrency(entry.amount)}</strong>
+      </div>
+    `)
+    .join('');
+}
+
+function getMonthlyDebtBreakdown(targetDate = new Date()) {
+  const date = normalizeDate(targetDate);
+  const items = [];
+  let total = 0;
+
+  plans.forEach((plan) => {
+    const item = getMonthlyDebtItem(plan, date);
+
+    if (!item || item.amount <= MONEY_EPSILON) {
+      return;
+    }
+
+    items.push(item);
+    total += item.amount;
+  });
+
+  items.sort((first, second) => second.amount - first.amount);
+
+  return {
+    total: roundMoney(total),
+    items
+  };
+}
+
+function getMonthlyCommitmentBreakdown(targetDate = new Date()) {
+  const date = normalizeDate(targetDate);
+  const items = [];
+  let total = 0;
+
+  plans.forEach((plan) => {
+    const item = getMonthlyCommitmentItem(plan, date);
+
+    if (!item || item.amount <= MONEY_EPSILON) {
+      return;
+    }
+
+    items.push(item);
+    total += item.amount;
+  });
+
+  items.sort((first, second) => second.amount - first.amount);
+
+  return {
+    total: roundMoney(total),
+    items
+  };
+}
+
+function getMonthlyPaidBreakdown(targetDate = new Date()) {
+  const date = normalizeDate(targetDate);
+  const items = [];
+  let total = 0;
+
+  plans.forEach((plan) => {
+    const item = getMonthlyPaidItem(plan, date);
+
+    if (!item || item.amount <= MONEY_EPSILON) {
+      return;
+    }
+
+    items.push(item);
+    total += item.amount;
+  });
+
+  items.sort((first, second) => second.amount - first.amount);
+
+  return {
+    total: roundMoney(total),
+    items
+  };
+}
+
+function getMonthlyDebtItem(plan, targetDate) {
+  const startDate = parseDateInput(plan.startDate);
+  const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
+  const paidMonths = new Set(getPaidMonths(plan));
+
+  if (isAccountPlan(plan)) {
+    if (!isSameMonth(effectiveStartDate, targetDate) || paidMonths.has(1)) {
+      return null;
+    }
+
+    const amount = getMonthRemainingValue(plan, 1);
+
+    return {
+      plan,
+      id: plan.id,
+      name: plan.name,
+      amount,
+      monthIndex: 1,
+      totalMonths: 1,
+      periodStart: effectiveStartDate,
+      paymentDate: effectiveStartDate
+    };
+  }
+
+  const maxMonths = getPlanMonthLimit(plan);
+
+  for (let monthIndex = 1; monthIndex <= maxMonths; monthIndex += 1) {
+    const periodStart = getPlanPeriodStart(plan, effectiveStartDate, monthIndex);
+    const periodEnd = getPlanDueDate(plan, effectiveStartDate, monthIndex);
+
+    if (targetDate >= periodStart && targetDate < periodEnd) {
+      if (paidMonths.has(monthIndex)) {
+        return null;
+      }
+
+      const amount = getMonthRemainingValue(plan, monthIndex);
+
+      return {
+        plan,
+        id: plan.id,
+        name: plan.name,
+        amount,
+        monthIndex,
+        totalMonths: maxMonths,
+        periodStart,
+        paymentDate: getPlanPaymentDate(plan, effectiveStartDate, monthIndex)
+      };
+    }
+  }
+
+  return null;
+}
+
+function getMonthlyPaidItem(plan, targetDate) {
+  const commitment = getMonthlyCommitmentItem(plan, targetDate);
+
+  if (!commitment) {
+    return null;
+  }
+
+  const paidAmount = commitment.isPaid
+    ? commitment.amount
+    : getPartialMonthCredit(plan, commitment.monthIndex);
+
+  if (paidAmount <= MONEY_EPSILON) {
+    return null;
+  }
+
+  return {
+    ...commitment,
+    amount: roundMoney(Math.min(paidAmount, commitment.amount))
+  };
+}
+
+function getMonthlyCommitmentItem(plan, targetDate) {
+  const startDate = parseDateInput(plan.startDate);
+  const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
+  const paidMonths = new Set(getPaidMonths(plan));
+
+  if (isAccountPlan(plan)) {
+    if (!isSameMonth(effectiveStartDate, targetDate)) {
+      return null;
+    }
+
+    return {
+      plan,
+      id: plan.id,
+      name: plan.name,
+      amount: getMonthBaseValue(plan, 1),
+      remainingAmount: paidMonths.has(1) ? 0 : getMonthRemainingValue(plan, 1),
+      isPaid: paidMonths.has(1),
+      monthIndex: 1,
+      totalMonths: 1,
+      periodStart: effectiveStartDate,
+      paymentDate: effectiveStartDate
+    };
+  }
+
+  const maxMonths = getPlanMonthLimit(plan);
+
+  for (let monthIndex = 1; monthIndex <= maxMonths; monthIndex += 1) {
+    const periodStart = getPlanPeriodStart(plan, effectiveStartDate, monthIndex);
+    const periodEnd = getPlanDueDate(plan, effectiveStartDate, monthIndex);
+
+    if (targetDate >= periodStart && targetDate < periodEnd) {
+      return {
+        plan,
+        id: plan.id,
+        name: plan.name,
+        amount: getMonthBaseValue(plan, monthIndex),
+        remainingAmount: paidMonths.has(monthIndex) ? 0 : getMonthRemainingValue(plan, monthIndex),
+        isPaid: paidMonths.has(monthIndex),
+        monthIndex,
+        totalMonths: maxMonths,
+        periodStart,
+        paymentDate: getPlanPaymentDate(plan, effectiveStartDate, monthIndex)
+      };
+    }
+  }
+
+  return null;
+}
+
+function getMonthlyOverviewHistory(monthCount = 6) {
+  const today = normalizeDate(new Date());
+  const currentMonthStart = normalizeDate(new Date(today.getFullYear(), today.getMonth(), 1));
+
+  return Array.from({ length: monthCount }, (_, index) => {
+    const monthDate = addMonths(currentMonthStart, -index);
+    const anchorDate = index === 0
+      ? today
+      : normalizeDate(new Date(monthDate.getFullYear(), monthDate.getMonth(), 15));
+    const balance = roundMoney(normalizeMoneyValue(monthlyBalances[getCurrentMonthKey(monthDate)]));
+    const commitments = getMonthlyCommitmentBreakdown(anchorDate);
+    const paid = getMonthlyPaidBreakdown(anchorDate);
+
+    return {
+      date: monthDate,
+      balance: roundMoney(balance - paid.total),
+      totalCommitted: commitments.total
+    };
+  });
+}
+
+function getRecentPaymentHistory(limit = 6) {
+  return plans
+    .flatMap((plan) => getBulkPaymentHistory(plan).map((action) => {
+      const date = new Date(action.updatedAt || action.createdAt || Date.now());
+
+      return {
+        planName: plan.name,
+        amount: action.amount,
+        date: Number.isNaN(date.getTime()) ? new Date() : date,
+        updated: Boolean(action.updatedAt)
+      };
+    }))
+    .sort((first, second) => second.date.getTime() - first.date.getTime())
+    .slice(0, limit);
+}
+
+function isSameMonth(firstDate, secondDate) {
+  return firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth();
+}
+
 function updateMonthlyTotal() {
   const monthlyTotalEl = document.getElementById('monthlyTotalValue');
   if (!monthlyTotalEl) return;
 
-  const today = normalizeDate(new Date());
-  let total = 0;
-
-  plans.forEach((plan) => {
-    const startDate = parseDateInput(plan.startDate);
-    const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
-    const paidMonths = new Set(getPaidMonths(plan));
-
-    if (isAccountPlan(plan)) {
-      const isDueThisMonth = effectiveStartDate.getMonth() === today.getMonth() &&
-        effectiveStartDate.getFullYear() === today.getFullYear();
-
-      if (isDueThisMonth && !paidMonths.has(1)) {
-        total += getMonthRemainingValue(plan, 1);
-      }
-
-      return;
-    }
-    
-    // Para despesas e dívidas, percorremos as parcelas possíveis
-    // e somamos apenas a que corresponde ao mês atual.
-    const maxMonths = getPlanMonthLimit(plan);
-    
-    for (let i = 1; i <= maxMonths; i++) {
-      const periodStart = addMonths(effectiveStartDate, i - 1);
-      const dueDate = addMonths(effectiveStartDate, i);
-      
-      if (today >= periodStart && today < dueDate) {
-        if (!paidMonths.has(i)) {
-          total += getMonthRemainingValue(plan, i);
-        }
-        break; // Achou o mês atual, pula para o próximo plano
-      }
-    }
-  });
-
-  if (total > 0) {
-    monthlyTotalEl.textContent = `- ${formatCurrency(total)}`;
-    monthlyTotalEl.classList.add('is-negative');
-  } else {
-    monthlyTotalEl.textContent = formatCurrency(total);
-    monthlyTotalEl.classList.remove('is-negative');
-  }
+  renderMonthlyTotalBadge(getMonthlyDebtBreakdown(new Date()).total);
 }
 
 function renderPlansList() {
@@ -2278,62 +2886,9 @@ function buildSummaryMessage(planName, completedMonths, totalMonths) {
 
 function updateMonthlyDebtSummary() {
   const badgeValue = document.getElementById('monthlyTotalValue');
-  const badgeLabel = document.querySelector('.monthly-summary-label');
   if (!badgeValue) return;
 
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-  
-  let totalMonthlyDebt = 0;
-
-  plans.forEach(plan => {
-    const start = parseDateInput(plan.startDate);
-    const paidMonths = new Set(getPaidMonths(plan));
-
-    if (isAccountPlan(plan)) {
-      const isDueThisMonth = start.getMonth() === currentMonth && start.getFullYear() === currentYear;
-
-      if (isDueThisMonth && !paidMonths.has(1)) {
-        totalMonthlyDebt += getMonthRemainingValue(plan, 1);
-      }
-
-      return;
-    }
-
-    // Para despesas, somamos o valor mensal se estiver ativo
-    if (isExpensePlan(plan)) {
-      totalMonthlyDebt += (plan.installmentValue || 0);
-      return;
-    }
-
-    // Para dívidas, verificamos se há parcela neste mês
-    let monthsDiff = (currentYear - start.getFullYear()) * 12 + (currentMonth - start.getMonth());
-    
-    if (plan.countMode === 'next_month') {
-      monthsDiff--;
-    }
-
-    const currentInstallmentIndex = monthsDiff + 1;
-
-    // Se a parcela atual está dentro do intervalo do plano
-    if (currentInstallmentIndex >= 1 && currentInstallmentIndex <= (plan.totalMonths || 1)) {
-      // Verificamos se já foi paga
-      if (!paidMonths.has(currentInstallmentIndex)) {
-        totalMonthlyDebt += getMonthRemainingValue(plan, currentInstallmentIndex);
-      }
-    }
-  });
-
-  if (totalMonthlyDebt > 0) {
-    badgeValue.textContent = `- ${formatCurrency(totalMonthlyDebt)}`;
-    badgeValue.classList.add('is-negative');
-    if (badgeLabel) badgeLabel.textContent = 'TOTAL DO MÊS';
-  } else {
-    badgeValue.textContent = formatCurrency(0);
-    badgeValue.classList.remove('is-negative');
-    if (badgeLabel) badgeLabel.textContent = 'MÊS QUITADO';
-  }
+  renderMonthlyTotalBadge(getMonthlyDebtBreakdown(new Date()).total);
 }
 
 function parseDateInput(value) {
@@ -2764,6 +3319,8 @@ function syncModalBodyState() {
       !deleteModal.hidden ||
       !reorderModal.hidden ||
       Boolean(appSettingsModal && !appSettingsModal.hidden) ||
+      Boolean(monthlyBalanceModal && !monthlyBalanceModal.hidden) ||
+      Boolean(monthlyOverviewModal && !monthlyOverviewModal.hidden) ||
       !resultsSection.hidden
   );
 }
@@ -2894,6 +3451,72 @@ function loadPlans() {
   } catch {
     return [];
   }
+}
+
+async function loadMonthlyBalancesAsync() {
+  try {
+    await Storage.migrate(MONTHLY_BALANCES_KEY);
+    const raw = await Storage.get(MONTHLY_BALANCES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return sanitizeMonthlyBalances(parsed);
+  } catch {
+    return sanitizeMonthlyBalances(monthlyBalances);
+  }
+}
+
+function loadMonthlyBalances() {
+  try {
+    const raw = localStorage.getItem(MONTHLY_BALANCES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return sanitizeMonthlyBalances(parsed);
+  } catch {
+    return {};
+  }
+}
+
+function saveMonthlyBalances() {
+  Storage.set(MONTHLY_BALANCES_KEY, JSON.stringify(monthlyBalances));
+}
+
+function sanitizeMonthlyBalances(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.entries(value).reduce((balances, [monthKey, amount]) => {
+    if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+      return balances;
+    }
+
+    const normalizedAmount = roundMoney(normalizeMoneyValue(amount));
+    if (normalizedAmount > MONEY_EPSILON) {
+      balances[monthKey] = normalizedAmount;
+    }
+
+    return balances;
+  }, {});
+}
+
+function getCurrentMonthKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function getCurrentMonthBalance() {
+  return roundMoney(normalizeMoneyValue(monthlyBalances[getCurrentMonthKey()]));
+}
+
+function setCurrentMonthBalance(amount) {
+  const monthKey = getCurrentMonthKey();
+  const normalizedAmount = roundMoney(normalizeMoneyValue(amount));
+
+  if (normalizedAmount > MONEY_EPSILON) {
+    monthlyBalances[monthKey] = normalizedAmount;
+    return;
+  }
+
+  delete monthlyBalances[monthKey];
 }
 
 function isValidPlan(plan) {
