@@ -16,7 +16,7 @@
  */
 (function () {
   var STORAGE_KEY = 'cf-active-web-bundle';
-  var bundledVersion = '2.1.7';
+  var bundledVersion = '2.1.8';
   var maxBundleChars = 1024 * 1024;
 
   function isNativeApp() {
