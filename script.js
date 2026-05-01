@@ -1063,7 +1063,7 @@ function syncCreatePlanTypeFields() {
       ? 'Ex.: Fatura do cartão, boleto da compra'
       : isExpense
         ? 'Ex.: Conta de energia, Internet'
-        : 'Ex.: Parcelas da moto ou Energia';
+        : 'Ex.: Parcelas da moto';
   }
 
   if (createStartDateLabel) {
@@ -2579,7 +2579,9 @@ function openEditModal(plan) {
   if (editPlanNameInput) {
     editPlanNameInput.placeholder = isAccount
       ? 'Ex.: Fatura do cartão, boleto da compra'
-      : 'Ex.: Parcelas da moto';
+      : isExpense
+        ? 'Ex.: Conta de energia, Internet'
+        : 'Ex.: Parcelas da moto';
   }
 
   if (editStartDateLabel) {
@@ -3001,16 +3003,36 @@ function getMonthBaseValue(plan, monthIndex) {
     return roundMoney(normalizeMoneyValue(manualValue));
   }
 
-  const installmentValue = normalizeMoneyValue(plan?.installmentValue);
+  const isExpense = isExpensePlan(plan);
+  const totalValue = normalizeMoneyValue(plan?.totalValue);
+  const totalMonths = getPlanMonthLimit(plan);
 
+  if (!isExpense && totalValue > 0 && totalMonths > 0) {
+    let manualSum = 0;
+    let manualCount = 0;
+    const manualValues = plan.manualMonthValues || {};
+    
+    for (const mIdx in manualValues) {
+      const idx = Number.parseInt(mIdx, 10);
+      if (idx >= 1 && idx <= totalMonths) {
+        manualSum += roundMoney(normalizeMoneyValue(manualValues[mIdx]));
+        manualCount++;
+      }
+    }
+    
+    const nonManualCount = totalMonths - manualCount;
+    if (nonManualCount > 0) {
+      const remainder = Math.max(0, totalValue - manualSum);
+      return roundMoney(remainder / nonManualCount);
+    }
+  }
+
+  const installmentValue = normalizeMoneyValue(plan?.installmentValue);
   if (installmentValue > 0) {
     return roundMoney(installmentValue);
   }
 
-  const totalValue = normalizeMoneyValue(plan?.totalValue);
-  const totalMonths = getPlanMonthLimit(plan);
-
-  if (!isExpensePlan(plan) && totalValue > 0 && totalMonths > 0) {
+  if (!isExpense && totalValue > 0 && totalMonths > 0) {
     return roundMoney(totalValue / totalMonths);
   }
 
@@ -5172,7 +5194,9 @@ function saveInstallmentValuePrompt() {
   plan.manualMonthValues[changedMonthIndex] = Number.isFinite(newVal) ? newVal : 0;
   cleanupPartialMonthCredits(plan);
   savePlans();
-  refreshPlanUiAfterPaymentChange(plan, { highlightMonthIndex: changedMonthIndex, onlyMonthIndex: changedMonthIndex });
+  
+  // Atualizamos a UI completa, pois mudar um valor pode impactar o valor restante das outras parcelas
+  refreshPlanUiAfterPaymentChange(plan, { highlightMonthIndex: changedMonthIndex });
   closeInstallmentValuePrompt();
 }
 
