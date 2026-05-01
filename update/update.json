@@ -1,6 +1,6 @@
 {
-  "version": "2.1.5",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.5/Controle.de.Dividas.apk",
-  "notes": "Tela de abertura animada para deixar o carregamento inicial mais intuitivo e suave.",
-  "publishedAt": "2026-04-30"
+  "version": "2.1.6",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.6/Controle.de.Dividas.apk",
+  "notes": "Meses anteriores podem ser marcados como pagos ou não pagos na criação e edição; novos compromissos começam sempre no mês informado.",
+  "publishedAt": "2026-05-01"
 }

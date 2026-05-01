@@ -61,7 +61,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.1.5</strong>
+            <strong id="appVersionLabel">v2.1.6</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -442,15 +442,27 @@
           </label>
         </div>
 
-        <div id="createCountModeGroup" style="grid-column: 1 / -1;">
-          <label class="input-group" for="createCountMode">
-            <span>Quando começa a contagem</span>
-            <select id="createCountMode" class="input-field" required>
-              <option value="start_month">Começar no mês informado</option>
-              <option value="next_month">Começar a partir do próximo mês</option>
-            </select>
-          </label>
-        </div>
+        <fieldset class="create-history-control" id="createPastMonthsGroup">
+          <legend>Meses anteriores</legend>
+          <p>Defina como o app deve salvar as parcelas que já venceram até hoje.</p>
+          <div class="history-choice-grid">
+            <label class="history-choice">
+              <input type="radio" name="createPastMonthsStatus" value="open" checked>
+              <span>
+                <strong>Não pagos</strong>
+                <small>Entram como pendentes</small>
+              </span>
+            </label>
+            <label class="history-choice">
+              <input type="radio" name="createPastMonthsStatus" value="paid">
+              <span>
+                <strong>Pagos</strong>
+                <small>Já entram quitados</small>
+              </span>
+            </label>
+          </div>
+          <small class="history-choice-hint" id="createPastMonthsHint">Informe a data e o total de meses para ver a prévia.</small>
+        </fieldset>
 
         <div class="button-row modal-actions">
           <button type="submit" class="btn-primary">Adicionar compromisso</button>
@@ -491,17 +503,9 @@
         </div>
 
         <div id="editDebtSpecificFields" class="input-group-row">
-          <label class="input-group" for="editTotalMonths">
+          <label class="input-group" for="editTotalMonths" style="grid-column: 1 / -1;">
             <span>Total de meses</span>
             <input type="number" id="editTotalMonths" min="1" class="input-field" placeholder="Ex.: 24" required>
-          </label>
-
-          <label class="input-group" for="editCountMode">
-            <span>Quando começa a contagem</span>
-            <select id="editCountMode" class="input-field" required>
-              <option value="next_month">Começar a partir do próximo mês</option>
-              <option value="start_month">Começar no mês informado</option>
-            </select>
           </label>
         </div>
 
@@ -516,6 +520,35 @@
             <input type="text" id="editTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
           </label>
         </div>
+
+        <fieldset class="create-history-control" id="editPastMonthsGroup">
+          <legend>Meses anteriores</legend>
+          <p>Escolha se as parcelas já vencidas devem ser ajustadas ao salvar esta edição.</p>
+          <div class="history-choice-grid edit-history-choice-grid">
+            <label class="history-choice">
+              <input type="radio" name="editPastMonthsStatus" value="keep" checked>
+              <span>
+                <strong>Manter atual</strong>
+                <small>Não altera pagamentos</small>
+              </span>
+            </label>
+            <label class="history-choice">
+              <input type="radio" name="editPastMonthsStatus" value="open">
+              <span>
+                <strong>Não pagos</strong>
+                <small>Reabre anteriores</small>
+              </span>
+            </label>
+            <label class="history-choice">
+              <input type="radio" name="editPastMonthsStatus" value="paid">
+              <span>
+                <strong>Pagos</strong>
+                <small>Quita anteriores</small>
+              </span>
+            </label>
+          </div>
+          <small class="history-choice-hint" id="editPastMonthsHint">Informe a data e o total de meses para ver a prévia.</small>
+        </fieldset>
 
         <div class="button-row modal-actions">
           <button type="submit" class="btn-primary">Salvar alterações</button>

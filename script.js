@@ -4,6 +4,7 @@ const MONEY_EPSILON = 0.005;
 const STORAGE_KEY = 'payment-plans-v1';
 const USER_NAME_KEY = 'cf-user-name-v1';
 const USER_ID_KEY = 'cf-user-id-v1';
+const DEFAULT_COUNT_MODE = 'start_month';
 
 const resultsSection = document.getElementById('resultsSection');
 const statusMessage = document.getElementById('statusMessage');
@@ -67,20 +68,22 @@ const createForm = document.getElementById('createPlanForm');
 const createPlanNameInput = document.getElementById('createPlanName');
 const createStartDateInput = document.getElementById('createStartDate');
 const createTotalMonthsInput = document.getElementById('createTotalMonths');
-const createCountModeInput = document.getElementById('createCountMode');
 const createStatusMessage = document.getElementById('createStatusMessage');
 const closeCreateModalBtn = document.getElementById('closeCreateModalBtn');
 const cancelCreateModalBtn = document.getElementById('cancelCreateModalBtn');
+const createPastMonthsGroup = document.getElementById('createPastMonthsGroup');
+const createPastMonthsHint = document.getElementById('createPastMonthsHint');
 const editModal = document.getElementById('editModal');
 const editForm = document.getElementById('editPlanForm');
 const editPlanNameInput = document.getElementById('editPlanName');
 const editStartDateInput = document.getElementById('editStartDate');
 const editTotalMonthsInput = document.getElementById('editTotalMonths');
-const editCountModeInput = document.getElementById('editCountMode');
 const editStatusMessage = document.getElementById('editStatusMessage');
 const editModalSubtitle = document.getElementById('editModalSubtitle');
 const closeEditModalBtn = document.getElementById('closeEditModalBtn');
 const cancelEditModalBtn = document.getElementById('cancelEditModalBtn');
+const editPastMonthsGroup = document.getElementById('editPastMonthsGroup');
+const editPastMonthsHint = document.getElementById('editPastMonthsHint');
 const deleteModal = document.getElementById('deleteModal');
 const deletePlanName = document.getElementById('deletePlanName');
 const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
@@ -215,7 +218,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.1.5',
+  currentVersion: '2.1.6',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -303,10 +306,10 @@ createForm.addEventListener('submit', (event) => {
 
   if (isExpense) {
     monthsInput = 1200; // 100 years para simular continuo
-    countMode = 'start_month';
+    countMode = DEFAULT_COUNT_MODE;
   } else {
     monthsInput = Number.parseInt(createTotalMonthsInput.value, 10);
-    countMode = createCountModeInput.value;
+    countMode = DEFAULT_COUNT_MODE;
     if (Number.isNaN(monthsInput) || monthsInput <= 0) {
       setCreateStatus('Preencha o nome do compromisso, uma data válida e um total de meses maior que zero.', 'error');
       return;
@@ -323,13 +326,13 @@ createForm.addEventListener('submit', (event) => {
     name: planName,
     startDate: startInput,
     totalMonths: monthsInput,
-    countMode: isValidCountMode(countMode) ? countMode : 'start_month',
+    countMode: DEFAULT_COUNT_MODE,
     isExpense: isExpense,
     totalValue: parseCurrencyToNumber(createTotalValueInput?.value),
     installmentValue: parseCurrencyToNumber(createInstallmentValueInput?.value),
     manualMonthValues: {},
     partialMonthCredits: {},
-    paidMonths: []
+    paidMonths: isExpense ? [] : buildInitialPaidMonths(startInput, countMode, monthsInput)
   };
 
   plans.unshift(nextPlan);
@@ -339,7 +342,10 @@ createForm.addEventListener('submit', (event) => {
   renderPlansList();
   renderPlanDetails(nextPlan, { resetTimelineScroll: true });
   closeCreateModal();
-  setStatus(`Compromisso "${nextPlan.name}" cadastrado com sucesso. Para editar depois, use o botão Editar na lista.`, 'success');
+  const historyMessage = nextPlan.paidMonths.length > 0
+    ? ` ${nextPlan.paidMonths.length} ${nextPlan.paidMonths.length === 1 ? 'parcela anterior foi marcada como paga.' : 'parcelas anteriores foram marcadas como pagas.'}`
+    : '';
+  setStatus(`Compromisso "${nextPlan.name}" cadastrado com sucesso.${historyMessage} Para editar depois, use o botão Editar na lista.`, 'success');
   scrollToSection(plansPanel);
 });
 
@@ -575,7 +581,6 @@ editForm.addEventListener('submit', (event) => {
   const planName = editPlanNameInput.value.trim();
   const startInput = editStartDateInput.value;
   const monthsInput = Number.parseInt(editTotalMonthsInput.value, 10);
-  const countMode = editCountModeInput.value;
   const totalVal = parseCurrencyToNumber(editTotalValueInput?.value);
   const instVal = parseCurrencyToNumber(editInstallmentValueInput?.value);
 
@@ -593,17 +598,19 @@ editForm.addEventListener('submit', (event) => {
   }
 
   const existingPlan = plans[existingPlanIndex];
+  const countMode = isValidCountMode(existingPlan.countMode) ? existingPlan.countMode : DEFAULT_COUNT_MODE;
   const updatedPlan = {
     ...existingPlan,
     name: planName,
     startDate: startInput,
     totalMonths: monthsInput,
-    countMode: isValidCountMode(countMode) ? countMode : 'start_month',
+    countMode,
     paidMonths: sanitizePaidMonths(existingPlan.paidMonths ?? [], monthsInput),
     totalValue: totalVal,
     installmentValue: instVal,
   };
 
+  applyPastMonthsEditStatus(updatedPlan);
   cleanupPartialMonthCredits(updatedPlan);
 
   plans[existingPlanIndex] = updatedPlan;
@@ -611,8 +618,9 @@ editForm.addEventListener('submit', (event) => {
   savePlans();
   renderPlansList();
   renderPlanDetails(updatedPlan, { resetTimelineScroll: true });
+  const editHistoryMessage = buildEditPastMonthsStatusMessage();
   closeEditModal();
-  setStatus(`Compromisso "${updatedPlan.name}" atualizado com sucesso.`, 'success');
+  setStatus(`Compromisso "${updatedPlan.name}" atualizado com sucesso.${editHistoryMessage}`, 'success');
 });
 
 closeEditModalBtn.addEventListener('click', () => {
@@ -985,26 +993,41 @@ plansFilterNav?.addEventListener('click', (event) => {
 });
 
 const debtSpecificFields = document.getElementById('debtSpecificFields');
-const createCountModeGroup = document.getElementById('createCountModeGroup');
 const createStartDateLabel = document.getElementById('createStartDateLabel');
 document.querySelectorAll('input[name="createPlanType"]').forEach(radio => {
   radio.addEventListener('change', (e) => {
     if (e.target.value === 'expense') {
       debtSpecificFields.style.display = 'none';
-      if (createCountModeGroup) createCountModeGroup.style.display = 'none';
       createTotalMonthsInput.removeAttribute('required');
-      createCountModeInput.removeAttribute('required');
       createPlanNameInput.placeholder = 'Ex.: Conta de energia, Internet';
       if (createStartDateLabel) createStartDateLabel.textContent = 'Data de pagamento';
     } else {
       debtSpecificFields.style.display = 'contents';
-      if (createCountModeGroup) createCountModeGroup.style.display = '';
       createTotalMonthsInput.setAttribute('required', 'required');
-      createCountModeInput.setAttribute('required', 'required');
       createPlanNameInput.placeholder = 'Ex.: Parcelas da moto ou Energia';
       if (createStartDateLabel) createStartDateLabel.textContent = 'Data de início';
     }
+
+    updateCreatePastMonthsControl();
   });
+});
+
+[createStartDateInput, createTotalMonthsInput].forEach((input) => {
+  input?.addEventListener('input', updateCreatePastMonthsControl);
+  input?.addEventListener('change', updateCreatePastMonthsControl);
+});
+
+document.querySelectorAll('input[name="createPastMonthsStatus"]').forEach((input) => {
+  input.addEventListener('change', updateCreatePastMonthsControl);
+});
+
+[editStartDateInput, editTotalMonthsInput].forEach((input) => {
+  input?.addEventListener('input', updateEditPastMonthsControl);
+  input?.addEventListener('change', updateEditPastMonthsControl);
+});
+
+document.querySelectorAll('input[name="editPastMonthsStatus"]').forEach((input) => {
+  input.addEventListener('change', updateEditPastMonthsControl);
 });
 
 updatePrimaryBtn?.addEventListener('click', () => {
@@ -1306,6 +1329,209 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
     firstPeriodStart,
     firstDueDate
   };
+}
+
+function getCreatePastMonthsStatus() {
+  return document.querySelector('input[name="createPastMonthsStatus"]:checked')?.value || 'open';
+}
+
+function getEditPastMonthsStatus() {
+  return document.querySelector('input[name="editPastMonthsStatus"]:checked')?.value || 'keep';
+}
+
+function getPastDueMonthIndexes(startInput, countMode, totalMonths, today = normalizeDate(new Date())) {
+  const monthLimit = Number.parseInt(totalMonths, 10);
+
+  if (!startInput || !Number.isInteger(monthLimit) || monthLimit <= 0) {
+    return [];
+  }
+
+  const startDate = parseDateInput(startInput);
+
+  if (Number.isNaN(startDate.getTime())) {
+    return [];
+  }
+
+  const effectiveStartDate = getEffectiveStartDate(
+    startDate,
+    isValidCountMode(countMode) ? countMode : DEFAULT_COUNT_MODE
+  );
+  const paidMonthIndexes = [];
+
+  for (let monthIndex = 1; monthIndex <= monthLimit; monthIndex += 1) {
+    const dueDate = addMonths(effectiveStartDate, monthIndex);
+
+    if (today < dueDate) {
+      break;
+    }
+
+    paidMonthIndexes.push(monthIndex);
+  }
+
+  return paidMonthIndexes;
+}
+
+function updatePaidMonthsByPastStatus(plan, status) {
+  if (!plan || status === 'keep') {
+    return;
+  }
+
+  const dueMonthIndexes = getPastDueMonthIndexes(
+    plan.startDate,
+    plan.countMode,
+    plan.totalMonths
+  );
+  const paidMonths = new Set(sanitizePaidMonths(plan.paidMonths ?? [], plan.totalMonths));
+
+  dueMonthIndexes.forEach((monthIndex) => {
+    if (status === 'paid') {
+      paidMonths.add(monthIndex);
+      removePartialMonthCredit(plan, monthIndex);
+      return;
+    }
+
+    paidMonths.delete(monthIndex);
+  });
+
+  plan.paidMonths = sanitizePaidMonths([...paidMonths], plan.totalMonths);
+}
+
+function buildInitialPaidMonths(startInput, countMode, totalMonths) {
+  if (getCreatePastMonthsStatus() !== 'paid') {
+    return [];
+  }
+
+  return getPastDueMonthIndexes(startInput, countMode, totalMonths);
+}
+
+function applyPastMonthsEditStatus(plan) {
+  updatePaidMonthsByPastStatus(plan, getEditPastMonthsStatus());
+}
+
+function buildEditPastMonthsStatusMessage() {
+  const status = getEditPastMonthsStatus();
+
+  if (status === 'keep') {
+    return '';
+  }
+
+  const plan = editingPlanId
+    ? plans.find((item) => item.id === editingPlanId)
+    : null;
+  const countMode = isValidCountMode(plan?.countMode) ? plan.countMode : DEFAULT_COUNT_MODE;
+  const totalMonths = Number.parseInt(editTotalMonthsInput?.value, 10);
+  const dueMonthCount = getPastDueMonthIndexes(
+    editStartDateInput?.value,
+    countMode,
+    totalMonths
+  ).length;
+
+  if (dueMonthCount === 0) {
+    return '';
+  }
+
+  const countLabel = dueMonthCount === 1
+    ? '1 parcela anterior'
+    : `${dueMonthCount} parcelas anteriores`;
+
+  if (status === 'paid') {
+    return ` ${countLabel} ${dueMonthCount === 1 ? 'foi marcada' : 'foram marcadas'} como paga${dueMonthCount === 1 ? '' : 's'}.`;
+  }
+
+  if (status === 'open') {
+    return ` ${countLabel} ${dueMonthCount === 1 ? 'foi marcada' : 'foram marcadas'} como não paga${dueMonthCount === 1 ? '' : 's'}.`;
+  }
+
+  return '';
+}
+
+function updateCreatePastMonthsControl() {
+  if (!createPastMonthsGroup || !createPastMonthsHint) {
+    return;
+  }
+
+  const planType = document.querySelector('input[name="createPlanType"]:checked')?.value || 'debt';
+  const isExpense = planType === 'expense';
+  createPastMonthsGroup.hidden = isExpense;
+
+  if (isExpense) {
+    return;
+  }
+
+  const totalMonths = Number.parseInt(createTotalMonthsInput?.value, 10);
+  const dueMonthIndexes = getPastDueMonthIndexes(
+    createStartDateInput?.value,
+    DEFAULT_COUNT_MODE,
+    totalMonths
+  );
+  const count = dueMonthIndexes.length;
+  const status = getCreatePastMonthsStatus();
+
+  if (!createStartDateInput?.value || !Number.isInteger(totalMonths) || totalMonths <= 0) {
+    createPastMonthsHint.textContent = 'Informe a data e o total de meses para ver a prévia.';
+    return;
+  }
+
+  if (count === 0) {
+    createPastMonthsHint.textContent = 'Nenhuma parcela vencida até hoje será alterada ao salvar.';
+    return;
+  }
+
+  const countLabel = count === 1 ? '1 parcela vencida' : `${count} parcelas vencidas`;
+  createPastMonthsHint.textContent = status === 'paid'
+    ? `Ao salvar, ${countLabel} entrará como paga.`
+    : `Ao salvar, ${countLabel} ficará como não paga.`;
+}
+
+function updateEditPastMonthsControl() {
+  if (!editPastMonthsGroup || !editPastMonthsHint) {
+    return;
+  }
+
+  const plan = editingPlanId
+    ? plans.find((item) => item.id === editingPlanId)
+    : null;
+  const isExpense = Boolean(plan?.isExpense);
+  editPastMonthsGroup.hidden = isExpense;
+
+  if (isExpense) {
+    return;
+  }
+
+  const totalMonths = Number.parseInt(editTotalMonthsInput?.value, 10);
+  const countMode = isValidCountMode(plan?.countMode) ? plan.countMode : DEFAULT_COUNT_MODE;
+  const dueMonthIndexes = getPastDueMonthIndexes(
+    editStartDateInput?.value,
+    countMode,
+    totalMonths
+  );
+  const count = dueMonthIndexes.length;
+  const status = getEditPastMonthsStatus();
+
+  if (!editStartDateInput?.value || !Number.isInteger(totalMonths) || totalMonths <= 0) {
+    editPastMonthsHint.textContent = 'Informe a data e o total de meses para ver a prévia.';
+    return;
+  }
+
+  if (count === 0) {
+    editPastMonthsHint.textContent = 'Nenhuma parcela vencida até hoje será alterada ao salvar.';
+    return;
+  }
+
+  const countLabel = count === 1 ? '1 parcela vencida' : `${count} parcelas vencidas`;
+
+  if (status === 'paid') {
+    editPastMonthsHint.textContent = `Ao salvar, ${countLabel} ficará como paga.`;
+    return;
+  }
+
+  if (status === 'open') {
+    editPastMonthsHint.textContent = `Ao salvar, ${countLabel} ficará como não paga.`;
+    return;
+  }
+
+  const detectedLabel = count === 1 ? 'detectada' : 'detectadas';
+  editPastMonthsHint.textContent = `${countLabel} ${detectedLabel}: os pagamentos atuais serão preservados.`;
 }
 
 function getPlanOverdueSummary(overdueInfo) {
@@ -2049,12 +2275,16 @@ function formatMonthYearCompact(date) {
 
 function openCreateModal() {
   createForm.reset();
-  createCountModeInput.value = 'start_month';
   const defaultRadio = document.querySelector('input[name="createPlanType"][value="debt"]');
+  const defaultPastMonthsRadio = document.querySelector('input[name="createPastMonthsStatus"][value="open"]');
+  if (defaultPastMonthsRadio) {
+    defaultPastMonthsRadio.checked = true;
+  }
   if (defaultRadio) {
     defaultRadio.checked = true;
     defaultRadio.dispatchEvent(new Event('change'));
   }
+  updateCreatePastMonthsControl();
   setCreateStatus('', '');
   createModal.hidden = false;
   syncModalBodyState();
@@ -2065,6 +2295,7 @@ function openCreateModal() {
 
 function closeCreateModal() {
   createForm.reset();
+  updateCreatePastMonthsControl();
   setCreateStatus('', '');
   createModal.hidden = true;
   syncModalBodyState();
@@ -2094,7 +2325,10 @@ function openEditModal(plan) {
   editPlanNameInput.value = plan.name;
   editStartDateInput.value = plan.startDate;
   editTotalMonthsInput.value = String(plan.totalMonths);
-  editCountModeInput.value = isValidCountMode(plan.countMode) ? plan.countMode : 'start_month';
+  const defaultEditPastMonthsRadio = document.querySelector('input[name="editPastMonthsStatus"][value="keep"]');
+  if (defaultEditPastMonthsRadio) {
+    defaultEditPastMonthsRadio.checked = true;
+  }
   editTotalValueInput.value = plan.totalValue > 0 ? formatCurrencyRaw(plan.totalValue) : '';
   editInstallmentValueInput.value = plan.installmentValue > 0 ? formatCurrencyRaw(plan.installmentValue) : '';
   editModalSubtitle.textContent = `Atualize os dados do compromisso "${plan.name}" e salve as alterações.`;
@@ -2111,6 +2345,7 @@ function openEditModal(plan) {
     if (editTotalValueField) editTotalValueField.style.display = 'flex';
     if (editInstallmentLabel) editInstallmentLabel.textContent = 'Valor da Parcela (Opcional)';
   }
+  updateEditPastMonthsControl();
   editModal.hidden = false;
   syncModalBodyState();
   window.setTimeout(() => {
@@ -2122,6 +2357,7 @@ function openEditModal(plan) {
 function closeEditModal() {
   editingPlanId = null;
   editForm.reset();
+  updateEditPastMonthsControl();
   setEditStatus('', '');
   editModal.hidden = true;
   syncModalBodyState();

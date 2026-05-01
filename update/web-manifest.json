@@ -1,8 +1,8 @@
 {
-  "version": "2.1.5",
-  "notes": "Tela de abertura animada para deixar o carregamento inicial mais intuitivo e suave.",
-  "publishedAt": "2026-04-30",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777590251704",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777590251704",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.5/Controle.de.Dividas.apk"
+  "version": "2.1.6",
+  "notes": "Meses anteriores podem ser marcados como pagos ou não pagos na criação e edição; novos compromissos começam sempre no mês informado.",
+  "publishedAt": "2026-05-01",
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777594471916",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777594471916",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.6/Controle.de.Dividas.apk"
 }
