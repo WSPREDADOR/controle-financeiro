@@ -61,7 +61,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.2.0</strong>
+            <strong id="appVersionLabel">v2.3.0</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -229,39 +229,56 @@
     </div>
 
     <main class="dashboard">
+      <section class="finance-hub">
+        <!-- Lado Esquerdo: Saídas -->
+        <div class="hub-column left">
+          <div class="hub-item">
+            <span class="hub-label">Total a pagar</span>
+            <strong id="monthlyTotalValue" class="hub-value debt">R$ 0,00</strong>
+          </div>
+          <div class="hub-item overdue-item" id="monthlyOverdueContainer">
+            <span class="hub-label">Atrasadas (meses ant.)</span>
+            <strong id="monthlyOverdueValue" class="hub-value negative">R$ 0,00</strong>
+          </div>
+        </div>
+
+        <!-- Centro: Ação -->
+        <div class="hub-column center">
+          <button type="button" class="hub-details-btn" id="openMonthlyOverviewModalBtn" aria-label="Ver detalhes financeiros">
+            <div class="hub-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </div>
+            <span>Detalhes</span>
+          </button>
+        </div>
+
+        <!-- Lado Direito: Entradas/Sobra -->
+        <div class="hub-column right">
+          <div class="hub-item">
+            <div class="hub-label-row">
+              <span class="hub-label">Saldo do mês</span>
+              <button type="button" class="hub-mini-btn" id="openMonthlyBalanceModalBtn" title="Editar saldo">
+                <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>
+              </button>
+            </div>
+            <strong id="monthlyBalanceValue" class="hub-value balance">R$ 0,00</strong>
+          </div>
+          <div class="hub-item">
+            <span class="hub-label">Sobra (Projeção)</span>
+            <strong id="monthlyBalanceRemaining" class="hub-value sobra">Saldo não informado</strong>
+          </div>
+        </div>
+      </section>
+
       <section class="calculator-card calculator-card-compact">
         <div class="section-heading add-plan-header">
           <div class="add-plan-copy">
             <span class="section-kicker">Área de Cadastro</span>
             <h2>Adicionar compromisso</h2>
             <p>Registre aqui suas novas faturas e parcelas para acompanhamento.</p>
-          </div>
-
-          <div class="monthly-summary-badge">
-            <span class="monthly-summary-label">Total Devedor</span>
-            <strong id="monthlyTotalValue">R$ 0,00</strong>
-            <div class="monthly-balance-divider" aria-hidden="true"></div>
-            <div class="monthly-balance-header">
-              <span class="monthly-balance-label">Saldo do mês</span>
-              <button type="button" class="monthly-balance-edit-btn" id="openMonthlyBalanceModalBtn" aria-label="Editar saldo do mês" title="Editar saldo do mês">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 20h9"/>
-                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/>
-                </svg>
-              </button>
-            </div>
-            <strong id="monthlyBalanceValue">R$ 0,00</strong>
-            <span id="monthlyBalanceRemaining" class="monthly-balance-remaining">Saldo não informado</span>
-            <button type="button" class="monthly-details-btn" id="openMonthlyOverviewModalBtn">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 19V5"/>
-                <path d="M4 19h16"/>
-                <path d="M8 16v-5"/>
-                <path d="M12 16V8"/>
-                <path d="M16 16v-7"/>
-              </svg>
-              <span>Detalhes</span>
-            </button>
           </div>
         </div>
 
@@ -700,7 +717,7 @@
           <strong id="overviewBalanceValue">R$ 0,00</strong>
         </article>
         <article class="monthly-overview-stat">
-          <span>Total devedor</span>
+          <span>Total a pagar do mês</span>
           <strong id="overviewDebtValue">R$ 0,00</strong>
         </article>
         <article class="monthly-overview-stat" id="overviewAvailableCard">
@@ -710,6 +727,10 @@
         <article class="monthly-overview-stat">
           <span>Em aberto</span>
           <strong id="overviewOpenCount">0</strong>
+        </article>
+        <article class="monthly-overview-stat" id="overviewOverdueCard" hidden>
+          <span>Atrasadas (meses ant.)</span>
+          <strong id="overviewOverdueValue" class="is-negative">- R$ 0,00</strong>
         </article>
       </div>
 

@@ -1,6 +1,6 @@
 {
-  "version": "2.2.0",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.2.0/Controle.de.Dividas.apk",
-  "notes": "Atualizacao do aplicativo Android via APK na versao 2.2.0.",
+  "version": "2.3.0",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.0/Controle.de.Dividas.apk",
+  "notes": "Finance Hub: Reestruturação da interface financeira com separação de obrigações do mês, dívidas atrasadas e projeções. Melhorias no layout mobile e ergonomia.",
   "publishedAt": "2026-05-01"
 }

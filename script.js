@@ -258,7 +258,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.2.0',
+  currentVersion: '2.3.0',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1370,7 +1370,7 @@ function renderMonthlyTotalBadge(total) {
     monthlyTotalEl.classList.remove('is-negative');
   }
 
-  if (badgeLabel) badgeLabel.textContent = 'TOTAL DEVEDOR';
+  if (badgeLabel) badgeLabel.textContent = 'TOTAL A PAGAR DO MÊS';
   updateMonthlyBalanceSummary(normalizedTotal);
 
   if (monthlyOverviewModal && !monthlyOverviewModal.hidden) {
@@ -1572,6 +1572,18 @@ function renderMonthlyOverviewDetails() {
     overviewOpenCount.textContent = String(debtBreakdown.items.length);
   }
 
+  const overviewOverdueCard = document.getElementById('overviewOverdueCard');
+  const overviewOverdueValue = document.getElementById('overviewOverdueValue');
+  if (overviewOverdueCard && overviewOverdueValue) {
+    const overdueTotal = getOverdueDebtTotal(currentDateRef);
+    if (overdueTotal > MONEY_EPSILON) {
+      overviewOverdueValue.textContent = `- ${formatCurrency(overdueTotal)}`;
+      overviewOverdueCard.hidden = false;
+    } else {
+      overviewOverdueCard.hidden = true;
+    }
+  }
+
   if (monthlyBalanceChart) {
     monthlyBalanceChart.style.setProperty('--debt-angle', `${committedRatio * 360}deg`);
     monthlyBalanceChart.classList.toggle('is-empty', !hasBalance && commitmentBreakdown.total <= MONEY_EPSILON);
@@ -1720,6 +1732,36 @@ function getMonthlyDebtBreakdown(targetDate = new Date()) {
   };
 }
 
+function getOverdueDebtTotal(targetDate = new Date()) {
+  const date = normalizeDate(targetDate);
+  let total = 0;
+
+  plans.forEach((plan) => {
+    const startDate = parseDateInput(plan.startDate);
+    const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
+    const paidMonths = new Set(getPaidMonths(plan));
+    const maxMonths = getPlanMonthLimit(plan);
+
+    for (let monthIndex = 1; monthIndex <= maxMonths; monthIndex += 1) {
+      const periodStart = getPlanPeriodStart(plan, effectiveStartDate, monthIndex);
+
+      // Se o início do período é em um mês ANTERIOR ao atual
+      if (periodStart.getFullYear() < date.getFullYear() ||
+         (periodStart.getFullYear() === date.getFullYear() && periodStart.getMonth() < date.getMonth())) {
+        
+        if (!paidMonths.has(monthIndex)) {
+          total += getMonthRemainingValue(plan, monthIndex);
+        }
+      } else {
+        // Como os índices são sequenciais, se chegamos no mês atual/futuro, podemos parar este plano
+        break;
+      }
+    }
+  });
+
+  return roundMoney(total);
+}
+
 function getMonthlyCommitmentBreakdown(targetDate = new Date()) {
   const date = normalizeDate(targetDate);
   const items = [];
@@ -1798,7 +1840,7 @@ function getMonthlyDebtItem(plan, targetDate) {
     const periodStart = getPlanPeriodStart(plan, effectiveStartDate, monthIndex);
     const periodEnd = getPlanDueDate(plan, effectiveStartDate, monthIndex);
 
-    if (targetDate >= periodStart && targetDate < periodEnd) {
+    if (isSameMonth(periodStart, targetDate)) {
       if (paidMonths.has(monthIndex)) {
         return null;
       }
@@ -1872,7 +1914,7 @@ function getMonthlyCommitmentItem(plan, targetDate) {
     const periodStart = getPlanPeriodStart(plan, effectiveStartDate, monthIndex);
     const periodEnd = getPlanDueDate(plan, effectiveStartDate, monthIndex);
 
-    if (targetDate >= periodStart && targetDate < periodEnd) {
+    if (isSameMonth(periodStart, targetDate)) {
       return {
         plan,
         id: plan.id,
@@ -2821,6 +2863,8 @@ function refreshPlanUiAfterPaymentChange(plan, options = {}) {
   if (!resultsSection.hidden) {
     syncModalBodyState();
   }
+
+  updateMonthlyDebtSummary();
 }
 
 function getMonthStatus(today, paymentDate, isPaid, isNextPendingPayment = false) {
@@ -2889,6 +2933,20 @@ function updateMonthlyDebtSummary() {
   if (!badgeValue) return;
 
   renderMonthlyTotalBadge(getMonthlyDebtBreakdown(new Date()).total);
+  updateMonthlyOverdueSummary();
+}
+
+function updateMonthlyOverdueSummary() {
+  const container = document.getElementById('monthlyOverdueContainer');
+  const valueEl = document.getElementById('monthlyOverdueValue');
+  if (!container || !valueEl) return;
+
+  const overdueTotal = getOverdueDebtTotal(new Date());
+  valueEl.textContent = overdueTotal > MONEY_EPSILON ? `- ${formatCurrency(overdueTotal)}` : formatCurrency(0);
+  
+  // Mantém o container visível para não quebrar a simetria do painel,
+  // mas reduz a opacidade se não houver atrasos.
+  container.style.opacity = overdueTotal > MONEY_EPSILON ? '1' : '0.35';
 }
 
 function parseDateInput(value) {
