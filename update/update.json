@@ -1,6 +1,6 @@
 {
-  "version": "2.1.6",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.6/Controle.de.Dividas.apk",
-  "notes": "Meses anteriores podem ser marcados como pagos ou não pagos na criação e edição; novos compromissos começam sempre no mês informado.",
+  "version": "2.1.7",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.1.7/Controle.de.Dividas.apk",
+  "notes": "Adiciona a opcao Conta para registrar pagamentos unicos com nome, data de pagamento e valor.",
   "publishedAt": "2026-05-01"
 }

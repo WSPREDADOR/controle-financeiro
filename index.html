@@ -61,7 +61,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.1.6</strong>
+            <strong id="appVersionLabel">v2.1.7</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -255,10 +255,11 @@
             <p>Selecione um compromisso salvo para abrir os detalhes dele.</p>
           </div>
 
-          <div class="panel-shortcuts" id="plansFilterNav" style="display: flex; gap: 8px;">
+          <div class="panel-shortcuts" id="plansFilterNav" style="display: flex; flex-wrap: wrap; gap: 8px;">
             <button type="button" class="nav-chip active" data-filter="all">Todos</button>
             <button type="button" class="nav-chip" data-filter="debt">Dívidas</button>
             <button type="button" class="nav-chip" data-filter="expense">Despesas</button>
+            <button type="button" class="nav-chip" data-filter="account">Contas</button>
           </div>
 
           <div class="plans-summary" aria-label="Resumo dos compromissos">
@@ -396,14 +397,18 @@
       </div>
 
       <form id="createPlanForm" class="form-grid modal-form">
-        <div class="plan-type-toggle" style="display: flex; gap: 12px; margin-bottom: 20px;">
-          <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid rgba(85, 212, 203, 0.3); border-radius: 12px; background: rgba(85, 212, 203, 0.05);">
+        <div class="plan-type-toggle" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+          <label class="plan-type-choice">
             <input type="radio" name="createPlanType" value="debt" checked style="accent-color: var(--primary);">
             <strong style="font-size: 1.05rem; color: var(--text);">Dívida</strong>
           </label>
-          <label style="flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; background: rgba(255, 255, 255, 0.02);">
+          <label class="plan-type-choice">
             <input type="radio" name="createPlanType" value="expense" style="accent-color: var(--primary);">
             <strong style="font-size: 1.05rem; color: var(--text);">Despesa</strong>
+          </label>
+          <label class="plan-type-choice">
+            <input type="radio" name="createPlanType" value="account" style="accent-color: var(--primary);">
+            <strong style="font-size: 1.05rem; color: var(--text);">Conta</strong>
           </label>
         </div>
 
@@ -497,7 +502,7 @@
           </label>
 
           <label class="input-group" for="editStartDate">
-            <span>Data de início</span>
+            <span id="editStartDateLabel">Data de início</span>
             <input type="date" id="editStartDate" class="input-field" required>
           </label>
         </div>
@@ -511,12 +516,12 @@
 
         <div id="editValueFields" class="input-group-row">
           <label class="input-group" for="editInstallmentValue">
-            <span>Valor da Parcela</span>
+            <span id="editInstallmentValueLabel">Valor da Parcela</span>
             <input type="text" id="editInstallmentValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
           </label>
 
           <label class="input-group" for="editTotalValue">
-            <span>Valor Total</span>
+            <span id="editTotalValueLabel">Valor Total</span>
             <input type="text" id="editTotalValue" class="input-field currency-input" placeholder="R$ 0,00" inputmode="numeric">
           </label>
         </div>

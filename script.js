@@ -5,6 +5,10 @@ const STORAGE_KEY = 'payment-plans-v1';
 const USER_NAME_KEY = 'cf-user-name-v1';
 const USER_ID_KEY = 'cf-user-id-v1';
 const DEFAULT_COUNT_MODE = 'start_month';
+const PLAN_TYPE_DEBT = 'debt';
+const PLAN_TYPE_EXPENSE = 'expense';
+const PLAN_TYPE_ACCOUNT = 'account';
+const CONTINUOUS_EXPENSE_MONTHS = 1200;
 
 const resultsSection = document.getElementById('resultsSection');
 const statusMessage = document.getElementById('statusMessage');
@@ -73,6 +77,10 @@ const closeCreateModalBtn = document.getElementById('closeCreateModalBtn');
 const cancelCreateModalBtn = document.getElementById('cancelCreateModalBtn');
 const createPastMonthsGroup = document.getElementById('createPastMonthsGroup');
 const createPastMonthsHint = document.getElementById('createPastMonthsHint');
+const debtSpecificFields = document.getElementById('debtSpecificFields');
+const createStartDateLabel = document.getElementById('createStartDateLabel');
+const createInstallmentValueLabel = document.getElementById('createInstallmentValueLabel');
+const createTotalValueLabel = document.getElementById('createTotalValueLabel');
 const editModal = document.getElementById('editModal');
 const editForm = document.getElementById('editPlanForm');
 const editPlanNameInput = document.getElementById('editPlanName');
@@ -84,6 +92,10 @@ const closeEditModalBtn = document.getElementById('closeEditModalBtn');
 const cancelEditModalBtn = document.getElementById('cancelEditModalBtn');
 const editPastMonthsGroup = document.getElementById('editPastMonthsGroup');
 const editPastMonthsHint = document.getElementById('editPastMonthsHint');
+const editDebtSpecificFields = document.getElementById('editDebtSpecificFields');
+const editStartDateLabel = document.getElementById('editStartDateLabel');
+const editInstallmentValueLabel = document.getElementById('editInstallmentValueLabel');
+const editTotalValueLabel = document.getElementById('editTotalValueLabel');
 const deleteModal = document.getElementById('deleteModal');
 const deletePlanName = document.getElementById('deletePlanName');
 const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
@@ -218,7 +230,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.1.6',
+  currentVersion: '2.1.7',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -297,15 +309,20 @@ initializePaymentNotifications();
 createForm.addEventListener('submit', (event) => {
   event.preventDefault();
 
-  const planType = document.querySelector('input[name="createPlanType"]:checked')?.value || 'debt';
-  const isExpense = planType === 'expense';
+  const planType = getSelectedCreatePlanType();
+  const isExpense = planType === PLAN_TYPE_EXPENSE;
+  const isAccount = planType === PLAN_TYPE_ACCOUNT;
 
   const planName = createPlanNameInput.value.trim();
   const startInput = createStartDateInput.value;
+  const installmentValue = parseCurrencyToNumber(createInstallmentValueInput?.value);
   let monthsInput, countMode;
 
   if (isExpense) {
-    monthsInput = 1200; // 100 years para simular continuo
+    monthsInput = CONTINUOUS_EXPENSE_MONTHS;
+    countMode = DEFAULT_COUNT_MODE;
+  } else if (isAccount) {
+    monthsInput = 1;
     countMode = DEFAULT_COUNT_MODE;
   } else {
     monthsInput = Number.parseInt(createTotalMonthsInput.value, 10);
@@ -321,18 +338,27 @@ createForm.addEventListener('submit', (event) => {
     return;
   }
 
+  if (isAccount && installmentValue <= MONEY_EPSILON) {
+    setCreateStatus('Preencha o nome da conta, a data de pagamento e o valor que será pago.', 'error');
+    return;
+  }
+
+  const totalValue = isAccount
+    ? installmentValue
+    : parseCurrencyToNumber(createTotalValueInput?.value);
   const nextPlan = {
     id: createPlanId(),
     name: planName,
     startDate: startInput,
     totalMonths: monthsInput,
     countMode: DEFAULT_COUNT_MODE,
-    isExpense: isExpense,
-    totalValue: parseCurrencyToNumber(createTotalValueInput?.value),
-    installmentValue: parseCurrencyToNumber(createInstallmentValueInput?.value),
+    planType,
+    isExpense,
+    totalValue,
+    installmentValue,
     manualMonthValues: {},
     partialMonthCredits: {},
-    paidMonths: isExpense ? [] : buildInitialPaidMonths(startInput, countMode, monthsInput)
+    paidMonths: (isExpense || isAccount) ? [] : buildInitialPaidMonths(startInput, countMode, monthsInput)
   };
 
   plans.unshift(nextPlan);
@@ -345,7 +371,10 @@ createForm.addEventListener('submit', (event) => {
   const historyMessage = nextPlan.paidMonths.length > 0
     ? ` ${nextPlan.paidMonths.length} ${nextPlan.paidMonths.length === 1 ? 'parcela anterior foi marcada como paga.' : 'parcelas anteriores foram marcadas como pagas.'}`
     : '';
-  setStatus(`Compromisso "${nextPlan.name}" cadastrado com sucesso.${historyMessage} Para editar depois, use o botão Editar na lista.`, 'success');
+  const successMessage = isAccount
+    ? `Conta "${nextPlan.name}" cadastrada com sucesso.`
+    : `Compromisso "${nextPlan.name}" cadastrado com sucesso.${historyMessage}`;
+  setStatus(`${successMessage} Para editar depois, use o botão Editar na lista.`, 'success');
   scrollToSection(plansPanel);
 });
 
@@ -580,14 +609,8 @@ editForm.addEventListener('submit', (event) => {
 
   const planName = editPlanNameInput.value.trim();
   const startInput = editStartDateInput.value;
-  const monthsInput = Number.parseInt(editTotalMonthsInput.value, 10);
   const totalVal = parseCurrencyToNumber(editTotalValueInput?.value);
   const instVal = parseCurrencyToNumber(editInstallmentValueInput?.value);
-
-  if (!planName || !startInput || Number.isNaN(monthsInput) || monthsInput <= 0) {
-    setEditStatus('Preencha o nome do compromisso, uma data válida e um total de meses maior que zero.', 'error');
-    return;
-  }
 
   const existingPlanIndex = plans.findIndex((plan) => plan.id === editingPlanId);
 
@@ -598,6 +621,25 @@ editForm.addEventListener('submit', (event) => {
   }
 
   const existingPlan = plans[existingPlanIndex];
+  const existingPlanType = getPlanType(existingPlan);
+  const isExpense = existingPlanType === PLAN_TYPE_EXPENSE;
+  const isAccount = existingPlanType === PLAN_TYPE_ACCOUNT;
+  const monthsInput = isExpense
+    ? getPlanMonthLimit(existingPlan) || CONTINUOUS_EXPENSE_MONTHS
+    : isAccount
+      ? 1
+      : Number.parseInt(editTotalMonthsInput.value, 10);
+
+  if (!planName || !startInput || Number.isNaN(monthsInput) || monthsInput <= 0) {
+    setEditStatus('Preencha o nome do compromisso, uma data válida e um total de meses maior que zero.', 'error');
+    return;
+  }
+
+  if (isAccount && instVal <= MONEY_EPSILON) {
+    setEditStatus('Preencha o nome da conta, a data de pagamento e o valor que será pago.', 'error');
+    return;
+  }
+
   const countMode = isValidCountMode(existingPlan.countMode) ? existingPlan.countMode : DEFAULT_COUNT_MODE;
   const updatedPlan = {
     ...existingPlan,
@@ -605,8 +647,10 @@ editForm.addEventListener('submit', (event) => {
     startDate: startInput,
     totalMonths: monthsInput,
     countMode,
+    planType: existingPlanType,
+    isExpense,
     paidMonths: sanitizePaidMonths(existingPlan.paidMonths ?? [], monthsInput),
-    totalValue: totalVal,
+    totalValue: isAccount ? instVal : totalVal,
     installmentValue: instVal,
   };
 
@@ -992,24 +1036,81 @@ plansFilterNav?.addEventListener('click', (event) => {
   }
 });
 
-const debtSpecificFields = document.getElementById('debtSpecificFields');
-const createStartDateLabel = document.getElementById('createStartDateLabel');
-document.querySelectorAll('input[name="createPlanType"]').forEach(radio => {
-  radio.addEventListener('change', (e) => {
-    if (e.target.value === 'expense') {
-      debtSpecificFields.style.display = 'none';
-      createTotalMonthsInput.removeAttribute('required');
-      createPlanNameInput.placeholder = 'Ex.: Conta de energia, Internet';
-      if (createStartDateLabel) createStartDateLabel.textContent = 'Data de pagamento';
-    } else {
-      debtSpecificFields.style.display = 'contents';
-      createTotalMonthsInput.setAttribute('required', 'required');
-      createPlanNameInput.placeholder = 'Ex.: Parcelas da moto ou Energia';
-      if (createStartDateLabel) createStartDateLabel.textContent = 'Data de início';
-    }
+function syncCreatePlanTypeFields() {
+  const planType = getSelectedCreatePlanType();
+  const isDebt = planType === PLAN_TYPE_DEBT;
+  const isExpense = planType === PLAN_TYPE_EXPENSE;
+  const isAccount = planType === PLAN_TYPE_ACCOUNT;
+  const totalValueField = createTotalValueInput?.parentElement;
+  const installmentHint = createInstallmentValueInput
+    ?.closest('.input-group')
+    ?.querySelector('.value-input-hint');
 
-    updateCreatePastMonthsControl();
-  });
+  if (debtSpecificFields) {
+    debtSpecificFields.style.display = isDebt ? 'contents' : 'none';
+  }
+
+  if (createTotalMonthsInput) {
+    if (isDebt) {
+      createTotalMonthsInput.setAttribute('required', 'required');
+    } else {
+      createTotalMonthsInput.removeAttribute('required');
+    }
+  }
+
+  if (createPlanNameInput) {
+    createPlanNameInput.placeholder = isAccount
+      ? 'Ex.: Fatura do cartão, boleto da compra'
+      : isExpense
+        ? 'Ex.: Conta de energia, Internet'
+        : 'Ex.: Parcelas da moto ou Energia';
+  }
+
+  if (createStartDateLabel) {
+    createStartDateLabel.textContent = isAccount ? 'Data de pagamento' : isExpense ? 'Data de pagamento' : 'Data de início';
+  }
+
+  if (createInstallmentValueLabel) {
+    createInstallmentValueLabel.textContent = isAccount
+      ? 'Valor da conta'
+      : isExpense
+        ? 'Valor Mensal (Opcional)'
+        : 'Valor da Parcela (Opcional)';
+  }
+
+  if (createInstallmentValueInput) {
+    if (isAccount) {
+      createInstallmentValueInput.setAttribute('required', 'required');
+    } else {
+      createInstallmentValueInput.removeAttribute('required');
+    }
+  }
+
+  if (installmentHint) {
+    installmentHint.textContent = isAccount
+      ? 'Valor previsto para pagar nessa data'
+      : isExpense
+        ? 'Valor mensal usado no total do mês'
+        : 'Calcula o total automaticamente';
+  }
+
+  if (totalValueField) {
+    totalValueField.style.display = isDebt ? 'flex' : 'none';
+  }
+
+  if (createTotalValueInput && !isDebt) {
+    createTotalValueInput.value = '';
+  }
+
+  if (createTotalValueLabel) {
+    createTotalValueLabel.textContent = 'Valor Total (Opcional)';
+  }
+
+  updateCreatePastMonthsControl();
+}
+
+document.querySelectorAll('input[name="createPlanType"]').forEach(radio => {
+  radio.addEventListener('change', syncCreatePlanTypeFields);
 });
 
 [createStartDateInput, createTotalMonthsInput].forEach((input) => {
@@ -1101,7 +1202,7 @@ function updatePlanDetailsSummary(plan, options = {}) {
   const today = normalizeDate(new Date());
   const startDate = parseDateInput(plan.startDate);
   const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
-  const endDate = addMonths(effectiveStartDate, plan.totalMonths);
+  const endDate = getPlanEndDate(plan, effectiveStartDate);
   const totalDays = Math.max(1, daysBetween(effectiveStartDate, endDate));
   const paidMonths = getPaidMonths(plan);
   const completedMonths = paidMonths.length;
@@ -1112,15 +1213,46 @@ function updatePlanDetailsSummary(plan, options = {}) {
   const remainingLabel = buildRemainingLabel(remainingMonths);
 
   selectedPlanTitle.textContent = plan.name;
-  selectedPlanSubtitle.textContent = `Cálculo individual do compromisso "${plan.name}".`;
   resultsSection.hidden = !shouldShowDetails;
 
-  const isExpense = Boolean(plan.isExpense);
+  const isExpense = isExpensePlan(plan);
+  const isAccount = isAccountPlan(plan);
+  selectedPlanSubtitle.textContent = isAccount
+    ? `Pagamento único do compromisso "${plan.name}".`
+    : `Cálculo individual do compromisso "${plan.name}".`;
   resultsSection.classList.toggle('is-expense-mode', isExpense);
+  resultsSection.classList.toggle('is-account-mode', isAccount);
 
   document.getElementById('summaryStart').textContent = formatDate(effectiveStartDate);
 
-  if (isExpense) {
+  if (isAccount) {
+    const isPaid = completedMonths > 0;
+    const isOverdue = !isPaid && today > effectiveStartDate;
+    const daysUntilDue = Math.max(0, daysBetween(today, effectiveStartDate));
+
+    document.getElementById('percentage').textContent = `${percent}%`;
+    document.getElementById('remainingTime').textContent = isPaid
+      ? 'Conta quitada'
+      : isOverdue
+        ? 'Vencida'
+        : daysUntilDue === 0
+          ? 'Vence hoje'
+          : `${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'}`;
+    document.getElementById('planStatus').textContent = isPaid
+      ? 'Conta paga'
+      : isOverdue
+        ? 'Conta vencida'
+        : 'Aguardando pagamento';
+    document.getElementById('completedMonths').textContent = isPaid ? 'Pago' : 'Aberta';
+    document.getElementById('summaryMonths').textContent = '1';
+    document.getElementById('summaryDays').textContent = 'Pagamento único';
+    document.getElementById('summaryEnd').textContent = formatDate(effectiveStartDate);
+    document.getElementById('countModeLabel').textContent = 'Data de pagamento única';
+    document.getElementById('progressFill').style.width = `${percent}%`;
+    document.getElementById('summaryPaidValue').textContent = formatCurrency(financials.totalPaid);
+    document.getElementById('summaryRemainingValue').textContent = formatCurrency(financials.remainingValue);
+    document.getElementById('summaryRemainingValue').parentElement.style.display = 'flex';
+  } else if (isExpense) {
     document.getElementById('percentage').textContent = '∞';
     document.getElementById('remainingTime').textContent = 'Contínuo';
     document.getElementById('planStatus').textContent = 'Despesa Contínua';
@@ -1162,6 +1294,17 @@ function updateMonthlyTotal() {
     const startDate = parseDateInput(plan.startDate);
     const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
     const paidMonths = new Set(getPaidMonths(plan));
+
+    if (isAccountPlan(plan)) {
+      const isDueThisMonth = effectiveStartDate.getMonth() === today.getMonth() &&
+        effectiveStartDate.getFullYear() === today.getFullYear();
+
+      if (isDueThisMonth && !paidMonths.has(1)) {
+        total += getMonthRemainingValue(plan, 1);
+      }
+
+      return;
+    }
     
     // Para despesas e dívidas, percorremos as parcelas possíveis
     // e somamos apenas a que corresponde ao mês atual.
@@ -1210,7 +1353,10 @@ function renderPlansList() {
 
   filteredPlans.forEach((plan, index) => {
     const planStartDate = parseDateInput(plan.startDate);
-    const planEndDate = addMonths(getEffectiveStartDate(planStartDate, plan.countMode), plan.totalMonths);
+    const effectiveStartDate = getEffectiveStartDate(planStartDate, plan.countMode);
+    const planEndDate = getPlanEndDate(plan, effectiveStartDate);
+    const isExpense = isExpensePlan(plan);
+    const isAccount = isAccountPlan(plan);
     const financials = calculatePlanFinancials(plan);
     const progressRatio = financials.progressRatio;
     const progressPercent = financials.progressPercent;
@@ -1221,7 +1367,7 @@ function renderPlansList() {
     const valueDisplay = currentInstallment > 0 ? `<div class="plan-item-value" style="font-family: 'Space Grotesk'; color: var(--primary); font-weight: 700; font-size: 0.95rem; white-space: nowrap;">${formatCurrencyRaw(currentInstallment)}</div>` : '';
 
     const item = document.createElement('div');
-    item.className = `plan-entry${plan.isExpense ? ' is-expense-entry' : ''}`;
+    item.className = `plan-entry${isExpense ? ' is-expense-entry' : ''}${isAccount ? ' is-account-entry' : ''}`;
     item.dataset.planNumber = String(index + 1);
     item.dataset.planId = plan.id;
     item.innerHTML = `
@@ -1229,7 +1375,7 @@ function renderPlansList() {
         <button type="button" class="plan-select-btn" data-plan-id="${plan.id}">
           <div class="plan-item-head">
             <span class="plan-item-tag">${String(index + 1).padStart(2, '0')}</span>
-            <span class="plan-duration-pill">${plan.isExpense ? 'Despesa' : `${plan.totalMonths} ${plan.totalMonths === 1 ? 'mês' : 'meses'}`}</span>
+            <span class="plan-duration-pill">${getPlanListDurationLabel(plan)}</span>
           </div>
           <div class="plan-item-main-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 6px; gap: 12px;">
             <strong class="plan-item-name" style="margin: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(plan.name)}</strong>
@@ -1241,10 +1387,10 @@ function renderPlansList() {
             ${buildPlanOverdueInlineHtml(overdueInfo)}
           </div>
           <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-            <div class="plan-progress" aria-hidden="true" style="flex: 1; margin: 0; ${plan.isExpense ? 'opacity: 0.2;' : ''}">
-            <span class="plan-progress-fill" ${plan.isExpense ? 'style="width: 100%; background: var(--muted);"' : ''}></span>
+            <div class="plan-progress" aria-hidden="true" style="flex: 1; margin: 0; ${isExpense ? 'opacity: 0.2;' : ''}">
+            <span class="plan-progress-fill" ${isExpense ? 'style="width: 100%; background: var(--muted);"' : ''}></span>
             </div>
-            <strong class="plan-progress-value" style="font-size: 0.85rem; min-width: 35px; text-align: right;">${plan.isExpense ? '∞' : `${progressPercent}%`}</strong>
+            <strong class="plan-progress-value" style="font-size: 0.85rem; min-width: 35px; text-align: right;">${isExpense ? '∞' : `${progressPercent}%`}</strong>
           </div>
           <div class="plan-stat-grid">
             <div class="plan-stat-card">
@@ -1253,11 +1399,11 @@ function renderPlansList() {
             </div>
             <div class="plan-stat-card">
               <span class="plan-stat-label">Pagos</span>
-              <strong class="stat-value">${plan.isExpense ? paidMonthsCount : `${paidMonthsCount}/${plan.totalMonths}`}</strong>
+              <strong class="stat-value">${getPlanPaidSummaryLabel(plan, paidMonthsCount)}</strong>
             </div>
             <div class="plan-stat-card plan-stat-card-end">
-              <span class="plan-stat-label">Fim</span>
-              <strong class="plan-stat-value">${plan.isExpense ? 'Livre' : formatMonthYearCompact(planEndDate)}</strong>
+              <span class="plan-stat-label">${isAccount ? 'Data' : 'Fim'}</span>
+              <strong class="plan-stat-value">${getPlanEndSummaryLabel(plan, planEndDate)}</strong>
             </div>
           </div>
         </button>
@@ -1294,6 +1440,7 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
   const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
   const paidMonths = new Set(getPaidMonths(plan));
   const maxMonths = getPlanMonthLimit(plan);
+  const isAccount = isAccountPlan(plan);
   let count = 0;
   let amount = 0;
   let firstMonthIndex = null;
@@ -1305,9 +1452,9 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
       continue;
     }
 
-    const dueDate = addMonths(effectiveStartDate, monthIndex);
+    const dueDate = getPlanDueDate(plan, effectiveStartDate, monthIndex);
 
-    if (today < dueDate) {
+    if (isAccount ? today <= dueDate : today < dueDate) {
       continue;
     }
 
@@ -1316,7 +1463,7 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
 
     if (!firstMonthIndex) {
       firstMonthIndex = monthIndex;
-      firstPeriodStart = addMonths(effectiveStartDate, monthIndex - 1);
+      firstPeriodStart = getPlanPeriodStart(plan, effectiveStartDate, monthIndex);
       firstDueDate = dueDate;
     }
   }
@@ -1327,7 +1474,8 @@ function getPlanOverdueInfo(plan, today = normalizeDate(new Date())) {
     amount: roundMoney(amount),
     firstMonthIndex,
     firstPeriodStart,
-    firstDueDate
+    firstDueDate,
+    isAccount
   };
 }
 
@@ -1450,11 +1598,12 @@ function updateCreatePastMonthsControl() {
     return;
   }
 
-  const planType = document.querySelector('input[name="createPlanType"]:checked')?.value || 'debt';
-  const isExpense = planType === 'expense';
-  createPastMonthsGroup.hidden = isExpense;
+  const planType = getSelectedCreatePlanType();
+  const isExpense = planType === PLAN_TYPE_EXPENSE;
+  const isAccount = planType === PLAN_TYPE_ACCOUNT;
+  createPastMonthsGroup.hidden = isExpense || isAccount;
 
-  if (isExpense) {
+  if (isExpense || isAccount) {
     return;
   }
 
@@ -1491,10 +1640,11 @@ function updateEditPastMonthsControl() {
   const plan = editingPlanId
     ? plans.find((item) => item.id === editingPlanId)
     : null;
-  const isExpense = Boolean(plan?.isExpense);
-  editPastMonthsGroup.hidden = isExpense;
+  const isExpense = isExpensePlan(plan);
+  const isAccount = isAccountPlan(plan);
+  editPastMonthsGroup.hidden = isExpense || isAccount;
 
-  if (isExpense) {
+  if (isExpense || isAccount) {
     return;
   }
 
@@ -1539,16 +1689,22 @@ function getPlanOverdueSummary(overdueInfo) {
     return { shortLabel: '', details: '' };
   }
 
-  const countLabel = overdueInfo.count === 1
-    ? '1 etapa vencida'
-    : `${overdueInfo.count} etapas vencidas`;
-  const shortLabel = overdueInfo.count === 1
-    ? '1 vencida'
-    : `${overdueInfo.count} venc.`;
+  const countLabel = overdueInfo.isAccount
+    ? '1 conta vencida'
+    : overdueInfo.count === 1
+      ? '1 etapa vencida'
+      : `${overdueInfo.count} etapas vencidas`;
+  const shortLabel = overdueInfo.isAccount
+    ? 'Conta vencida'
+    : overdueInfo.count === 1
+      ? '1 vencida'
+      : `${overdueInfo.count} venc.`;
   const amountLabel = overdueInfo.amount > MONEY_EPSILON
     ? formatCurrencyRaw(overdueInfo.amount)
     : 'valor pendente';
-  const sinceLabel = overdueInfo.firstPeriodStart
+  const sinceLabel = overdueInfo.isAccount && overdueInfo.firstDueDate
+    ? `desde ${formatDate(overdueInfo.firstDueDate)}`
+    : overdueInfo.firstPeriodStart
     ? `desde ${formatMonthYear(overdueInfo.firstPeriodStart)}`
     : 'com atraso aberto';
 
@@ -1571,24 +1727,33 @@ function buildPlanOverdueInlineHtml(overdueInfo) {
 }
 
 function getTimelineDisplayMonths(plan, startDate, today, focusMonthIndex) {
+  if (isAccountPlan(plan)) {
+    return 1;
+  }
+
   const parsedFocusMonth = Number.parseInt(focusMonthIndex, 10);
   const hasFocusMonth = Number.isInteger(parsedFocusMonth) && parsedFocusMonth > 0;
   const diffMonths = (today.getFullYear() - startDate.getFullYear()) * 12 + (today.getMonth() - startDate.getMonth());
   const elapsedMonths = Math.max(0, diffMonths);
 
-  return plan.isExpense
+  return isExpensePlan(plan)
     ? Math.min(getPlanMonthLimit(plan), Math.max(elapsedMonths + 12, hasFocusMonth ? parsedFocusMonth : 0))
     : getPlanMonthLimit(plan);
 }
 
 function buildMonthTimelineModel(plan, startDate, today, monthIndex, paidMonths = new Set(getPaidMonths(plan))) {
-  const periodStart = addMonths(startDate, monthIndex - 1);
-  const dueDate = addMonths(startDate, monthIndex);
+  const periodStart = getPlanPeriodStart(plan, startDate, monthIndex);
+  const dueDate = getPlanDueDate(plan, startDate, monthIndex);
   const monthDays = Math.max(1, daysBetween(periodStart, dueDate));
   const monthElapsed = clamp(daysBetween(periodStart, today), 0, monthDays);
   const isPaid = paidMonths.has(monthIndex);
-  const progress = isPaid ? 100 : Math.round((monthElapsed / monthDays) * 100);
-  const status = getMonthStatus(today, periodStart, dueDate, isPaid);
+  const isAccount = isAccountPlan(plan);
+  const progress = isAccount
+    ? (isPaid || today > dueDate ? 100 : 0)
+    : isPaid ? 100 : Math.round((monthElapsed / monthDays) * 100);
+  const status = isAccount
+    ? getAccountMonthStatus(today, dueDate, isPaid)
+    : getMonthStatus(today, periodStart, dueDate, isPaid);
   const stateClass =
     isPaid
       ? 'is-paid'
@@ -1612,7 +1777,18 @@ function buildMonthTimelineModel(plan, startDate, today, monthIndex, paidMonths 
     stateClass,
     baseValue,
     partialCredit,
-    displayValue
+    displayValue,
+    title: isAccount ? 'Pagamento único' : formatMonthYear(periodStart),
+    dateLabel: isAccount ? 'Data de pagamento' : 'Período',
+    dateText: formatDate(isAccount ? dueDate : periodStart),
+    progressLabel: isAccount
+      ? isPaid
+        ? 'Conta quitada'
+        : status.className === 'overdue'
+          ? 'Conta vencida'
+          : 'Aguardando pagamento'
+      : `${progress}% desta etapa`,
+    durationLabel: isAccount ? 'Valor previsto nesta data' : `${monthDays} dias previstos`
   };
 }
 
@@ -1645,9 +1821,9 @@ function createMonthTimelineCard(model) {
   card.innerHTML = `
       <div class="month-card-header">
         <div class="month-card-heading">
-          <strong class="month-index">${formatMonthYear(model.periodStart)}</strong>
-          <span class="month-date-label">Período</span>
-          <span class="month-date">${formatDate(model.periodStart)}</span>
+          <strong class="month-index">${model.title}</strong>
+          <span class="month-date-label">${model.dateLabel}</span>
+          <span class="month-date">${model.dateText}</span>
         </div>
         <span class="month-status ${model.status.className}">${model.status.label}</span>
       </div>
@@ -1657,8 +1833,8 @@ function createMonthTimelineCard(model) {
           <div class="month-progress-bar" style="width:${model.progress}%"></div>
         </div>
         <div class="month-card-footer">
-          <strong class="month-progress-label">${model.progress}% desta etapa</strong>
-          <span class="month-days">${model.monthDays} dias previstos</span>
+          <strong class="month-progress-label">${model.progressLabel}</strong>
+          <span class="month-days">${model.durationLabel}</span>
         </div>
       </div>
       <button
@@ -1685,6 +1861,21 @@ function updateMonthTimelineCard(card, model, options = {}) {
 
   if (model.stateClass) {
     card.classList.add(model.stateClass);
+  }
+
+  const titleElement = card.querySelector('.month-index');
+  if (titleElement) {
+    titleElement.textContent = model.title;
+  }
+
+  const dateLabelElement = card.querySelector('.month-date-label');
+  if (dateLabelElement) {
+    dateLabelElement.textContent = model.dateLabel;
+  }
+
+  const dateElement = card.querySelector('.month-date');
+  if (dateElement) {
+    dateElement.textContent = model.dateText;
   }
 
   const statusElement = card.querySelector('.month-status');
@@ -1714,12 +1905,12 @@ function updateMonthTimelineCard(card, model, options = {}) {
 
   const progressLabel = card.querySelector('.month-progress-label');
   if (progressLabel) {
-    progressLabel.textContent = `${model.progress}% desta etapa`;
+    progressLabel.textContent = model.progressLabel;
   }
 
   const daysElement = card.querySelector('.month-days');
   if (daysElement) {
-    daysElement.textContent = `${model.monthDays} dias previstos`;
+    daysElement.textContent = model.durationLabel;
   }
 
   const toggleButton = card.querySelector('[data-toggle-paid]');
@@ -1860,7 +2051,10 @@ function refreshPlanListEntry(plan) {
 
   const planNumber = planIndex + 1;
   const planStartDate = parseDateInput(plan.startDate);
-  const planEndDate = addMonths(getEffectiveStartDate(planStartDate, plan.countMode), plan.totalMonths);
+  const effectiveStartDate = getEffectiveStartDate(planStartDate, plan.countMode);
+  const planEndDate = getPlanEndDate(plan, effectiveStartDate);
+  const isExpense = isExpensePlan(plan);
+  const isAccount = isAccountPlan(plan);
   const financials = calculatePlanFinancials(plan);
   const paidMonthsCount = getPaidMonths(plan).length;
   const nextUnpaidMonth = getNextUnpaidMonthIndex(plan);
@@ -1897,9 +2091,7 @@ function refreshPlanListEntry(plan) {
 
   const durationPill = entry.querySelector('.plan-duration-pill');
   if (durationPill) {
-    durationPill.textContent = plan.isExpense
-      ? 'Despesa'
-      : `${plan.totalMonths} ${plan.totalMonths === 1 ? 'mês' : 'meses'}`;
+    durationPill.textContent = getPlanListDurationLabel(plan);
   }
 
   const planName = entry.querySelector('.plan-item-name');
@@ -1943,12 +2135,12 @@ function refreshPlanListEntry(plan) {
 
   const progressValue = entry.querySelector('.plan-progress-value');
   if (progressValue) {
-    progressValue.textContent = plan.isExpense ? '∞' : `${financials.progressPercent}%`;
+    progressValue.textContent = isExpense ? '∞' : `${financials.progressPercent}%`;
   }
 
   const progressFill = entry.querySelector('.plan-progress-fill');
   if (progressFill) {
-    if (plan.isExpense) {
+    if (isExpense) {
       progressFill.style.width = '100%';
       progressFill.style.background = 'var(--muted)';
     } else {
@@ -1967,11 +2159,16 @@ function refreshPlanListEntry(plan) {
   }
 
   if (paidValue) {
-    paidValue.textContent = plan.isExpense ? paidMonthsCount : `${paidMonthsCount}/${plan.totalMonths}`;
+    paidValue.textContent = getPlanPaidSummaryLabel(plan, paidMonthsCount);
   }
 
   if (endValue) {
-    endValue.textContent = plan.isExpense ? 'Livre' : formatMonthYearCompact(planEndDate);
+    endValue.textContent = getPlanEndSummaryLabel(plan, planEndDate);
+  }
+
+  const endLabel = statCards[2]?.querySelector('.plan-stat-label');
+  if (endLabel) {
+    endLabel.textContent = isAccount ? 'Data' : 'Fim';
   }
 
   const visibleNumber = getVisiblePlanNumber();
@@ -2005,6 +2202,22 @@ function getMonthStatus(today, periodStart, dueDate, isPaid) {
 
   if (today >= periodStart && today < dueDate) {
     return { label: 'Aguardando', className: 'current' };
+  }
+
+  return { label: 'Aguardando', className: 'pending' };
+}
+
+function getAccountMonthStatus(today, dueDate, isPaid) {
+  if (isPaid) {
+    return { label: 'Pago', className: 'paid' };
+  }
+
+  if (today > dueDate) {
+    return { label: 'Não pago', className: 'overdue' };
+  }
+
+  if (today.getTime() === dueDate.getTime()) {
+    return { label: 'Vence hoje', className: 'current' };
   }
 
   return { label: 'Aguardando', className: 'pending' };
@@ -2051,14 +2264,26 @@ function updateMonthlyDebtSummary() {
   let totalMonthlyDebt = 0;
 
   plans.forEach(plan => {
+    const start = parseDateInput(plan.startDate);
+    const paidMonths = new Set(getPaidMonths(plan));
+
+    if (isAccountPlan(plan)) {
+      const isDueThisMonth = start.getMonth() === currentMonth && start.getFullYear() === currentYear;
+
+      if (isDueThisMonth && !paidMonths.has(1)) {
+        totalMonthlyDebt += getMonthRemainingValue(plan, 1);
+      }
+
+      return;
+    }
+
     // Para despesas, somamos o valor mensal se estiver ativo
-    if (plan.isExpense) {
+    if (isExpensePlan(plan)) {
       totalMonthlyDebt += (plan.installmentValue || 0);
       return;
     }
 
     // Para dívidas, verificamos se há parcela neste mês
-    const start = normalizeDate(new Date(plan.startDate));
     let monthsDiff = (currentYear - start.getFullYear()) * 12 + (currentMonth - start.getMonth());
     
     if (plan.countMode === 'next_month') {
@@ -2070,7 +2295,6 @@ function updateMonthlyDebtSummary() {
     // Se a parcela atual está dentro do intervalo do plano
     if (currentInstallmentIndex >= 1 && currentInstallmentIndex <= (plan.totalMonths || 1)) {
       // Verificamos se já foi paga
-      const paidMonths = new Set(getPaidMonths(plan));
       if (!paidMonths.has(currentInstallmentIndex)) {
         totalMonthlyDebt += getMonthRemainingValue(plan, currentInstallmentIndex);
       }
@@ -2321,10 +2545,13 @@ function closeDetailsModal() {
 }
 
 function openEditModal(plan) {
+  const planType = getPlanType(plan);
+  const isExpense = planType === PLAN_TYPE_EXPENSE;
+  const isAccount = planType === PLAN_TYPE_ACCOUNT;
   editingPlanId = plan.id;
   editPlanNameInput.value = plan.name;
   editStartDateInput.value = plan.startDate;
-  editTotalMonthsInput.value = String(plan.totalMonths);
+  editTotalMonthsInput.value = String(isAccount ? 1 : plan.totalMonths);
   const defaultEditPastMonthsRadio = document.querySelector('input[name="editPastMonthsStatus"][value="keep"]');
   if (defaultEditPastMonthsRadio) {
     defaultEditPastMonthsRadio.checked = true;
@@ -2336,15 +2563,50 @@ function openEditModal(plan) {
 
   // Ajuste visual para Despesas vs Dívidas na edição
   const editTotalValueField = editTotalValueInput?.parentElement;
-  const editInstallmentLabel = document.querySelector('label[for="editInstallmentValue"] span');
   
-  if (plan.isExpense) {
+  if (editDebtSpecificFields) {
+    editDebtSpecificFields.style.display = (isExpense || isAccount) ? 'none' : '';
+  }
+
+  if (editTotalMonthsInput) {
+    if (isExpense || isAccount) {
+      editTotalMonthsInput.removeAttribute('required');
+    } else {
+      editTotalMonthsInput.setAttribute('required', 'required');
+    }
+  }
+
+  if (editPlanNameInput) {
+    editPlanNameInput.placeholder = isAccount
+      ? 'Ex.: Fatura do cartão, boleto da compra'
+      : 'Ex.: Parcelas da moto';
+  }
+
+  if (editStartDateLabel) {
+    editStartDateLabel.textContent = (isExpense || isAccount) ? 'Data de pagamento' : 'Data de início';
+  }
+
+  if (isExpense) {
     if (editTotalValueField) editTotalValueField.style.display = 'none';
-    if (editInstallmentLabel) editInstallmentLabel.textContent = 'Valor Mensal (Opcional)';
+    if (editInstallmentValueLabel) editInstallmentValueLabel.textContent = 'Valor Mensal (Opcional)';
+  } else if (isAccount) {
+    if (editTotalValueField) editTotalValueField.style.display = 'none';
+    if (editInstallmentValueLabel) editInstallmentValueLabel.textContent = 'Valor da conta';
+    if (editInstallmentValueInput) editInstallmentValueInput.setAttribute('required', 'required');
   } else {
     if (editTotalValueField) editTotalValueField.style.display = 'flex';
-    if (editInstallmentLabel) editInstallmentLabel.textContent = 'Valor da Parcela (Opcional)';
+    if (editInstallmentValueLabel) editInstallmentValueLabel.textContent = 'Valor da Parcela (Opcional)';
+    if (editInstallmentValueInput) editInstallmentValueInput.removeAttribute('required');
   }
+
+  if (!isAccount && editInstallmentValueInput) {
+    editInstallmentValueInput.removeAttribute('required');
+  }
+
+  if (editTotalValueLabel) {
+    editTotalValueLabel.textContent = 'Valor Total';
+  }
+
   updateEditPastMonthsControl();
   editModal.hidden = false;
   syncModalBodyState();
@@ -2461,7 +2723,7 @@ function renderReorderList() {
       <span class="reorder-item-number">${String(index + 1).padStart(2, '0')}</span>
       <div class="reorder-item-content">
         <strong class="reorder-item-name">${escapeHtml(plan.name)}</strong>
-        <span class="reorder-item-meta">${plan.totalMonths} meses • Início ${formatDate(parseDateInput(plan.startDate))}</span>
+        <span class="reorder-item-meta">${getPlanTypeLabel(plan)} • ${isAccountPlan(plan) ? 'Pagamento' : 'Início'} ${formatDate(parseDateInput(plan.startDate))}</span>
       </div>
     `;
     reorderList.appendChild(reorderItem);
@@ -2516,13 +2778,61 @@ function getSelectedPlan() {
   return plans.find((plan) => plan.id === selectedPlanId) ?? null;
 }
 
+function getSelectedCreatePlanType() {
+  const selectedType = document.querySelector('input[name="createPlanType"]:checked')?.value;
+
+  if ([PLAN_TYPE_DEBT, PLAN_TYPE_EXPENSE, PLAN_TYPE_ACCOUNT].includes(selectedType)) {
+    return selectedType;
+  }
+
+  return PLAN_TYPE_DEBT;
+}
+
+function getPlanType(plan) {
+  if (plan?.planType === PLAN_TYPE_ACCOUNT) {
+    return PLAN_TYPE_ACCOUNT;
+  }
+
+  if (plan?.planType === PLAN_TYPE_EXPENSE || plan?.isExpense) {
+    return PLAN_TYPE_EXPENSE;
+  }
+
+  return PLAN_TYPE_DEBT;
+}
+
+function isExpensePlan(plan) {
+  return getPlanType(plan) === PLAN_TYPE_EXPENSE;
+}
+
+function isAccountPlan(plan) {
+  return getPlanType(plan) === PLAN_TYPE_ACCOUNT;
+}
+
+function getPlanTypeLabel(plan) {
+  const planType = getPlanType(plan);
+
+  if (planType === PLAN_TYPE_ACCOUNT) {
+    return 'Conta';
+  }
+
+  if (planType === PLAN_TYPE_EXPENSE) {
+    return 'Despesa';
+  }
+
+  return 'Dívida';
+}
+
 function getFilteredPlans() {
   if (currentPlanFilter === 'debt') {
-    return plans.filter((plan) => !plan.isExpense);
+    return plans.filter((plan) => getPlanType(plan) === PLAN_TYPE_DEBT);
   }
 
   if (currentPlanFilter === 'expense') {
-    return plans.filter((plan) => plan.isExpense);
+    return plans.filter((plan) => getPlanType(plan) === PLAN_TYPE_EXPENSE);
+  }
+
+  if (currentPlanFilter === 'account') {
+    return plans.filter((plan) => getPlanType(plan) === PLAN_TYPE_ACCOUNT);
   }
 
   return plans;
@@ -2593,6 +2903,66 @@ function getCountModeLabel(value) {
   return 'Comeca no mes informado';
 }
 
+function getPlanEndDate(plan, effectiveStartDate) {
+  if (isAccountPlan(plan)) {
+    return effectiveStartDate;
+  }
+
+  return addMonths(effectiveStartDate, getPlanMonthLimit(plan));
+}
+
+function getPlanDueDate(plan, effectiveStartDate, monthIndex) {
+  if (isAccountPlan(plan)) {
+    return effectiveStartDate;
+  }
+
+  return addMonths(effectiveStartDate, monthIndex);
+}
+
+function getPlanPeriodStart(plan, effectiveStartDate, monthIndex) {
+  if (isAccountPlan(plan)) {
+    return effectiveStartDate;
+  }
+
+  return addMonths(effectiveStartDate, monthIndex - 1);
+}
+
+function getPlanListDurationLabel(plan) {
+  if (isAccountPlan(plan)) {
+    return 'Conta';
+  }
+
+  if (isExpensePlan(plan)) {
+    return 'Despesa';
+  }
+
+  return `${plan.totalMonths} ${plan.totalMonths === 1 ? 'mês' : 'meses'}`;
+}
+
+function getPlanPaidSummaryLabel(plan, paidMonthsCount) {
+  if (isExpensePlan(plan)) {
+    return String(paidMonthsCount);
+  }
+
+  if (isAccountPlan(plan)) {
+    return paidMonthsCount > 0 ? 'Pago' : 'Aberta';
+  }
+
+  return `${paidMonthsCount}/${plan.totalMonths}`;
+}
+
+function getPlanEndSummaryLabel(plan, endDate) {
+  if (isExpensePlan(plan)) {
+    return 'Livre';
+  }
+
+  if (isAccountPlan(plan)) {
+    return formatDateShort(endDate);
+  }
+
+  return formatMonthYearCompact(endDate);
+}
+
 function roundMoney(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0;
@@ -2621,7 +2991,7 @@ function getPlanMonthLimit(plan) {
     return totalMonths;
   }
 
-  return plan?.isExpense ? 1200 : 0;
+  return isExpensePlan(plan) ? CONTINUOUS_EXPENSE_MONTHS : 0;
 }
 
 function getMonthBaseValue(plan, monthIndex) {
@@ -2640,7 +3010,7 @@ function getMonthBaseValue(plan, monthIndex) {
   const totalValue = normalizeMoneyValue(plan?.totalValue);
   const totalMonths = getPlanMonthLimit(plan);
 
-  if (!plan?.isExpense && totalValue > 0 && totalMonths > 0) {
+  if (!isExpensePlan(plan) && totalValue > 0 && totalMonths > 0) {
     return roundMoney(totalValue / totalMonths);
   }
 
@@ -3455,6 +3825,7 @@ function buildPaymentNotifications() {
   plans.forEach((plan) => {
     const effectiveStartDate = getEffectiveStartDate(parseDateInput(plan.startDate), plan.countMode);
     const paidMonths = new Set(getPaidMonths(plan));
+    const isAccount = isAccountPlan(plan);
 
     for (let monthIndex = 1; monthIndex <= plan.totalMonths; monthIndex += 1) {
       if (paidMonths.has(monthIndex)) {
@@ -3471,9 +3842,13 @@ function buildPaymentNotifications() {
 
       notifications.push({
         id: createPaymentNotificationId(plan.id, monthIndex),
-        title: `Pagamento: ${plan.name}`,
-        body: `Chegou o mês de pagar "${plan.name}". Marque como pago no app quando concluir.`,
-        largeBody: `Chegou o mês de pagar "${plan.name}". Abra o Controle de Dívidas para marcar como pago e manter seus compromissos atualizados.`,
+        title: `${isAccount ? 'Conta' : 'Pagamento'}: ${plan.name}`,
+        body: isAccount
+          ? `Chegou a data de pagar "${plan.name}". Marque como pago no app quando concluir.`
+          : `Chegou o mês de pagar "${plan.name}". Marque como pago no app quando concluir.`,
+        largeBody: isAccount
+          ? `Chegou a data de pagar "${plan.name}". Abra o Controle de Dívidas para marcar como pago.`
+          : `Chegou o mês de pagar "${plan.name}". Abra o Controle de Dívidas para marcar como pago e manter seus compromissos atualizados.`,
         summaryText: 'Lembrete de pagamento',
         schedule: {
           at: notifyAt,
@@ -4602,23 +4977,6 @@ function initFinancialLogic() {
     input.addEventListener('blur', handleCurrencyInput);
   });
 
-  // Listeners para troca de tipo (Dívida vs Despesa)
-  document.querySelectorAll('input[name="createPlanType"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      const isExpense = e.target.value === 'expense';
-      const totalValueField = document.getElementById('createTotalValue')?.parentElement;
-      const installmentLabel = document.querySelector('label[for="createInstallmentValue"] span');
-      
-      if (isExpense) {
-        if (totalValueField) totalValueField.style.display = 'none';
-        if (installmentLabel) installmentLabel.textContent = 'Valor Mensal (Opcional)';
-      } else {
-        if (totalValueField) totalValueField.style.display = 'flex';
-        if (installmentLabel) installmentLabel.textContent = 'Valor da Parcela (Opcional)';
-      }
-    });
-  });
-
   // Cálculo automático: Total -> Parcela
   [createTotalValueInput, editTotalValueInput].forEach(input => {
     input?.addEventListener('input', (e) => {
@@ -4938,7 +5296,8 @@ function calculatePlanFinancials(plan) {
   calculatedTotalValue = roundMoney(calculatedTotalValue);
   calculatedRemainingValue = roundMoney(calculatedRemainingValue);
 
-  const totalValue = plan.isExpense
+  const isExpense = isExpensePlan(plan);
+  const totalValue = isExpense
     ? calculatedTotalValue
     : Math.max(normalizeMoneyValue(plan.totalValue), calculatedTotalValue);
   const remainingValue = totalValue > calculatedTotalValue
@@ -4946,7 +5305,7 @@ function calculatePlanFinancials(plan) {
     : calculatedRemainingValue;
   
   let progressRatio = 0;
-  if (plan.isExpense) {
+  if (isExpense) {
      // Despesas não tem um "fim" financeiro óbvio, usamos progresso de meses ou 0
      progressRatio = 0; 
   } else if (totalValue > 0) {
