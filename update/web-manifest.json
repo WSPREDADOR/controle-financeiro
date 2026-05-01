@@ -1,8 +1,8 @@
 {
-  "version": "2.3.0",
-  "notes": "Finance Hub: Reestruturação da interface financeira com separação de obrigações do mês, dívidas atrasadas e projeções. Melhorias no layout mobile e ergonomia.",
+  "version": "2.3.1",
+  "notes": "Fix: Ajuste no layout do Finance Hub para telas mobile e correção no transbordamento de mensagens de status.",
   "publishedAt": "2026-05-01",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777657135599",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777657135599",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.0/Controle.de.Dividas.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777658980888",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777658980888",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.1/Controle.de.Dividas.apk"
 }

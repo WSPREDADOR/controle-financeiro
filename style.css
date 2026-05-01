@@ -1475,6 +1475,7 @@ button.version-pill {
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(15px);
   position: relative;
+  overflow: hidden;
 }
 
 .hub-column {
@@ -1659,48 +1660,49 @@ button.version-pill {
 
 @media (max-width: 420px) {
   .finance-hub {
-    grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
     min-height: 156px;
-    gap: 6px;
-    padding: 16px 14px;
+    gap: 4px;
+    padding: 16px 10px;
   }
 
   .hub-label {
-    font-size: 0.58rem;
+    font-size: 0.54rem;
+    overflow-wrap: break-word;
   }
 
   .hub-value {
-    font-size: 0.98rem;
+    font-size: 0.92rem;
   }
 
   .hub-value.negative,
   .hub-value.sobra,
   .hub-value.sobra.is-empty {
-    font-size: 0.78rem;
+    font-size: 0.74rem;
   }
 
   .hub-mini-btn {
-    padding: 3px;
+    padding: 2px;
   }
 
   .hub-details-btn {
     gap: 4px;
-    padding: 4px;
+    padding: 2px;
   }
 
   .hub-details-btn span {
-    font-size: 0.58rem;
+    font-size: 0.52rem;
   }
 
   .hub-icon-wrapper {
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
   }
 
   .hub-icon-wrapper svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -2658,6 +2660,8 @@ button.version-pill {
   line-height: 1.6;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   animation: slide-down-fade 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 @keyframes slide-down-fade {
