@@ -5,6 +5,7 @@ const STORAGE_KEY = 'payment-plans-v1';
 const MONTHLY_BALANCES_KEY = 'monthly-balances-v1';
 const USER_NAME_KEY = 'cf-user-name-v1';
 const USER_ID_KEY = 'cf-user-id-v1';
+const TUTORIAL_COMPLETED_KEY = 'cf-tutorial-completed-v1';
 const DEFAULT_COUNT_MODE = 'start_month';
 const PLAN_TYPE_DEBT = 'debt';
 const PLAN_TYPE_EXPENSE = 'expense';
@@ -59,6 +60,7 @@ const onboardingStatus = document.getElementById('onboardingStatus');
 const userGreeting = document.getElementById('userGreeting');
 const displayUserName = document.getElementById('displayUserName');
 const settingsUserId = document.getElementById('settingsUserId');
+const restartTutorialBtn = document.getElementById('restartTutorialBtn');
 const plansList = document.getElementById('plansList');
 const selectedPlanTitle = document.getElementById('selectedPlanTitle');
 const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
@@ -168,6 +170,7 @@ let notificationSyncTimeoutId = null;
 let paymentNotificationListenersRegistered = false;
 let notificationBannerMode = 'notification';
 let bulkPaymentModalMode = 'create';
+let currentTutorialStep = 0;
 
 const bulkPaymentModal = document.getElementById('bulkPaymentModal');
 const bulkPaymentValueInput = document.getElementById('bulkPaymentValue');
@@ -193,6 +196,93 @@ const BULK_PAYMENT_HISTORY_LIMIT = 10;
 const APP_APK_FILE_NAME = 'Controle.de.Dividas.apk';
 const APP_APK_FILE_URL_NAME = encodeURIComponent(APP_APK_FILE_NAME);
 const APP_SHARE_URL = `https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/${APP_APK_FILE_URL_NAME}`;
+
+const FIRST_USE_TUTORIAL_STEPS = [
+  {
+    element: '.topbar-brand',
+    kicker: 'Boas-vindas!',
+    title: 'Olá! Que bom te ver.',
+    description: 'Este é o seu Controle de Dívidas. Vamos te mostrar como dar os primeiros passos para organizar sua vida financeira.',
+    position: 'bottom'
+  },
+  {
+    element: '.finance-hub',
+    kicker: 'Visão Geral',
+    title: 'Resumo do Mês',
+    description: 'Aqui em cima você acompanha o total que tem para pagar este mês, o saldo que informou e quanto sobrará (projeção).',
+    position: 'bottom'
+  },
+  {
+    element: '#openMonthlyBalanceModalBtn',
+    kicker: 'Configuração',
+    title: 'Informe seu Saldo',
+    description: 'Toque no ícone do lápis para informar quanto você recebeu ou tem disponível para pagar as contas deste mês.',
+    position: 'bottom'
+  },
+  {
+    element: '.calculator-card',
+    kicker: 'Cadastro',
+    title: 'Adicione Compromissos',
+    description: 'Use o botão Adicionar para cadastrar novas dívidas, parcelas, contas fixas ou despesas eventuais.',
+    position: 'top'
+  },
+  {
+    element: '.plans-panel',
+    kicker: 'Gestão',
+    title: 'Sua Lista',
+    description: 'Aqui aparecerão todos os seus compromissos. Você pode filtrar por tipo e tocar neles para ver detalhes e marcar pagamentos.',
+    position: 'top'
+  },
+  {
+    element: '#openAppSettingsModalBtn',
+    kicker: 'Personalização',
+    title: 'Ajustes e Mais',
+    description: 'Nas configurações você pode ver o seu ID de suporte único ou rever este tutorial sempre que precisar.',
+    position: 'bottom'
+  }
+];
+
+let tourOverlay = null;
+let tourPopover = null;
+let tourBackdrop = null;
+
+function createTourUI() {
+  if (tourOverlay) return;
+
+  tourOverlay = document.createElement('div');
+  tourOverlay.className = 'tour-overlay';
+  tourOverlay.id = 'tourOverlay';
+  tourOverlay.innerHTML = `
+    <div class="tour-backdrop" id="tourBackdrop"></div>
+    <div class="tour-popover" id="tourPopover">
+      <div class="tour-header">
+        <img src="logo.png" alt="" class="tour-mascot-mini">
+        <div class="tour-heading">
+          <span class="section-kicker" id="tourKicker"></span>
+          <h3 id="tourTitle"></h3>
+        </div>
+      </div>
+      <p class="tour-description" id="tourDescription"></p>
+      <div class="tour-footer">
+        <div class="tour-dots" id="tourDots"></div>
+        <div class="tour-actions">
+          <button type="button" class="tour-btn tour-btn-skip" id="tourSkipBtn">Pular</button>
+          <button type="button" class="tour-btn tour-btn-prev" id="tourPrevBtn">Voltar</button>
+          <button type="button" class="tour-btn tour-btn-next" id="tourNextBtn">Próximo</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(tourOverlay);
+
+  tourBackdrop = document.getElementById('tourBackdrop');
+  tourPopover = document.getElementById('tourPopover');
+
+  document.getElementById('tourSkipBtn').addEventListener('click', () => closeAppTutorial());
+  document.getElementById('tourPrevBtn').addEventListener('click', showPreviousAppTutorialStep);
+  document.getElementById('tourNextBtn').addEventListener('click', showNextAppTutorialStep);
+}
 
 // ─── Armazenamento Persistente (protegido contra limpeza do Android) ───────────
 // Usa Capacitor Preferences quando disponível (armazenamento nativo),
@@ -258,7 +348,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.1',
+  currentVersion: '2.3.2',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -306,6 +396,7 @@ updateResultsNavigation();
     await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
     await Storage.migrate(USER_NAME_KEY);
     await Storage.migrate(USER_ID_KEY);
+    await Storage.migrate(TUTORIAL_COMPLETED_KEY);
 
     await checkOnboarding();
 
@@ -779,6 +870,11 @@ shareAppBtn?.addEventListener('click', () => {
   toggleShareOptionsPanel();
 });
 
+restartTutorialBtn?.addEventListener('click', () => {
+  closeAppSettingsModal();
+  openAppTutorial();
+});
+
 nativeShareAppBtn?.addEventListener('click', async () => {
   await shareAppWithSystem();
 });
@@ -923,7 +1019,7 @@ async function checkOnboarding() {
 
   if (!name) {
     onboardingModal.hidden = false;
-    document.body.classList.add('modal-open');
+    syncModalBodyState();
     window.setTimeout(() => {
       userNameInput?.focus();
     }, 100);
@@ -931,6 +1027,7 @@ async function checkOnboarding() {
   }
 
   updateUserInfoUI(name, id);
+  await maybeShowFirstUseTutorial();
 }
 
 function updateUserInfoUI(name, id) {
@@ -954,7 +1051,8 @@ saveOnboardingBtn?.addEventListener('click', async () => {
   updateUserInfoUI(name, id);
   
   onboardingModal.hidden = true;
-  document.body.classList.remove('modal-open');
+  syncModalBodyState();
+  await maybeShowFirstUseTutorial({ delayMs: 140 });
 });
 
 userNameInput?.addEventListener('keydown', (event) => {
@@ -962,6 +1060,171 @@ userNameInput?.addEventListener('keydown', (event) => {
     saveOnboardingBtn?.click();
   }
 });
+
+function renderAppTutorialStep() {
+  if (FIRST_USE_TUTORIAL_STEPS.length === 0) return;
+
+  createTourUI();
+
+  const lastIndex = FIRST_USE_TUTORIAL_STEPS.length - 1;
+  currentTutorialStep = Math.min(Math.max(currentTutorialStep, 0), lastIndex);
+  const step = FIRST_USE_TUTORIAL_STEPS[currentTutorialStep];
+  const isLastStep = currentTutorialStep === lastIndex;
+
+  // Limpa estados anteriores
+  document.querySelectorAll('.tour-highlighted').forEach(el => el.classList.remove('tour-highlighted'));
+  tourPopover.classList.remove('is-visible');
+
+  // Atualiza conteúdo
+  document.getElementById('tourKicker').textContent = step.kicker;
+  document.getElementById('tourTitle').textContent = step.title;
+  document.getElementById('tourDescription').textContent = step.description;
+  document.getElementById('tourNextBtn').textContent = isLastStep ? 'Concluir' : 'Próximo';
+  document.getElementById('tourPrevBtn').disabled = currentTutorialStep === 0;
+
+  // Atualiza pontos
+  const dotsContainer = document.getElementById('tourDots');
+  dotsContainer.innerHTML = '';
+  FIRST_USE_TUTORIAL_STEPS.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = `tour-dot${i === currentTutorialStep ? ' active' : ''}`;
+    dotsContainer.appendChild(dot);
+  });
+
+  // Posicionamento e destaque
+  const target = document.querySelector(step.element);
+  
+  if (target && target.offsetParent !== null) {
+    const originalScrollBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = 'auto';
+    target.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+    document.documentElement.style.scrollBehavior = originalScrollBehavior;
+
+    window.requestAnimationFrame(() => {
+      const rect = target.getBoundingClientRect();
+      
+      // Spotlight
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const r = Math.max(rect.width, rect.height) / 2 + 10;
+
+      tourBackdrop.style.setProperty('--spotlight-x', `${x}px`);
+      tourBackdrop.style.setProperty('--spotlight-y', `${y}px`);
+      tourBackdrop.style.setProperty('--spotlight-r', `${r}px`);
+
+      // Popover
+      tourPopover.setAttribute('data-position', step.position);
+      tourPopover.style.transform = '';
+      
+      let popoverTop, popoverLeft;
+      const gap = 24;
+      const viewportPadding = window.matchMedia('(max-width: 480px)').matches ? 16 : 12;
+
+      if (step.position === 'bottom') {
+        popoverTop = rect.bottom + gap;
+      } else {
+        popoverTop = rect.top - tourPopover.offsetHeight - gap;
+      }
+
+      popoverLeft = rect.left + rect.width / 2 - tourPopover.offsetWidth / 2;
+
+      // Ajustes de borda da tela
+      popoverLeft = Math.max(viewportPadding, Math.min(popoverLeft, window.innerWidth - tourPopover.offsetWidth - viewportPadding));
+      popoverTop = Math.max(viewportPadding, Math.min(popoverTop, window.innerHeight - tourPopover.offsetHeight - viewportPadding));
+      
+      tourPopover.style.top = `${popoverTop}px`;
+      tourPopover.style.left = `${popoverLeft}px`;
+
+      // Seta com margem de segurança para não sair da borda arredondada
+      const arrowMargin = 28; 
+      const targetCenter = rect.left + rect.width / 2;
+      let arrowX = targetCenter - popoverLeft;
+      
+      // Ajuste fino para a setinha não ficar desalinhada em botões pequenos no canto
+      arrowX = Math.max(arrowMargin, Math.min(arrowX, tourPopover.offsetWidth - arrowMargin));
+      
+      tourPopover.style.setProperty('--arrow-offset', `${arrowX}px`);
+
+      target.classList.add('tour-highlighted');
+      tourPopover.classList.add('is-visible');
+    });
+  } else {
+    // Caso o elemento não seja encontrado, centraliza o popover e remove o spotlight
+    tourBackdrop.style.setProperty('--spotlight-r', `0px`);
+    
+    tourPopover.style.top = '50%';
+    tourPopover.style.left = '50%';
+    tourPopover.style.transform = 'translate(-50%, -50%)';
+    tourPopover.setAttribute('data-position', 'center');
+    
+    tourPopover.classList.add('is-visible');
+  }
+
+  tourOverlay.classList.add('is-active');
+}
+
+function openAppTutorial(startStep = 0) {
+  currentTutorialStep = Number.isFinite(startStep) ? startStep : 0;
+  renderAppTutorialStep();
+}
+
+async function closeAppTutorial({ markCompleted = true } = {}) {
+  if (!tourOverlay || !tourOverlay.classList.contains('is-active')) {
+    return;
+  }
+
+  tourOverlay.classList.remove('is-active');
+  tourPopover.classList.remove('is-visible');
+  document.querySelectorAll('.tour-highlighted').forEach(el => el.classList.remove('tour-highlighted'));
+  syncModalBodyState();
+
+  if (markCompleted) {
+    await Storage.set(TUTORIAL_COMPLETED_KEY, 'done');
+  }
+}
+
+async function maybeShowFirstUseTutorial({ delayMs = 0 } = {}) {
+  const tutorialCompleted = await Storage.get(TUTORIAL_COMPLETED_KEY);
+  if (tutorialCompleted === 'done') {
+    return;
+  }
+
+  const showTutorial = () => openAppTutorial(0);
+  if (delayMs > 0) {
+    window.setTimeout(showTutorial, delayMs);
+    return;
+  }
+
+  showTutorial();
+}
+
+function goToAppTutorialStep(stepIndex) {
+  if (!Number.isFinite(stepIndex)) {
+    return;
+  }
+
+  currentTutorialStep = stepIndex;
+  renderAppTutorialStep();
+}
+
+function showPreviousAppTutorialStep() {
+  if (currentTutorialStep <= 0) {
+    return;
+  }
+
+  goToAppTutorialStep(currentTutorialStep - 1);
+}
+
+function showNextAppTutorialStep() {
+  if (currentTutorialStep >= FIRST_USE_TUTORIAL_STEPS.length - 1) {
+    closeAppTutorial();
+    return;
+  }
+
+  goToAppTutorialStep(currentTutorialStep + 1);
+}
+
+// Eventos de tutorial removidos (usando o novo sistema de tour)
 
 closeCreateModalBtn.addEventListener('click', () => {
   closeCreateModal();
@@ -1060,6 +1323,11 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
+  if (event.key === 'Escape' && tourOverlay && tourOverlay.classList.contains('is-active')) {
+    closeAppTutorial();
+    return;
+  }
+
   if (event.key === 'Escape' && !resultsSection.hidden) {
     closeDetailsModal();
   }
@@ -1084,6 +1352,8 @@ if (window.Capacitor?.Plugins?.App) {
       closeMonthlyOverviewModal();
     } else if (appSettingsModal && !appSettingsModal.hidden) {
       closeAppSettingsModal();
+    } else if (tourOverlay && tourOverlay.classList.contains('is-active')) {
+      closeAppTutorial();
     } else if (!resultsSection.hidden) {
       closeDetailsModal();
     } else {
@@ -3285,6 +3555,31 @@ function openReorderModal() {
   reorderDraftPlanIds = plans.map((plan) => plan.id);
   reorderSavedOrderSignature = getPlanOrderSignature(plans);
   renderReorderList();
+  editModal.hidden = true;
+  syncModalBodyState();
+}
+
+function openDeleteModal(plan) {
+  pendingDeletePlanId = plan.id;
+  deletePlanName.textContent = plan.name;
+  deleteModal.hidden = false;
+  syncModalBodyState();
+  window.setTimeout(() => {
+    confirmDeleteModalBtn.focus();
+  }, 20);
+}
+
+function closeDeleteModal() {
+  pendingDeletePlanId = null;
+  deletePlanName.textContent = 'este compromisso';
+  deleteModal.hidden = true;
+  syncModalBodyState();
+}
+
+function openReorderModal() {
+  reorderDraftPlanIds = plans.map((plan) => plan.id);
+  reorderSavedOrderSignature = getPlanOrderSignature(plans);
+  renderReorderList();
   reorderModal.hidden = false;
   syncModalBodyState();
 }
@@ -3309,6 +3604,7 @@ async function openAppSettingsModal() {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
   if (settingsAppVersion) settingsAppVersion.textContent = `v${getCurrentAppVersion(config)}`;
   if (settingsAppRelease) settingsAppRelease.textContent = config.expirationDate || '28/04/2026';
+  
   if (shareOptionsPanel) shareOptionsPanel.hidden = true;
   setShareCopyStatus('');
 
@@ -3376,6 +3672,8 @@ function syncModalBodyState() {
       !editModal.hidden ||
       !deleteModal.hidden ||
       !reorderModal.hidden ||
+      Boolean(onboardingModal && !onboardingModal.hidden) ||
+      Boolean(tourOverlay && tourOverlay.classList.contains('is-active')) ||
       Boolean(appSettingsModal && !appSettingsModal.hidden) ||
       Boolean(monthlyBalanceModal && !monthlyBalanceModal.hidden) ||
       Boolean(monthlyOverviewModal && !monthlyOverviewModal.hidden) ||
