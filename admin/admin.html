@@ -13,7 +13,7 @@
       <h1>Painel admin</h1>
       <p>Acesse com o usuario autorizado no Supabase para acompanhar suporte, licenca e comandos remotos.</p>
       <div class="admin-meta">
-        <span>Versao do painel: <strong>0.1.0</strong></span>
+        <span>Versao do painel: <strong>0.2.0</strong></span>
         <span>Desenvolvido por <strong>Werbert Silva</strong></span>
       </div>
       <form id="loginForm" class="login-form">
@@ -35,7 +35,7 @@
         <div>
           <span class="kicker">Suporte e licenca</span>
           <h1>Dispositivos ativos</h1>
-          <p class="admin-version-line">Painel v0.1.0 - Desenvolvido por Werbert Silva</p>
+          <p class="admin-version-line">Painel v0.2.0 - Desenvolvido por Werbert Silva</p>
         </div>
         <div class="topbar-actions">
           <button type="button" id="refreshBtn">Atualizar</button>
@@ -53,6 +53,10 @@
           <strong id="onlineDevicesStat">0</strong>
         </article>
         <article class="admin-stat">
+          <span>Premium</span>
+          <strong id="premiumDevicesStat">0</strong>
+        </article>
+        <article class="admin-stat">
           <span>Mensagens</span>
           <strong id="unreadMessagesStat">0</strong>
         </article>
@@ -60,11 +64,28 @@
           <span>Bloqueados</span>
           <strong id="blockedDevicesStat">0</strong>
         </article>
+        <article class="admin-stat">
+          <span>Comandos</span>
+          <strong id="pendingCommandsStat">0</strong>
+        </article>
       </section>
 
       <div class="workspace">
         <aside class="device-list-panel">
-          <input type="search" id="deviceSearch" placeholder="Buscar por nome ou ID">
+          <div class="device-list-header">
+            <div>
+              <span class="kicker">Usuarios</span>
+              <strong id="deviceListCount">0 dispositivos</strong>
+            </div>
+          </div>
+          <input type="search" id="deviceSearch" placeholder="Buscar por nome, ID, aparelho ou versao">
+          <div class="device-filters" id="deviceFilters" aria-label="Filtros de dispositivos">
+            <button type="button" class="is-active" data-filter="all">Todos</button>
+            <button type="button" data-filter="online">Online</button>
+            <button type="button" data-filter="unread">Mensagens</button>
+            <button type="button" data-filter="premium">Premium</button>
+            <button type="button" data-filter="blocked">Bloqueados</button>
+          </div>
           <div class="device-list" id="deviceList"></div>
         </aside>
 
