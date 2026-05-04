@@ -48,9 +48,20 @@ async function generateLauncherIcons() {
   }
 }
 
+async function generateNotificationIcon() {
+  const drawableDir = path.join(androidResDir, 'drawable');
+  const notificationIconPath = path.join(drawableDir, 'ic_notification.png');
+
+  await sharp(sourceIcon)
+    .resize(96, 96, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toFile(notificationIconPath);
+}
+
 async function main() {
   await ensureAndroidProject();
   await generateLauncherIcons();
+  await generateNotificationIcon();
   console.log('Icones do Android atualizados com sucesso.');
 }
 

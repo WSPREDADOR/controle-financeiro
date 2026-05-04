@@ -6,6 +6,7 @@
   "plugins": {
     "LocalNotifications": {
       "sound": "payment_reminder.wav",
+      "smallIcon": "ic_notification",
       "iconColor": "#55d4cb"
     }
   },
