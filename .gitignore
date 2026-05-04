@@ -10,6 +10,7 @@ build/icon.png
 *.log
 .DS_Store
 Thumbs.db
+Senha SUPABASE/
 
 android/.gradle/
 android/build/

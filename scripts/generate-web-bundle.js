@@ -12,6 +12,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const indexPath = path.join(projectRoot, 'index.html');
 const stylePath = path.join(projectRoot, 'style.css');
 const scriptPath = path.join(projectRoot, 'script.js');
+const supportConfigPath = path.join(projectRoot, 'support-config.js');
 const updateConfigPath = path.join(projectRoot, 'update-config.js');
 const packagePath = path.join(projectRoot, 'package.json');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
@@ -35,8 +36,10 @@ function extractBodyHtml(indexHtml) {
   
   let body = match[1];
   body = body.replace(/\s*<script\s+src="web-runtime\.js"><\/script>\s*/gi, '\n');
+  body = body.replace(/\s*<script\s+data-cf-original="[^"]*"\s+src="support-config\.js"><\/script>\s*/gi, '\n');
   body = body.replace(/\s*<script\s+data-cf-original="[^"]*"\s+src="update-config\.js"><\/script>\s*/gi, '\n');
   body = body.replace(/\s*<script\s+data-cf-original="[^"]*"\s+src="script\.js"><\/script>\s*/gi, '\n');
+  body = body.replace(/\s*<script\s+src="support-config\.js"><\/script>\s*/gi, '\n');
   body = body.replace(/\s*<script\s+src="update-config\.js"><\/script>\s*/gi, '\n');
   body = body.replace(/\s*<script\s+src="script\.js"><\/script>\s*/gi, '\n');
   
@@ -47,7 +50,7 @@ function extractBodyHtml(indexHtml) {
   return body.trim();
 }
 
-function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs }) {
+function buildBundleHtml({ bodyHtml, styleCss, supportConfigJs, updateConfigJs, appScriptJs }) {
   const minifiedCss = minifyCss(styleCss);
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -72,6 +75,7 @@ function buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs }) {
 <body>
 ${bodyHtml}
   <script>window.__CF_RUNTIME_ACTIVE__=true;</script>
+  <script>${minifyJs(supportConfigJs)}</script>
   <script>${minifyJs(updateConfigJs)}</script>
   <script>${minifyJs(appScriptJs)}</script>
 </body>
@@ -82,13 +86,16 @@ function main() {
   const indexHtml = fs.readFileSync(indexPath, 'utf8');
   const styleCss = fs.readFileSync(stylePath, 'utf8');
   const appScriptJs = fs.readFileSync(scriptPath, 'utf8');
+  const supportConfigJs = fs.existsSync(supportConfigPath)
+    ? fs.readFileSync(supportConfigPath, 'utf8')
+    : 'window.CF_SUPPORT_CONFIG={enabled:false};';
   const updateConfigJs = fs.readFileSync(updateConfigPath, 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   const updateInfo = JSON.parse(fs.readFileSync(updateInfoPath, 'utf8'));
   const version = packageJson.version;
   
   const bodyHtml = extractBodyHtml(indexHtml);
-  const html = buildBundleHtml({ bodyHtml, styleCss, updateConfigJs, appScriptJs });
+  const html = buildBundleHtml({ bodyHtml, styleCss, supportConfigJs, updateConfigJs, appScriptJs });
 
   const manifest = {
     version,
@@ -105,6 +112,7 @@ function main() {
     html,
     css: minifyCss(styleCss),
     js: minifyJs(appScriptJs),
+    supportConfig: minifyJs(supportConfigJs),
     updateConfig: minifyJs(updateConfigJs)
   };
 

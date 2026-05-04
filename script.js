@@ -5,6 +5,11 @@ const STORAGE_KEY = 'payment-plans-v1';
 const MONTHLY_BALANCES_KEY = 'monthly-balances-v1';
 const USER_NAME_KEY = 'cf-user-name-v1';
 const USER_ID_KEY = 'cf-user-id-v1';
+const SUPPORT_DEVICE_TOKEN_KEY = 'cf-support-device-token-v1';
+const SUPPORT_LAST_CHECKIN_KEY = 'cf-support-last-checkin-v1';
+const SUPPORT_LICENSE_STATUS_KEY = 'cf-support-license-status-v1';
+const SUPPORT_REMOTE_MESSAGE_KEY = 'cf-support-remote-message-v1';
+const SUPPORT_CHAT_LAST_OPEN_KEY = 'cf-support-chat-last-open-v1';
 const TUTORIAL_COMPLETED_KEY = 'cf-tutorial-completed-v1';
 const DEFAULT_COUNT_MODE = 'start_month';
 const PLAN_TYPE_DEBT = 'debt';
@@ -60,6 +65,21 @@ const onboardingStatus = document.getElementById('onboardingStatus');
 const userGreeting = document.getElementById('userGreeting');
 const displayUserName = document.getElementById('displayUserName');
 const settingsUserId = document.getElementById('settingsUserId');
+const openSupportModalBtn = document.getElementById('openSupportModalBtn');
+const supportModal = document.getElementById('supportModal');
+const closeSupportModalBtn = document.getElementById('closeSupportModalBtn');
+const supportLicenseBadge = document.getElementById('supportLicenseBadge');
+const supportConnectionStatus = document.getElementById('supportConnectionStatus');
+const supportLastCheckIn = document.getElementById('supportLastCheckIn');
+const supportRemoteMessage = document.getElementById('supportRemoteMessage');
+const supportAdminPresence = document.getElementById('supportAdminPresence');
+const supportChatMessages = document.getElementById('supportChatMessages');
+const supportAdminTyping = document.getElementById('supportAdminTyping');
+const supportChatInput = document.getElementById('supportChatInput');
+const supportChatSendBtn = document.getElementById('supportChatSendBtn');
+const supportChatImageBtn = document.getElementById('supportChatImageBtn');
+const supportChatImageInput = document.getElementById('supportChatImageInput');
+const supportChatStatus = document.getElementById('supportChatStatus');
 const restartTutorialBtn = document.getElementById('restartTutorialBtn');
 const plansList = document.getElementById('plansList');
 const selectedPlanTitle = document.getElementById('selectedPlanTitle');
@@ -205,6 +225,12 @@ let isUpdateCheckInFlight = false;
 let isUpdateInstallInFlight = false;
 let updateBannerHoldUntil = 0;
 let notificationSyncTimeoutId = null;
+let supportSyncIntervalId = null;
+let supportChatIntervalId = null;
+let supportTypingTimeoutId = null;
+let supportLastTypingSentAt = 0;
+let isSupportSyncInFlight = false;
+let isSupportChatInFlight = false;
 let paymentNotificationListenersRegistered = false;
 let notificationBannerMode = 'notification';
 let bulkPaymentModalMode = 'create';
@@ -566,7 +592,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.4',
+  currentVersion: '2.3.5',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -614,9 +640,15 @@ updateResultsNavigation();
     await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
     await Storage.migrate(USER_NAME_KEY);
     await Storage.migrate(USER_ID_KEY);
+    await Storage.migrate(SUPPORT_DEVICE_TOKEN_KEY);
+    await Storage.migrate(SUPPORT_LAST_CHECKIN_KEY);
+    await Storage.migrate(SUPPORT_LICENSE_STATUS_KEY);
+    await Storage.migrate(SUPPORT_REMOTE_MESSAGE_KEY);
+    await Storage.migrate(SUPPORT_CHAT_LAST_OPEN_KEY);
     await Storage.migrate(TUTORIAL_COMPLETED_KEY);
 
     await checkOnboarding();
+    await initializeSupportSync();
 
     monthlyBalances = await loadMonthlyBalancesAsync();
     updateMonthlyBalanceSummary(currentMonthlyDebtTotal);
@@ -1101,6 +1133,14 @@ closeAppSettingsModalBtn?.addEventListener('click', () => {
   closeAppSettingsModal();
 });
 
+openSupportModalBtn?.addEventListener('click', () => {
+  openSupportModal();
+});
+
+closeSupportModalBtn?.addEventListener('click', () => {
+  closeSupportModal();
+});
+
 openNativeAppSettingsBtn?.addEventListener('click', async () => {
   await getNotificationPermissionsPlugin()?.openAppSettings?.();
 });
@@ -1119,6 +1159,40 @@ shareAppBtn?.addEventListener('click', () => {
 restartTutorialBtn?.addEventListener('click', () => {
   closeAppSettingsModal();
   openAppTutorial();
+});
+
+supportChatSendBtn?.addEventListener('click', () => {
+  sendSupportChatMessage();
+});
+
+supportChatImageBtn?.addEventListener('click', () => {
+  supportChatImageInput?.click();
+});
+
+supportChatImageInput?.addEventListener('change', () => {
+  const file = supportChatImageInput.files?.[0];
+  if (file) {
+    sendSupportChatImage(file);
+  }
+  supportChatImageInput.value = '';
+});
+
+supportChatInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    sendSupportChatMessage();
+  }
+});
+
+supportChatInput?.addEventListener('input', () => {
+  queueSupportTypingState();
+});
+
+supportChatMessages?.addEventListener('click', (event) => {
+  const image = event.target.closest('[data-support-open-image]');
+  if (image?.dataset.supportOpenImage) {
+    window.open(image.dataset.supportOpenImage, '_blank', 'noopener,noreferrer');
+  }
 });
 
 nativeShareAppBtn?.addEventListener('click', async () => {
@@ -1285,6 +1359,594 @@ function updateUserInfoUI(name, id) {
   if (settingsUserId) settingsUserId.textContent = id;
 }
 
+function getSupportConfig() {
+  return {
+    enabled: false,
+    supabaseUrl: '',
+    supabaseAnonKey: '',
+    checkInIntervalMs: 120000,
+    requestTimeoutMs: 8000,
+    ...(window.CF_SUPPORT_CONFIG || {})
+  };
+}
+
+function isSupportConfigured(config = getSupportConfig()) {
+  return Boolean(config.enabled && config.supabaseUrl && config.supabaseAnonKey);
+}
+
+async function initializeSupportSync() {
+  await refreshSupportUi();
+
+  const config = getSupportConfig();
+  if (!isSupportConfigured(config)) {
+    return;
+  }
+
+  syncSupportCheckIn({ reason: 'startup' });
+
+  if (supportSyncIntervalId) {
+    window.clearInterval(supportSyncIntervalId);
+  }
+
+  supportSyncIntervalId = window.setInterval(() => {
+    syncSupportCheckIn({ reason: 'interval' });
+  }, Math.max(30000, Number(config.checkInIntervalMs) || 120000));
+
+  loadSupportChatMessages();
+
+  if (supportChatIntervalId) {
+    window.clearInterval(supportChatIntervalId);
+  }
+
+  supportChatIntervalId = window.setInterval(() => {
+    loadSupportChatMessages({ silent: true });
+  }, 5000);
+}
+
+async function refreshSupportUi() {
+  const config = getSupportConfig();
+  const lastCheckIn = await Storage.get(SUPPORT_LAST_CHECKIN_KEY);
+  const licenseStatus = await Storage.get(SUPPORT_LICENSE_STATUS_KEY) || 'free';
+  const remoteMessage = await Storage.get(SUPPORT_REMOTE_MESSAGE_KEY) || '';
+
+  updateSupportLicenseBadge(licenseStatus);
+
+  if (supportConnectionStatus) {
+    supportConnectionStatus.textContent = isSupportConfigured(config)
+      ? 'Sincronização ativa quando houver internet'
+      : 'Suporte remoto não configurado';
+  }
+
+  if (supportLastCheckIn) {
+    supportLastCheckIn.textContent = lastCheckIn ? formatDateTime(new Date(lastCheckIn)) : 'Nunca';
+  }
+
+  if (supportRemoteMessage) {
+    supportRemoteMessage.textContent = remoteMessage || 'Nenhum aviso.';
+  }
+
+  if (supportChatInput) supportChatInput.disabled = !isSupportConfigured(config);
+  if (supportChatSendBtn) supportChatSendBtn.disabled = !isSupportConfigured(config);
+  if (supportChatImageBtn) supportChatImageBtn.disabled = !isSupportConfigured(config);
+
+  applySupportLicenseStatus(licenseStatus, remoteMessage);
+}
+
+function updateSupportLicenseBadge(status) {
+  if (!supportLicenseBadge) {
+    return;
+  }
+
+  const normalizedStatus = normalizeLicenseStatus(status);
+  const labels = {
+    free: 'Gratuito',
+    trial: 'Teste',
+    premium: 'Premium',
+    blocked: 'Bloqueado'
+  };
+
+  supportLicenseBadge.textContent = labels[normalizedStatus] || labels.free;
+  supportLicenseBadge.className = `support-license-badge is-${normalizedStatus}`;
+}
+
+function normalizeLicenseStatus(status) {
+  return ['free', 'trial', 'premium', 'blocked'].includes(status) ? status : 'free';
+}
+
+async function syncSupportCheckIn(options = {}) {
+  const config = getSupportConfig();
+  if (!isSupportConfigured(config) || isSupportSyncInFlight) {
+    return;
+  }
+
+  const supportId = await Storage.get(USER_ID_KEY);
+  const userName = await Storage.get(USER_NAME_KEY);
+
+  if (!supportId || !userName) {
+    return;
+  }
+
+  isSupportSyncInFlight = true;
+  if (options.showFeedback && supportConnectionStatus) {
+    supportConnectionStatus.textContent = 'Sincronizando...';
+  }
+
+  try {
+    const deviceToken = await getSupportDeviceToken();
+    const deviceInfo = await getSupportDeviceInfo();
+    const updateConfig = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
+    const result = await callSupportRpc('app_check_in', {
+      p_support_id: supportId,
+      p_device_token: deviceToken,
+      p_user_name: userName,
+      p_device_name: deviceInfo.deviceName,
+      p_device_model: deviceInfo.deviceModel,
+      p_platform: deviceInfo.platform,
+      p_app_version: getCurrentAppVersion(updateConfig)
+    }, config);
+
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Falha ao sincronizar suporte.');
+    }
+
+    const now = new Date().toISOString();
+    await Storage.set(SUPPORT_LAST_CHECKIN_KEY, now);
+    await handleSupportDeviceState(result.device || {});
+    await handleSupportCommands(result.commands || [], { supportId, deviceToken });
+    await refreshSupportUi();
+
+    if (options.showFeedback) {
+      setStatus('Suporte sincronizado com sucesso.', 'success');
+    }
+  } catch (error) {
+    if (supportConnectionStatus) {
+      supportConnectionStatus.textContent = 'Sem conexão com o suporte';
+    }
+
+    if (options.showFeedback) {
+      setStatus('Não foi possível sincronizar o suporte agora.', 'error');
+    }
+  } finally {
+    isSupportSyncInFlight = false;
+  }
+}
+
+async function getSupportDeviceToken() {
+  let token = await Storage.get(SUPPORT_DEVICE_TOKEN_KEY);
+  if (token) {
+    return token;
+  }
+
+  token = generateSecureToken();
+  await Storage.set(SUPPORT_DEVICE_TOKEN_KEY, token);
+  return token;
+}
+
+function generateSecureToken() {
+  const bytes = new Uint8Array(24);
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function getSupportDeviceInfo() {
+  const capacitorPlatform = window.Capacitor?.getPlatform?.();
+  const devicePlugin = window.Capacitor?.Plugins?.Device;
+
+  if (devicePlugin?.getInfo) {
+    try {
+      const info = await devicePlugin.getInfo();
+      return {
+        deviceName: info.name || info.model || info.manufacturer || 'Dispositivo Android',
+        deviceModel: [info.manufacturer, info.model, info.osVersion].filter(Boolean).join(' ') || navigator.userAgent,
+        platform: info.platform || info.operatingSystem || capacitorPlatform || navigator.platform || 'web'
+      };
+    } catch (_) {}
+  }
+
+  return {
+    deviceName: navigator.platform || capacitorPlatform || 'Dispositivo',
+    deviceModel: navigator.userAgent || 'Modelo não informado',
+    platform: capacitorPlatform || navigator.platform || 'web'
+  };
+}
+
+async function callSupportRpc(functionName, payload, config = getSupportConfig()) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), Number(config.requestTimeoutMs) || 8000);
+
+  try {
+    const baseUrl = config.supabaseUrl.replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/rest/v1/rpc/${functionName}`, {
+      method: 'POST',
+      headers: {
+        apikey: config.supabaseAnonKey,
+        Authorization: `Bearer ${config.supabaseAnonKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.message || `Erro ${response.status}`);
+    }
+
+    return data;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function handleSupportDeviceState(device) {
+  const status = normalizeLicenseStatus(device.license_status);
+  const message = typeof device.remote_message === 'string' ? device.remote_message : '';
+  await Storage.set(SUPPORT_LICENSE_STATUS_KEY, status);
+  await Storage.set(SUPPORT_REMOTE_MESSAGE_KEY, message);
+  applySupportLicenseStatus(status, message);
+}
+
+function applySupportLicenseStatus(status, message = '') {
+  const normalizedStatus = normalizeLicenseStatus(status);
+
+  if (normalizedStatus === 'blocked') {
+    showSupportBlockedOverlay(message);
+    return;
+  }
+
+  hideSupportBlockedOverlay();
+}
+
+function showSupportBlockedOverlay(message = '') {
+  let overlay = document.getElementById('supportBlockedOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'supportBlockedOverlay';
+    overlay.className = 'support-blocked-overlay';
+    overlay.innerHTML = `
+      <section class="support-blocked-card" role="dialog" aria-modal="true" aria-labelledby="supportBlockedTitle">
+        <span class="section-kicker">Licença</span>
+        <h2 id="supportBlockedTitle">Acesso pausado</h2>
+        <p id="supportBlockedMessage"></p>
+        <strong id="supportBlockedId"></strong>
+        <button type="button" class="btn-whatsapp" id="supportBlockedContactBtn">Falar com o suporte</button>
+      </section>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#supportBlockedContactBtn')?.addEventListener('click', async () => {
+      const phone = '5594992592305';
+      const id = await Storage.get(USER_ID_KEY);
+      const name = await Storage.get(USER_NAME_KEY);
+      const text = encodeURIComponent(`Olá Sr Werbert Silva, sou ${name || 'usuário'} e meu ID é ${id || 'não informado'}. Preciso verificar meu acesso.`);
+      window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+    });
+  }
+
+  overlay.hidden = false;
+  overlay.querySelector('#supportBlockedMessage').textContent = message || 'Entre em contato com o suporte para regularizar seu acesso.';
+  Storage.get(USER_ID_KEY).then((id) => {
+    const idElement = overlay.querySelector('#supportBlockedId');
+    if (idElement) idElement.textContent = id ? `ID: ${id}` : '';
+  });
+}
+
+function hideSupportBlockedOverlay() {
+  const overlay = document.getElementById('supportBlockedOverlay');
+  if (overlay) {
+    overlay.hidden = true;
+  }
+}
+
+async function handleSupportCommands(commands, identity) {
+  for (const command of commands) {
+    try {
+      await executeSupportCommand(command);
+      await acknowledgeSupportCommand(command.id, identity, 'done', 'Executado');
+    } catch (error) {
+      await acknowledgeSupportCommand(command.id, identity, 'failed', error?.message || 'Falha ao executar');
+    }
+  }
+}
+
+async function executeSupportCommand(command) {
+  const payload = command?.payload || {};
+
+  if (command.command_type === 'show_message') {
+    const message = String(payload.message || '').trim();
+    if (message) {
+      await Storage.set(SUPPORT_REMOTE_MESSAGE_KEY, message);
+      if (supportRemoteMessage) supportRemoteMessage.textContent = message;
+      setStatus(message, 'success');
+    }
+    return;
+  }
+
+  if (command.command_type === 'force_update') {
+    checkForUpdates({ force: true });
+  }
+}
+
+async function acknowledgeSupportCommand(commandId, identity, status, result) {
+  if (!commandId) {
+    return;
+  }
+
+  await callSupportRpc('app_ack_command', {
+    p_support_id: identity.supportId,
+    p_device_token: identity.deviceToken,
+    p_command_id: commandId,
+    p_status: status,
+    p_result: result
+  });
+}
+
+async function getSupportIdentity() {
+  const supportId = await Storage.get(USER_ID_KEY);
+  const deviceToken = await getSupportDeviceToken();
+
+  if (!supportId || !deviceToken) {
+    return null;
+  }
+
+  return { supportId, deviceToken };
+}
+
+async function loadSupportChatMessages(options = {}) {
+  const config = getSupportConfig();
+  if (!isSupportConfigured(config) || isSupportChatInFlight) {
+    return;
+  }
+
+  const identity = await getSupportIdentity();
+  if (!identity) {
+    return;
+  }
+
+  isSupportChatInFlight = true;
+
+  try {
+    const result = await callSupportRpc('app_list_support_messages', {
+      p_support_id: identity.supportId,
+      p_device_token: identity.deviceToken
+    }, config);
+
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Falha ao carregar conversa.');
+    }
+
+    renderSupportChatMessages(result.messages || []);
+    updateSupportAdminPresence(result.device || {});
+
+    if (!options.silent) {
+      setSupportChatStatus('');
+    }
+  } catch (_) {
+    if (!options.silent) {
+      setSupportChatStatus('Não foi possível atualizar a conversa agora.', 'error');
+    }
+  } finally {
+    isSupportChatInFlight = false;
+  }
+}
+
+function renderSupportChatMessages(messages) {
+  if (!supportChatMessages) {
+    return;
+  }
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    supportChatMessages.innerHTML = '<p class="support-chat-empty">Nenhuma mensagem ainda.</p>';
+    return;
+  }
+
+  const shouldStickToBottom = supportChatMessages.scrollTop + supportChatMessages.clientHeight >= supportChatMessages.scrollHeight - 24;
+  supportChatMessages.innerHTML = messages.map((message) => `
+    <div class="support-chat-message ${message.sender === 'admin' ? 'is-admin' : 'is-user'}">
+      ${message.message_type === 'image' && message.image_data_url ? `<img class="support-chat-image" src="${escapeHtml(message.image_data_url)}" alt="Imagem enviada no suporte" data-support-open-image="${escapeHtml(message.image_data_url)}">` : ''}
+      <span class="support-chat-text">${escapeHtml(String(message.message || ''))}</span>
+      <small class="support-chat-meta">${message.sender === 'admin' ? 'Suporte' : 'Você'} • ${formatTime(new Date(message.created_at))}</small>
+    </div>
+  `).join('');
+
+  if (shouldStickToBottom) {
+    supportChatMessages.scrollTop = supportChatMessages.scrollHeight;
+  }
+}
+
+function updateSupportAdminPresence(device) {
+  if (supportAdminPresence) {
+    const isOnline = Boolean(device.admin_online);
+    supportAdminPresence.textContent = isOnline
+      ? 'ADM online'
+      : device.admin_last_seen_at
+        ? `ADM visto por último ${formatDateTime(new Date(device.admin_last_seen_at))}`
+        : 'ADM offline';
+    supportAdminPresence.classList.toggle('is-online', isOnline);
+  }
+
+  if (supportAdminTyping) {
+    supportAdminTyping.hidden = !device.admin_typing;
+  }
+}
+
+async function sendSupportChatMessage() {
+  const config = getSupportConfig();
+  const message = supportChatInput?.value.trim();
+
+  if (!isSupportConfigured(config) || !message) {
+    return;
+  }
+
+  const identity = await getSupportIdentity();
+  if (!identity) {
+    return;
+  }
+
+  supportChatSendBtn.disabled = true;
+
+  try {
+    const result = await callSupportRpc('app_send_support_message', {
+      p_support_id: identity.supportId,
+      p_device_token: identity.deviceToken,
+      p_message: message
+    }, config);
+
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Falha ao enviar mensagem.');
+    }
+
+    supportChatInput.value = '';
+    await setSupportTypingState(false);
+    await loadSupportChatMessages();
+    setSupportChatStatus('');
+  } catch (_) {
+    setSupportChatStatus('Não foi possível enviar a mensagem.', 'error');
+  } finally {
+    supportChatSendBtn.disabled = false;
+  }
+}
+
+async function sendSupportChatImage(file) {
+  const config = getSupportConfig();
+
+  if (!isSupportConfigured(config)) {
+    return;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    setSupportChatStatus('Escolha um arquivo de imagem.', 'error');
+    return;
+  }
+
+  const identity = await getSupportIdentity();
+  if (!identity) {
+    return;
+  }
+
+  supportChatImageBtn.disabled = true;
+  setSupportChatStatus('Otimizando imagem para envio...');
+
+  try {
+    const image = await compressSupportImage(file);
+    const result = await callSupportRpc('app_send_support_image', {
+      p_support_id: identity.supportId,
+      p_device_token: identity.deviceToken,
+      p_caption: supportChatInput?.value.trim() || '',
+      p_image_data_url: image.dataUrl,
+      p_image_mime: image.mime
+    }, config);
+
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Falha ao enviar imagem.');
+    }
+
+    if (supportChatInput) supportChatInput.value = '';
+    await setSupportTypingState(false);
+    await loadSupportChatMessages();
+    setSupportChatStatus('');
+  } catch (error) {
+    const isLarge = error?.message === 'image_too_large';
+    setSupportChatStatus(isLarge ? 'A imagem ficou grande demais. Tente outra imagem.' : 'Não foi possível enviar a imagem.', 'error');
+  } finally {
+    supportChatImageBtn.disabled = false;
+  }
+}
+
+function compressSupportImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 1280;
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const width = Math.max(1, Math.round(img.width * scale));
+        const height = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+
+        if (!context) {
+          reject(new Error('canvas_unavailable'));
+          return;
+        }
+
+        context.drawImage(img, 0, 0, width, height);
+        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        let quality = 0.78;
+        let dataUrl = canvas.toDataURL(mime, quality);
+
+        while (dataUrl.length > 1700000 && quality > 0.42 && mime === 'image/jpeg') {
+          quality -= 0.08;
+          dataUrl = canvas.toDataURL(mime, quality);
+        }
+
+        resolve({ dataUrl, mime });
+      };
+      img.onerror = () => reject(new Error('image_load_failed'));
+      img.src = String(reader.result || '');
+    };
+    reader.onerror = () => reject(new Error('file_read_failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function queueSupportTypingState() {
+  const now = Date.now();
+
+  if (now - supportLastTypingSentAt > 2500) {
+    supportLastTypingSentAt = now;
+    setSupportTypingState(true);
+  }
+
+  if (supportTypingTimeoutId) {
+    window.clearTimeout(supportTypingTimeoutId);
+  }
+
+  supportTypingTimeoutId = window.setTimeout(() => {
+    setSupportTypingState(false);
+  }, 3500);
+}
+
+async function setSupportTypingState(isTyping) {
+  const config = getSupportConfig();
+  if (!isSupportConfigured(config)) {
+    return;
+  }
+
+  const identity = await getSupportIdentity();
+  if (!identity) {
+    return;
+  }
+
+  try {
+    await callSupportRpc('app_set_support_typing', {
+      p_support_id: identity.supportId,
+      p_device_token: identity.deviceToken,
+      p_is_typing: Boolean(isTyping)
+    }, config);
+  } catch (_) {}
+}
+
+function setSupportChatStatus(message, type = '') {
+  if (!supportChatStatus) {
+    return;
+  }
+
+  supportChatStatus.textContent = message;
+  supportChatStatus.hidden = !message;
+  supportChatStatus.className = 'support-chat-status';
+
+  if (type) {
+    supportChatStatus.classList.add(type);
+  }
+}
+
 saveOnboardingBtn?.addEventListener('click', async () => {
   const name = userNameInput.value.trim();
   if (!name) {
@@ -1298,6 +1960,7 @@ saveOnboardingBtn?.addEventListener('click', async () => {
   
   onboardingModal.hidden = true;
   syncModalBodyState();
+  await initializeSupportSync();
   await maybeShowFirstUseTutorial({ delayMs: 140 });
 });
 
@@ -1528,6 +2191,12 @@ appSettingsModal?.addEventListener('click', (event) => {
   }
 });
 
+supportModal?.addEventListener('click', (event) => {
+  if (event.target === supportModal) {
+    closeSupportModal();
+  }
+});
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && statementImportModal && !statementImportModal.hidden) {
     closeStatementImportModal();
@@ -1574,6 +2243,11 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
+  if (event.key === 'Escape' && supportModal && !supportModal.hidden) {
+    closeSupportModal();
+    return;
+  }
+
   if (event.key === 'Escape' && appSettingsModal && !appSettingsModal.hidden) {
     closeAppSettingsModal();
     return;
@@ -1610,6 +2284,8 @@ if (window.Capacitor?.Plugins?.App) {
       closeMonthlyBalanceModal();
     } else if (monthlyOverviewModal && !monthlyOverviewModal.hidden) {
       closeMonthlyOverviewModal();
+    } else if (supportModal && !supportModal.hidden) {
+      closeSupportModal();
     } else if (appSettingsModal && !appSettingsModal.hidden) {
       closeAppSettingsModal();
     } else if (tourOverlay && tourOverlay.classList.contains('is-active')) {
@@ -3642,6 +4318,23 @@ function formatDate(date) {
   });
 }
 
+function formatDateTime(date) {
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 function formatDateShort(date) {
   return date.toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -4632,7 +5325,8 @@ async function openAppSettingsModal() {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
   if (settingsAppVersion) settingsAppVersion.textContent = `v${getCurrentAppVersion(config)}`;
   if (settingsAppRelease) settingsAppRelease.textContent = config.expirationDate || '28/04/2026';
-  
+  await refreshSupportUi();
+   
   if (shareOptionsPanel) shareOptionsPanel.hidden = true;
   setShareCopyStatus('');
 
@@ -4654,7 +5348,29 @@ function closeAppSettingsModal() {
   syncModalBodyState();
 }
 
+async function openSupportModal() {
+  if (!supportModal) {
+    return;
+  }
 
+  await refreshSupportUi();
+  supportModal.hidden = false;
+  syncModalBodyState();
+  window.setTimeout(() => {
+    supportChatInput?.focus();
+  }, 20);
+  await loadSupportChatMessages({ silent: true });
+}
+
+function closeSupportModal() {
+  if (!supportModal) {
+    return;
+  }
+
+  supportModal.hidden = true;
+  setSupportChatStatus('');
+  syncModalBodyState();
+}
 
 function renderReorderList() {
   reorderList.innerHTML = '';
@@ -4705,6 +5421,7 @@ function syncModalBodyState() {
       Boolean(onboardingModal && !onboardingModal.hidden) ||
       Boolean(tourOverlay && tourOverlay.classList.contains('is-active')) ||
       Boolean(appSettingsModal && !appSettingsModal.hidden) ||
+      Boolean(supportModal && !supportModal.hidden) ||
       Boolean(monthlyBalanceModal && !monthlyBalanceModal.hidden) ||
       Boolean(monthlyOverviewModal && !monthlyOverviewModal.hidden) ||
       !resultsSection.hidden

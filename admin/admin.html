@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Admin - Controle de Dividas</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <section class="login-panel" id="loginPanel">
+      <span class="kicker">Controle de Dividas</span>
+      <h1>Painel admin</h1>
+      <p>Acesse com o usuario autorizado no Supabase para acompanhar suporte, licenca e comandos remotos.</p>
+      <div class="admin-meta">
+        <span>Versao do painel: <strong>0.1.0</strong></span>
+        <span>Desenvolvido por <strong>Werbert Silva</strong></span>
+      </div>
+      <form id="loginForm" class="login-form">
+        <label>
+          E-mail
+          <input type="email" id="adminEmail" autocomplete="email" placeholder="voce@email.com" required>
+        </label>
+        <label>
+          Senha
+          <input type="password" id="adminPassword" autocomplete="current-password" placeholder="Sua senha" required>
+        </label>
+        <button type="submit" id="loginBtn">Entrar</button>
+      </form>
+      <p class="status" id="loginStatus" hidden></p>
+    </section>
+
+    <section class="dashboard" id="dashboard" hidden>
+      <header class="topbar">
+        <div>
+          <span class="kicker">Suporte e licenca</span>
+          <h1>Dispositivos ativos</h1>
+          <p class="admin-version-line">Painel v0.1.0 - Desenvolvido por Werbert Silva</p>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" id="refreshBtn">Atualizar</button>
+          <button type="button" id="logoutBtn">Sair</button>
+        </div>
+      </header>
+
+      <section class="admin-stats" aria-label="Resumo do atendimento">
+        <article class="admin-stat">
+          <span>Total</span>
+          <strong id="totalDevicesStat">0</strong>
+        </article>
+        <article class="admin-stat">
+          <span>Online</span>
+          <strong id="onlineDevicesStat">0</strong>
+        </article>
+        <article class="admin-stat">
+          <span>Mensagens</span>
+          <strong id="unreadMessagesStat">0</strong>
+        </article>
+        <article class="admin-stat">
+          <span>Bloqueados</span>
+          <strong id="blockedDevicesStat">0</strong>
+        </article>
+      </section>
+
+      <div class="workspace">
+        <aside class="device-list-panel">
+          <input type="search" id="deviceSearch" placeholder="Buscar por nome ou ID">
+          <div class="device-list" id="deviceList"></div>
+        </aside>
+
+        <section class="device-detail" id="deviceDetail">
+          <div class="empty-state">
+            <strong>Selecione um dispositivo</strong>
+            <p>Use o ID informado pelo usuario para localizar rapidamente o cadastro.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="supabase-config.js"></script>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

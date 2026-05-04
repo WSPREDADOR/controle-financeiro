@@ -1,8 +1,8 @@
 {
-  "version": "2.3.4",
-  "notes": "Atualizacao para aplicar o icone do app nas notificacoes e publicar o bundle atualizado.",
+  "version": "2.3.5",
+  "notes": "Painel admin com monitoramento de dispositivos, sincronizacao automatica de suporte, chat no app com envio de imagem e melhorias visuais no atendimento.",
   "publishedAt": "2026-05-04",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777906429926",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777906429926",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.4/Controle.de.Dividas.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777918158111",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777918158111",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.5/Controle.de.Dividas.apk"
 }

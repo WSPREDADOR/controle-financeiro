@@ -61,7 +61,7 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.3.4</strong>
+            <strong id="appVersionLabel">v2.3.5</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
@@ -142,7 +142,18 @@
               </div>
               <p class="settings-info-text">Este aplicativo foi projetado para funcionar totalmente offline, garantindo a privacidade dos seus dados financeiros.</p>
             </div>
-            
+
+            <div class="settings-section support-license-section" id="supportLicenseSection">
+              <div class="support-entry-card">
+                <div>
+                  <span class="section-kicker">Suporte e licença</span>
+                  <h3>Atendimento</h3>
+                  <p>Abra o canal de suporte quando precisar de ajuda, avisos ou liberação premium.</p>
+                </div>
+                <button type="button" class="btn-primary support-open-btn" id="openSupportModalBtn">Falar com suporte</button>
+              </div>
+            </div>
+             
             <!-- Seção de permissões removida para simplificação -->
           </div>
 
@@ -194,6 +205,70 @@
               <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.414 0 .018 5.396.015 12.03c0 2.12.554 4.189 1.608 6.06L0 24l6.117-1.605a11.782 11.782 0 005.925 1.599h.005c6.635 0 12.032-5.396 12.035-12.031a11.78 11.78 0 00-3.418-8.527z"/></svg>
               Falar Com o Desenvolvedor
             </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-overlay" id="supportModal" hidden>
+      <section class="edit-modal support-modal" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle">
+        <div class="modal-header">
+          <div class="modal-heading">
+            <span class="section-kicker">Suporte e licença</span>
+            <h2 id="supportModalTitle">Status do atendimento</h2>
+            <p>Canal seguro para atendimento, avisos e liberação premium.</p>
+          </div>
+          <button type="button" class="modal-close-btn" id="closeSupportModalBtn" aria-label="Fechar suporte" title="Fechar">
+            ×
+          </button>
+        </div>
+
+        <div class="support-modal-body">
+          <div class="support-license-heading">
+            <div>
+              <span class="section-kicker">Licença</span>
+              <h3>Atendimento remoto</h3>
+            </div>
+            <strong class="support-license-badge" id="supportLicenseBadge">Offline</strong>
+          </div>
+          <p class="settings-info-text">Quando houver internet, o app pode enviar seu nome, ID de suporte, versão e informações básicas do dispositivo para facilitar atendimento, liberação premium e avisos importantes.</p>
+          <div class="app-details-grid support-license-grid">
+            <div class="app-details-item">
+              <span class="app-details-label">Conexão</span>
+              <strong class="app-details-value" id="supportConnectionStatus">Não configurado</strong>
+            </div>
+            <div class="app-details-item">
+              <span class="app-details-label">Último contato</span>
+              <strong class="app-details-value" id="supportLastCheckIn">Nunca</strong>
+            </div>
+            <div class="app-details-item" style="grid-column: 1 / -1;">
+              <span class="app-details-label">Aviso do suporte</span>
+              <strong class="app-details-value" id="supportRemoteMessage">Nenhum aviso.</strong>
+            </div>
+          </div>
+          <div class="support-chat-panel" id="supportChatPanel">
+            <div class="support-chat-header">
+              <div>
+                <span class="section-kicker">Conversa</span>
+                <h3>Falar com suporte</h3>
+              </div>
+              <strong id="supportAdminPresence">ADM offline</strong>
+            </div>
+            <div class="support-chat-messages" id="supportChatMessages" aria-live="polite">
+              <p class="support-chat-empty">Nenhuma mensagem ainda.</p>
+            </div>
+            <p class="support-chat-typing" id="supportAdminTyping" hidden>ADM digitando...</p>
+            <div class="support-chat-compose">
+              <button type="button" class="support-chat-icon-btn" id="supportChatImageBtn" aria-label="Anexar imagem" title="Anexar imagem">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 6.5v9.25a4.5 4.5 0 0 1-9 0V6.25a3.25 3.25 0 0 1 6.5 0v8.75a2 2 0 0 1-4 0V7.5a1 1 0 1 1 2 0v7.5h0a.25.25 0 0 0 .5 0V6.25a1.75 1.75 0 0 0-3.5 0v9.5a3 3 0 0 0 6 0V6.5a1 1 0 1 1 2 0Z"/></svg>
+              </button>
+              <input type="file" id="supportChatImageInput" accept="image/jpeg,image/png,image/webp" hidden>
+              <input type="text" id="supportChatInput" maxlength="1200" placeholder="Digite sua mensagem para o suporte">
+              <button type="button" class="support-chat-send-btn" id="supportChatSendBtn" aria-label="Enviar mensagem" title="Enviar mensagem">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4 21.2 12 3.4 3.6a1 1 0 0 0-1.35 1.17L3.7 11H12a1 1 0 1 1 0 2H3.7l-1.65 6.23A1 1 0 0 0 3.4 20.4Z"/></svg>
+              </button>
+            </div>
+            <p class="support-chat-status" id="supportChatStatus" hidden></p>
           </div>
         </div>
       </section>
@@ -998,6 +1073,7 @@
     </section>
   </div>
 
+  <script data-cf-original="support-config" src="support-config.js"></script>
   <script data-cf-original="update-config" src="update-config.js"></script>
   <script data-cf-original="script" src="script.js"></script>
 </body>
