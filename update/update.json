@@ -1,6 +1,6 @@
 {
-  "version": "2.3.3",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.3/Controle.de.Dividas.apk",
-  "notes": "Atualizacao do aplicativo Android via APK na versao 2.3.3.",
+  "version": "2.3.4",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.4/Controle.de.Dividas.apk",
+  "notes": "Atualizacao para aplicar o icone do app nas notificacoes e publicar o bundle atualizado.",
   "publishedAt": "2026-05-04"
 }
