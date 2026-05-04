@@ -65,6 +65,44 @@ const plansList = document.getElementById('plansList');
 const selectedPlanTitle = document.getElementById('selectedPlanTitle');
 const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
 const openCreateModalBtn = document.getElementById('openCreateModalBtn');
+const openStatementImportModalBtn = document.getElementById('openStatementImportModalBtn');
+const statementImportModal = document.getElementById('statementImportModal');
+const closeStatementImportModalBtn = document.getElementById('closeStatementImportModalBtn');
+const cancelStatementImportBtn = document.getElementById('cancelStatementImportBtn');
+const backStatementImportBtn = document.getElementById('backStatementImportBtn');
+const analyzeStatementFileBtn = document.getElementById('analyzeStatementFileBtn');
+const confirmStatementImportBtn = document.getElementById('confirmStatementImportBtn');
+const statementFileInput = document.getElementById('statementFileInput');
+const statementFileName = document.getElementById('statementFileName');
+const statementFileStage = document.getElementById('statementFileStage');
+const statementReadingStage = document.getElementById('statementReadingStage');
+const statementReviewStage = document.getElementById('statementReviewStage');
+const statementDetectedBank = document.getElementById('statementDetectedBank');
+const statementDetectedCount = document.getElementById('statementDetectedCount');
+const statementDetectedTotal = document.getElementById('statementDetectedTotal');
+const statementDetectedList = document.getElementById('statementDetectedList');
+const statementImportStatus = document.getElementById('statementImportStatus');
+const openBankImportModalBtn = document.getElementById('openBankImportModalBtn');
+const bankImportModal = document.getElementById('bankImportModal');
+const closeBankImportModalBtn = document.getElementById('closeBankImportModalBtn');
+const cancelBankImportBtn = document.getElementById('cancelBankImportBtn');
+const backBankImportBtn = document.getElementById('backBankImportBtn');
+const continueBankConsentBtn = document.getElementById('continueBankConsentBtn');
+const simulateBankReadBtn = document.getElementById('simulateBankReadBtn');
+const confirmBankImportBtn = document.getElementById('confirmBankImportBtn');
+const bankSelectStage = document.getElementById('bankSelectStage');
+const bankConsentStage = document.getElementById('bankConsentStage');
+const bankReadingStage = document.getElementById('bankReadingStage');
+const bankReviewStage = document.getElementById('bankReviewStage');
+const bankPickerGrid = document.getElementById('bankPickerGrid');
+const bankConsentTitle = document.getElementById('bankConsentTitle');
+const bankConsentDescription = document.getElementById('bankConsentDescription');
+const bankPermissionsGrid = document.getElementById('bankPermissionsGrid');
+const bankDetectedList = document.getElementById('bankDetectedList');
+const bankConfirmedCount = document.getElementById('bankConfirmedCount');
+const bankReviewCount = document.getElementById('bankReviewCount');
+const bankDetectedTotal = document.getElementById('bankDetectedTotal');
+const bankImportStatus = document.getElementById('bankImportStatus');
 const plansFilterNav = document.getElementById('plansFilterNav');
 const openReorderModalBtn = document.getElementById('openReorderModalBtn');
 const openMonthlyBalanceModalBtn = document.getElementById('openMonthlyBalanceModalBtn');
@@ -171,6 +209,186 @@ let paymentNotificationListenersRegistered = false;
 let notificationBannerMode = 'notification';
 let bulkPaymentModalMode = 'create';
 let currentTutorialStep = 0;
+let bankDetectedItems = [];
+let selectedBankId = null;
+let currentBankImportStage = 'select';
+let statementDetectedItems = [];
+let statementImportFile = null;
+let statementImportStage = 'file';
+let statementImportBankName = '--';
+
+const BANK_PERMISSION_LABELS = {
+  cards: 'Faturas de cartão',
+  credit: 'Operações de crédito',
+  account: 'Transações de conta'
+};
+
+const BANK_IMPORT_PROVIDERS = [
+  {
+    id: 'nubank',
+    name: 'Nubank',
+    shortName: 'Nu',
+    permissions: ['cards', 'credit', 'account'],
+    description: 'Cartões, conta digital e empréstimos disponíveis no fluxo simulado.',
+    items: [
+      {
+        id: 'nubank-card-2026-05',
+        name: 'Fatura Nubank',
+        bank: 'Nubank',
+        kind: 'Cartão de crédito',
+        dueDate: '2026-05-10',
+        amount: 842.31,
+        confidence: 98,
+        status: 'confirmed',
+        evidence: 'Fatura aberta com vencimento e total informados pela API de cartão.'
+      },
+      {
+        id: 'nubank-loan-2026-05',
+        name: 'Empréstimo Nubank',
+        bank: 'Nubank',
+        kind: 'Operação de crédito',
+        dueDate: '2026-05-18',
+        amount: 389.9,
+        confidence: 94,
+        status: 'confirmed',
+        evidence: 'Contrato ativo com próxima parcela e saldo devedor disponíveis.'
+      },
+      {
+        id: 'nubank-card-open-2026-05',
+        name: 'Fatura Nubank em fechamento',
+        bank: 'Nubank',
+        kind: 'Cartão de crédito',
+        dueDate: '2026-05-22',
+        amount: 217.48,
+        confidence: 72,
+        status: 'review',
+        evidence: 'Há compras recentes e vencimento provável, mas a fatura ainda não fechou.'
+      }
+    ]
+  },
+  {
+    id: 'itau',
+    name: 'Itaú',
+    shortName: 'Itaú',
+    permissions: ['cards', 'credit', 'account'],
+    description: 'Cartão, conta corrente e contratos de crédito.',
+    items: [
+      {
+        id: 'itau-card-2026-05',
+        name: 'Fatura Itaú',
+        bank: 'Itaú',
+        kind: 'Cartão de crédito',
+        dueDate: '2026-05-15',
+        amount: 654.2,
+        confidence: 96,
+        status: 'confirmed',
+        evidence: 'Fatura fechada com valor total e vencimento retornados pela API.'
+      },
+      {
+        id: 'itau-credit-2026-05',
+        name: 'Parcela Crédito Pessoal Itaú',
+        bank: 'Itaú',
+        kind: 'Operação de crédito',
+        dueDate: '2026-05-27',
+        amount: 512.75,
+        confidence: 91,
+        status: 'confirmed',
+        evidence: 'Contrato ativo com próxima parcela em aberto.'
+      }
+    ]
+  },
+  {
+    id: 'bb',
+    name: 'Banco do Brasil',
+    shortName: 'BB',
+    permissions: ['cards', 'credit', 'account'],
+    description: 'Conta, cartão e crédito consignado/pessoal.',
+    items: [
+      {
+        id: 'bb-card-2026-05',
+        name: 'Fatura Banco do Brasil',
+        bank: 'Banco do Brasil',
+        kind: 'Cartão de crédito',
+        dueDate: '2026-05-20',
+        amount: 328.64,
+        confidence: 95,
+        status: 'confirmed',
+        evidence: 'Fatura fechada identificada no endpoint de cartão.'
+      },
+      {
+        id: 'bb-future-card-2026-06',
+        name: 'Fatura parcial Banco do Brasil',
+        bank: 'Banco do Brasil',
+        kind: 'Cartão de crédito',
+        dueDate: '2026-06-20',
+        amount: 109.99,
+        confidence: 68,
+        status: 'review',
+        evidence: 'Valor parcial de compras futuras; fatura ainda aberta.'
+      }
+    ]
+  },
+  {
+    id: 'caixa',
+    name: 'Caixa',
+    shortName: 'Caixa',
+    permissions: ['credit', 'account'],
+    description: 'Conta e contratos ativos; cartão depende da disponibilidade da instituição.',
+    items: [
+      {
+        id: 'caixa-housing-2026-05',
+        name: 'Financiamento Caixa',
+        bank: 'Caixa',
+        kind: 'Operação de crédito',
+        dueDate: '2026-05-12',
+        amount: 735.18,
+        confidence: 93,
+        status: 'confirmed',
+        evidence: 'Próxima parcela de contrato ativo retornada no compartilhamento.'
+      }
+    ]
+  },
+  {
+    id: 'santander',
+    name: 'Santander',
+    shortName: 'SAN',
+    permissions: ['cards', 'credit', 'account'],
+    description: 'Cartões, conta e empréstimos.',
+    items: [
+      {
+        id: 'santander-card-2026-05',
+        name: 'Fatura Santander',
+        bank: 'Santander',
+        kind: 'Cartão de crédito',
+        dueDate: '2026-05-08',
+        amount: 476.53,
+        confidence: 97,
+        status: 'confirmed',
+        evidence: 'Fatura aberta para pagamento com vencimento definido.'
+      }
+    ]
+  },
+  {
+    id: 'inter',
+    name: 'Inter',
+    shortName: 'Inter',
+    permissions: ['cards', 'account'],
+    description: 'Cartão e conta digital.',
+    items: [
+      {
+        id: 'inter-card-2026-05',
+        name: 'Fatura Inter',
+        bank: 'Inter',
+        kind: 'Cartão de crédito',
+        dueDate: '2026-05-25',
+        amount: 286.41,
+        confidence: 96,
+        status: 'confirmed',
+        evidence: 'Fatura fechada disponível no compartilhamento de cartão.'
+      }
+    ]
+  }
+];
 
 const bulkPaymentModal = document.getElementById('bulkPaymentModal');
 const bulkPaymentValueInput = document.getElementById('bulkPaymentValue');
@@ -348,7 +566,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.2',
+  currentVersion: '2.3.3',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -733,6 +951,34 @@ reorderList.addEventListener('pointercancel', finishReorderPointerDrag);
 
 openCreateModalBtn.addEventListener('click', () => {
   openCreateModal();
+});
+
+openStatementImportModalBtn?.addEventListener('click', openStatementImportModal);
+closeStatementImportModalBtn?.addEventListener('click', closeStatementImportModal);
+cancelStatementImportBtn?.addEventListener('click', closeStatementImportModal);
+backStatementImportBtn?.addEventListener('click', () => setStatementImportStage('file'));
+analyzeStatementFileBtn?.addEventListener('click', analyzeStatementImportFile);
+confirmStatementImportBtn?.addEventListener('click', confirmStatementDetectedItems);
+statementFileInput?.addEventListener('change', handleStatementFileSelection);
+
+statementImportModal?.addEventListener('click', (event) => {
+  if (event.target === statementImportModal) {
+    closeStatementImportModal();
+  }
+});
+
+openBankImportModalBtn?.addEventListener('click', openBankImportModal);
+closeBankImportModalBtn?.addEventListener('click', closeBankImportModal);
+cancelBankImportBtn?.addEventListener('click', closeBankImportModal);
+backBankImportBtn?.addEventListener('click', goBackBankImportStage);
+continueBankConsentBtn?.addEventListener('click', continueBankImportConsent);
+simulateBankReadBtn?.addEventListener('click', simulateBankImportRead);
+confirmBankImportBtn?.addEventListener('click', confirmBankDetectedItems);
+
+bankImportModal?.addEventListener('click', (event) => {
+  if (event.target === bankImportModal) {
+    closeBankImportModal();
+  }
 });
 
 editForm.addEventListener('submit', (event) => {
@@ -1283,6 +1529,16 @@ appSettingsModal?.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && statementImportModal && !statementImportModal.hidden) {
+    closeStatementImportModal();
+    return;
+  }
+
+  if (event.key === 'Escape' && bankImportModal && !bankImportModal.hidden) {
+    closeBankImportModal();
+    return;
+  }
+
   if (event.key === 'Escape' && !createModal.hidden) {
     closeCreateModal();
     return;
@@ -1336,7 +1592,11 @@ document.addEventListener('keydown', (event) => {
 
 if (window.Capacitor?.Plugins?.App) {
   window.Capacitor.Plugins.App.addListener('backButton', () => {
-    if (!createModal.hidden) {
+    if (statementImportModal && !statementImportModal.hidden) {
+      closeStatementImportModal();
+    } else if (bankImportModal && !bankImportModal.hidden) {
+      closeBankImportModal();
+    } else if (!createModal.hidden) {
       closeCreateModal();
     } else if (!editModal.hidden) {
       closeEditModal();
@@ -3404,6 +3664,774 @@ function formatMonthYearCompact(date) {
   });
 }
 
+function openStatementImportModal() {
+  if (!statementImportModal) {
+    return;
+  }
+
+  statementDetectedItems = [];
+  statementImportFile = null;
+  statementImportBankName = '--';
+  if (statementFileInput) statementFileInput.value = '';
+  if (statementFileName) statementFileName.textContent = 'Escolher OFX, CSV ou PDF';
+  setStatementImportStage('file');
+  setStatementImportStatus('', '');
+  statementImportModal.hidden = false;
+  syncModalBodyState();
+
+  window.setTimeout(() => {
+    statementFileInput?.focus();
+  }, 20);
+}
+
+function closeStatementImportModal() {
+  if (!statementImportModal) {
+    return;
+  }
+
+  statementImportModal.hidden = true;
+  setStatementImportStatus('', '');
+  syncModalBodyState();
+}
+
+function handleStatementFileSelection() {
+  statementImportFile = statementFileInput?.files?.[0] ?? null;
+  if (statementFileName) {
+    statementFileName.textContent = statementImportFile?.name || 'Escolher OFX, CSV ou PDF';
+  }
+  if (analyzeStatementFileBtn) {
+    analyzeStatementFileBtn.disabled = !statementImportFile;
+  }
+  setStatementImportStatus('', '');
+}
+
+function setStatementImportStage(stage) {
+  statementImportStage = stage;
+  const isFile = stage === 'file';
+  const isReading = stage === 'reading';
+  const isReview = stage === 'review';
+
+  if (statementFileStage) statementFileStage.hidden = !isFile;
+  if (statementReadingStage) statementReadingStage.hidden = !isReading;
+  if (statementReviewStage) statementReviewStage.hidden = !isReview;
+
+  document.querySelectorAll('[data-statement-step]').forEach((step) => {
+    const stepOrder = ['file', 'reading', 'review'];
+    const activeIndex = stepOrder.indexOf(stage);
+    const stepIndex = stepOrder.indexOf(step.dataset.statementStep);
+
+    step.classList.toggle('is-active', step.dataset.statementStep === stage);
+    step.classList.toggle('is-complete', stepIndex >= 0 && stepIndex < activeIndex);
+  });
+
+  if (backStatementImportBtn) backStatementImportBtn.hidden = isFile || isReading;
+  if (analyzeStatementFileBtn) {
+    analyzeStatementFileBtn.hidden = !isFile;
+    analyzeStatementFileBtn.disabled = !statementImportFile;
+  }
+  if (confirmStatementImportBtn) {
+    confirmStatementImportBtn.hidden = !isReview;
+  }
+}
+
+async function analyzeStatementImportFile() {
+  if (!statementImportFile) {
+    setStatementImportStatus('Escolha um arquivo OFX, CSV ou PDF para analisar.', 'error');
+    return;
+  }
+
+  setStatementImportStatus('', '');
+  setStatementImportStage('reading');
+
+  try {
+    const content = await readStatementFileAsText(statementImportFile);
+    const result = parseStatementImportContent(content, statementImportFile);
+    statementDetectedItems = result.items;
+    statementImportBankName = result.bankName;
+    renderStatementDetectedItems();
+    setStatementImportStage('review');
+    setStatementImportStatus(result.message, result.items.length > 0 ? 'success' : 'error');
+  } catch {
+    setStatementImportStage('file');
+    setStatementImportStatus('Não foi possível ler esse arquivo. Tente exportar em OFX ou CSV pelo app do banco.', 'error');
+  }
+}
+
+function readStatementFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+function parseStatementImportContent(content, file) {
+  const fileName = file?.name || 'arquivo';
+  const extension = fileName.split('.').pop()?.toLowerCase() || '';
+  const normalizedContent = normalizeStatementText(content);
+  const bankName = detectStatementBank(`${fileName}\n${content}`);
+  const invoices = detectInvoiceSummaries(normalizedContent, bankName, fileName);
+  const transactions = extension === 'ofx'
+    ? parseOfxTransactions(content, bankName, fileName)
+    : parseDelimitedTransactions(content, bankName, fileName);
+  const detectedItems = [...invoices, ...transactions]
+    .filter((item, index, list) => list.findIndex((candidate) => candidate.externalId === item.externalId) === index)
+    .map((item) => ({
+      ...item,
+      selected: item.confidence >= 85 && !isStatementImportDuplicate(item)
+    }));
+
+  const pdfNote = extension === 'pdf'
+    ? ' PDF é experimental; revise os valores antes de adicionar.'
+    : '';
+
+  return {
+    bankName,
+    items: detectedItems,
+    message: detectedItems.length > 0
+      ? `${detectedItems.length} possível ${detectedItems.length === 1 ? 'compromisso encontrado' : 'compromissos encontrados'} em ${fileName}.${pdfNote}`
+      : `Nenhum compromisso claro foi encontrado em ${fileName}. OFX e CSV costumam funcionar melhor que PDF.`
+  };
+}
+
+function normalizeStatementText(value) {
+  return String(value || '')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function detectStatementBank(value) {
+  const text = normalizeStatementText(value);
+  const candidates = [
+    ['Nubank', /\bnubank\b|\bnu pagamentos\b/],
+    ['Itaú', /\bitau\b/],
+    ['Banco do Brasil', /\bbanco do brasil\b|\bbb\b/],
+    ['Caixa', /\bcaixa\b|\bcef\b/],
+    ['Santander', /\bsantander\b/],
+    ['Inter', /\bbanco inter\b|\binter\b/],
+    ['Bradesco', /\bbradesco\b/],
+    ['C6 Bank', /\bc6\b/],
+    ['Mercado Pago', /\bmercado pago\b/]
+  ];
+  const match = candidates.find(([, pattern]) => pattern.test(text));
+  return match?.[0] || 'Banco não identificado';
+}
+
+function detectInvoiceSummaries(text, bankName, fileName) {
+  const invoiceTotalMatch = text.match(/(?:total da fatura|valor da fatura|valor total|total a pagar|pagamento total)[^\d-]{0,28}(-?\s*r?\$?\s*[\d.]+,\d{2})/i);
+  const dueDateMatch = text.match(/(?:vencimento|vence em|data de vencimento)[^\d]{0,24}(\d{2}\/\d{2}\/\d{2,4}|\d{4}-\d{2}-\d{2})/i);
+
+  if (!invoiceTotalMatch || !dueDateMatch) {
+    return [];
+  }
+
+  const amount = Math.abs(parseCurrencyToNumber(invoiceTotalMatch[1]));
+  const dueDate = parseStatementDate(dueDateMatch[1]);
+
+  if (!dueDate || amount <= MONEY_EPSILON) {
+    return [];
+  }
+
+  const externalId = createStatementExternalId(fileName, bankName, 'invoice-summary', dueDate, amount);
+
+  return [{
+    id: externalId,
+    externalId,
+    name: `Fatura ${bankName}`,
+    bank: bankName,
+    kind: 'Fatura importada',
+    dueDate,
+    amount: roundMoney(amount),
+    confidence: 92,
+    status: 'confirmed',
+    evidence: 'Resumo de fatura com total e vencimento encontrados no arquivo.'
+  }];
+}
+
+function parseOfxTransactions(content, bankName, fileName) {
+  const blocks = String(content || '').match(/<STMTTRN>[\s\S]*?(?=<STMTTRN>|<\/BANKTRANLIST>|$)/gi) || [];
+
+  return blocks
+    .map((block, index) => {
+      const amount = Math.abs(Number.parseFloat(readOfxTag(block, 'TRNAMT').replace(',', '.')) || 0);
+      const date = parseStatementDate(readOfxTag(block, 'DTPOSTED'));
+      const description = [readOfxTag(block, 'NAME'), readOfxTag(block, 'MEMO')].filter(Boolean).join(' ');
+      return buildStatementDetectedItem({ amount, date, description, bankName, fileName, rowId: `ofx-${index}` });
+    })
+    .filter(Boolean);
+}
+
+function readOfxTag(block, tag) {
+  const match = String(block || '').match(new RegExp(`<${tag}>([^<\\r\\n]+)`, 'i'));
+  return match?.[1]?.trim() || '';
+}
+
+function parseDelimitedTransactions(content, bankName, fileName) {
+  const lines = String(content || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+
+  return lines
+    .map((line, index) => {
+      const delimiter = line.includes(';') ? ';' : line.includes('\t') ? '\t' : ',';
+      const columns = line.split(delimiter).map((column) => column.trim().replace(/^"|"$/g, ''));
+      const joined = columns.join(' ');
+      const date = parseStatementDate(joined);
+      const amount = findStatementAmount(columns);
+      const description = columns
+        .filter((column) => !parseStatementDate(column) && Math.abs(parseCurrencyToNumber(column)) <= MONEY_EPSILON)
+        .join(' ') || joined;
+
+      return buildStatementDetectedItem({ amount: Math.abs(amount), date, description, bankName, fileName, rowId: `row-${index}` });
+    })
+    .filter(Boolean);
+}
+
+function findStatementAmount(columns) {
+  const numericCandidates = columns
+    .map((column) => parseCurrencyToNumber(column))
+    .filter((value) => Math.abs(value) > MONEY_EPSILON);
+
+  return numericCandidates.at(-1) || 0;
+}
+
+function buildStatementDetectedItem({ amount, date, description, bankName, fileName, rowId }) {
+  if (!date || amount <= MONEY_EPSILON || !looksLikePayableDescription(description)) {
+    return null;
+  }
+
+  const confidence = getStatementConfidence(description);
+  const status = confidence >= 85 ? 'confirmed' : 'review';
+  const name = createStatementItemName(description, bankName);
+  const externalId = createStatementExternalId(fileName, bankName, rowId, date, amount);
+
+  return {
+    id: externalId,
+    externalId,
+    name,
+    bank: bankName,
+    kind: 'Lançamento importado',
+    dueDate: date,
+    amount: roundMoney(amount),
+    confidence,
+    status,
+    evidence: `Encontrado no arquivo: ${description.slice(0, 120)}`
+  };
+}
+
+function looksLikePayableDescription(description) {
+  const text = normalizeStatementText(description);
+  return /\bfatura\b|\bcartao\b|\bcredito\b|\bboleto\b|\bemprest|\bfinanc|\bparcela\b|\bprestacao\b|\bconsignado\b/.test(text);
+}
+
+function getStatementConfidence(description) {
+  const text = normalizeStatementText(description);
+  if (/\bfatura\b.*\bcartao\b|\bcartao\b.*\bfatura\b|total da fatura/.test(text)) return 90;
+  if (/\bemprest|\bfinanc|\bconsignado\b/.test(text)) return 86;
+  if (/\bboleto\b|\bparcela\b|\bprestacao\b/.test(text)) return 76;
+  return 62;
+}
+
+function createStatementItemName(description, bankName) {
+  const text = normalizeStatementText(description);
+  if (/\bfatura\b|\bcartao\b/.test(text)) return `Fatura ${bankName}`;
+  if (/\bemprest|\bfinanc|\bconsignado\b/.test(text)) return `Crédito ${bankName}`;
+  if (/\bboleto\b/.test(text)) return `Boleto ${bankName}`;
+  return `Compromisso ${bankName}`;
+}
+
+function parseStatementDate(value) {
+  const text = String(value || '');
+  const isoOfxMatch = text.match(/(\d{4})(\d{2})(\d{2})/);
+  if (isoOfxMatch) {
+    return `${isoOfxMatch[1]}-${isoOfxMatch[2]}-${isoOfxMatch[3]}`;
+  }
+
+  const brMatch = text.match(/(\d{2})\/(\d{2})\/(\d{2,4})/);
+  if (brMatch) {
+    const year = brMatch[3].length === 2 ? `20${brMatch[3]}` : brMatch[3];
+    return `${year}-${brMatch[2]}-${brMatch[1]}`;
+  }
+
+  const isoMatch = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  return isoMatch ? isoMatch[0] : '';
+}
+
+function createStatementExternalId(fileName, bankName, rowId, dueDate, amount) {
+  const base = `${fileName}|${bankName}|${rowId}|${dueDate}|${roundMoney(amount)}`;
+  let hash = 0;
+  for (let index = 0; index < base.length; index += 1) {
+    hash = ((hash << 5) - hash + base.charCodeAt(index)) | 0;
+  }
+  return `statement:${Math.abs(hash).toString(16)}`;
+}
+
+function renderStatementDetectedItems() {
+  if (!statementDetectedList) {
+    return;
+  }
+
+  if (statementDetectedBank) statementDetectedBank.textContent = statementImportBankName;
+
+  if (statementDetectedItems.length === 0) {
+    statementDetectedList.innerHTML = '<div class="empty-state">Nenhum compromisso claro foi encontrado. Você ainda pode cadastrar manualmente pela tela principal.</div>';
+    updateStatementReviewSummary();
+    return;
+  }
+
+  statementDetectedList.innerHTML = statementDetectedItems.map((item) => {
+    const isConfirmed = item.status === 'confirmed';
+    const isDuplicate = isStatementImportDuplicate(item);
+    const dueDate = formatDate(parseDateInput(item.dueDate));
+    const checkedAttr = item.selected ? 'checked' : '';
+    const disabledAttr = isDuplicate ? 'disabled' : '';
+    const confidenceLabel = isDuplicate ? 'Duplicado' : isConfirmed ? 'Confirmado' : 'Revisar';
+
+    return `
+      <article class="bank-detected-item ${isDuplicate ? 'is-duplicate' : isConfirmed ? 'is-confirmed' : 'needs-review'}">
+        <label class="bank-detected-check">
+          <input type="checkbox" data-statement-detected-id="${escapeHtml(item.id)}" ${checkedAttr} ${disabledAttr}>
+          <span></span>
+        </label>
+        <div class="bank-detected-content">
+          <div class="bank-detected-top">
+            <div>
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>${escapeHtml(item.bank)} • ${escapeHtml(item.kind)}</span>
+            </div>
+            <em class="${isDuplicate ? 'is-muted' : isConfirmed ? 'is-safe' : 'is-warning'}">${confidenceLabel}${isDuplicate ? '' : ` ${item.confidence}%`}</em>
+          </div>
+          <div class="bank-detected-meta">
+            <span>Data ${dueDate}</span>
+            <strong>${formatCurrency(item.amount)}</strong>
+          </div>
+          <p>${escapeHtml(isDuplicate ? 'Este item já foi importado antes e ficará bloqueado para evitar duplicidade.' : item.evidence)}</p>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  statementDetectedList.querySelectorAll('[data-statement-detected-id]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const item = statementDetectedItems.find((entry) => entry.id === checkbox.dataset.statementDetectedId);
+      if (item) {
+        item.selected = checkbox.checked;
+        updateStatementReviewSummary();
+      }
+    });
+  });
+
+  updateStatementReviewSummary();
+}
+
+function updateStatementReviewSummary() {
+  const selectedItems = statementDetectedItems.filter((item) => item.selected && !isStatementImportDuplicate(item));
+  const selectedTotal = selectedItems.reduce((total, item) => total + item.amount, 0);
+
+  if (statementDetectedCount) statementDetectedCount.textContent = String(statementDetectedItems.length);
+  if (statementDetectedTotal) statementDetectedTotal.textContent = formatCurrency(selectedTotal);
+  if (confirmStatementImportBtn) confirmStatementImportBtn.disabled = selectedItems.length === 0;
+}
+
+function confirmStatementDetectedItems() {
+  const selectedItems = statementDetectedItems.filter((item) => item.selected && !isStatementImportDuplicate(item));
+
+  if (selectedItems.length === 0) {
+    setStatementImportStatus('Selecione pelo menos um item novo para adicionar.', 'error');
+    return;
+  }
+
+  const nextPlans = selectedItems.map((item) => ({
+    id: createPlanId(),
+    name: item.name,
+    startDate: item.dueDate,
+    totalMonths: 1,
+    countMode: DEFAULT_COUNT_MODE,
+    planType: PLAN_TYPE_ACCOUNT,
+    isExpense: false,
+    totalValue: roundMoney(item.amount),
+    installmentValue: roundMoney(item.amount),
+    manualMonthValues: {},
+    partialMonthCredits: {},
+    paidMonths: [],
+    importSource: {
+      type: 'statement-file',
+      externalId: item.externalId,
+      bank: item.bank,
+      kind: item.kind,
+      confidence: item.confidence,
+      evidence: item.evidence,
+      fileName: statementImportFile?.name || '',
+      importedAt: new Date().toISOString()
+    }
+  }));
+
+  plans.unshift(...nextPlans);
+  selectedPlanId = nextPlans[0].id;
+  savePlans();
+  renderPlansList();
+  renderPlanDetails(nextPlans[0], { resetTimelineScroll: true });
+  closeStatementImportModal();
+  setStatus(`${nextPlans.length} ${nextPlans.length === 1 ? 'compromisso foi adicionado' : 'compromissos foram adicionados'} pela importação gratuita.`, 'success');
+  scrollToSection(plansPanel);
+}
+
+function isStatementImportDuplicate(item) {
+  return plans.some((plan) => plan.importSource?.externalId === item.externalId);
+}
+
+function setStatementImportStatus(message, type) {
+  if (!statementImportStatus) {
+    return;
+  }
+
+  if (!message) {
+    statementImportStatus.hidden = true;
+    statementImportStatus.className = 'status-message bank-import-status';
+    return;
+  }
+
+  statementImportStatus.hidden = false;
+  statementImportStatus.textContent = message;
+  statementImportStatus.className = 'status-message bank-import-status';
+
+  if (type) {
+    statementImportStatus.classList.add(type);
+  }
+}
+
+function openBankImportModal() {
+  if (!bankImportModal) {
+    return;
+  }
+
+  bankDetectedItems = [];
+  selectedBankId = null;
+  renderBankPicker();
+  setBankImportStage('select');
+  setBankImportStatus('', '');
+  bankImportModal.hidden = false;
+  syncModalBodyState();
+
+  window.setTimeout(() => {
+    bankPickerGrid?.querySelector('button')?.focus();
+  }, 20);
+}
+
+function closeBankImportModal() {
+  if (!bankImportModal) {
+    return;
+  }
+
+  bankImportModal.hidden = true;
+  setBankImportStatus('', '');
+  syncModalBodyState();
+}
+
+function setBankImportStage(stage) {
+  currentBankImportStage = stage;
+  const isSelect = stage === 'select';
+  const isConsent = stage === 'consent';
+  const isReading = stage === 'reading';
+  const isReview = stage === 'review';
+
+  if (bankSelectStage) bankSelectStage.hidden = !isSelect;
+  if (bankConsentStage) bankConsentStage.hidden = !isConsent;
+  if (bankReadingStage) bankReadingStage.hidden = !isReading;
+  if (bankReviewStage) bankReviewStage.hidden = !isReview;
+
+  document.querySelectorAll('[data-bank-step]').forEach((step) => {
+    const stepOrder = ['select', 'consent', 'reading', 'review'];
+    const activeIndex = stepOrder.indexOf(stage);
+    const stepIndex = stepOrder.indexOf(step.dataset.bankStep);
+
+    step.classList.toggle('is-active', step.dataset.bankStep === stage);
+    step.classList.toggle('is-complete', stepIndex >= 0 && stepIndex < activeIndex);
+  });
+
+  if (backBankImportBtn) {
+    backBankImportBtn.hidden = isSelect || isReading;
+  }
+
+  if (continueBankConsentBtn) {
+    continueBankConsentBtn.hidden = !isSelect;
+    continueBankConsentBtn.disabled = !selectedBankId;
+  }
+
+  if (simulateBankReadBtn) {
+    simulateBankReadBtn.hidden = !isConsent;
+    simulateBankReadBtn.disabled = isReading;
+  }
+
+  if (confirmBankImportBtn) {
+    confirmBankImportBtn.hidden = !isReview;
+  }
+}
+
+function renderBankPicker() {
+  if (!bankPickerGrid) {
+    return;
+  }
+
+  bankPickerGrid.innerHTML = BANK_IMPORT_PROVIDERS.map((bank) => {
+    const permissionText = bank.permissions
+      .map((permission) => BANK_PERMISSION_LABELS[permission])
+      .filter(Boolean)
+      .join(', ');
+
+    return `
+      <button type="button" class="bank-picker-option" data-bank-id="${escapeHtml(bank.id)}" aria-pressed="${bank.id === selectedBankId ? 'true' : 'false'}">
+        <span class="bank-picker-mark">${escapeHtml(bank.shortName)}</span>
+        <span class="bank-picker-copy">
+          <strong>${escapeHtml(bank.name)}</strong>
+          <small>${escapeHtml(permissionText)}</small>
+        </span>
+      </button>
+    `;
+  }).join('');
+
+  bankPickerGrid.querySelectorAll('[data-bank-id]').forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedBankId = button.dataset.bankId;
+      renderBankPicker();
+      renderBankConsentDetails();
+      setBankImportStatus('', '');
+      if (continueBankConsentBtn) {
+        continueBankConsentBtn.disabled = false;
+      }
+    });
+  });
+}
+
+function getSelectedBankProvider() {
+  return BANK_IMPORT_PROVIDERS.find((bank) => bank.id === selectedBankId) ?? null;
+}
+
+function renderBankConsentDetails() {
+  const bank = getSelectedBankProvider();
+
+  if (!bank) {
+    if (bankConsentTitle) bankConsentTitle.textContent = 'Banco escolhido';
+    if (bankConsentDescription) {
+      bankConsentDescription.textContent = 'Escolha uma instituição para ver as permissões solicitadas.';
+    }
+    if (bankPermissionsGrid) bankPermissionsGrid.innerHTML = '';
+    return;
+  }
+
+  if (bankConsentTitle) {
+    bankConsentTitle.textContent = `Banco escolhido: ${bank.name}`;
+  }
+
+  if (bankConsentDescription) {
+    bankConsentDescription.textContent = `${bank.description} Na versão real, o login acontecerá no ambiente oficial do banco ou do provedor autorizado.`;
+  }
+
+  if (bankPermissionsGrid) {
+    bankPermissionsGrid.innerHTML = bank.permissions.map((permission) => `
+      <label class="bank-permission-item">
+        <input type="checkbox" checked disabled>
+        <span>${escapeHtml(BANK_PERMISSION_LABELS[permission] ?? permission)}</span>
+      </label>
+    `).join('');
+  }
+}
+
+function continueBankImportConsent() {
+  if (!selectedBankId) {
+    setBankImportStatus('Escolha um banco para continuar.', 'error');
+    return;
+  }
+
+  renderBankConsentDetails();
+  setBankImportStage('consent');
+  setBankImportStatus('Revise as permissões. Nesta versão, a leitura ainda é uma simulação preparada para a integração real.', 'success');
+
+  window.setTimeout(() => {
+    simulateBankReadBtn?.focus();
+  }, 20);
+}
+
+function goBackBankImportStage() {
+  if (currentBankImportStage === 'consent') {
+    setBankImportStage('select');
+    setBankImportStatus('', '');
+    return;
+  }
+
+  if (currentBankImportStage === 'review') {
+    setBankImportStage('consent');
+    setBankImportStatus('', '');
+  }
+}
+
+function simulateBankImportRead() {
+  const bank = getSelectedBankProvider();
+
+  if (!bank) {
+    setBankImportStatus('Escolha um banco antes de iniciar a leitura.', 'error');
+    setBankImportStage('select');
+    return;
+  }
+
+  setBankImportStatus('', '');
+  setBankImportStage('reading');
+
+  window.setTimeout(() => {
+    bankDetectedItems = bank.items.map((item) => ({
+      ...item,
+      bankId: bank.id,
+      selected: item.status === 'confirmed' && !isBankImportDuplicate({ ...item, bankId: bank.id })
+    }));
+    renderBankDetectedItems();
+    setBankImportStage('review');
+    setBankImportStatus(`Leitura simulada do ${bank.name} concluída. Revise antes de adicionar ao controle.`, 'success');
+  }, 950);
+}
+
+function renderBankDetectedItems() {
+  if (!bankDetectedList) {
+    return;
+  }
+
+  if (bankDetectedItems.length === 0) {
+    bankDetectedList.innerHTML = '<div class="empty-state">Nenhuma fatura encontrada nesta simulação.</div>';
+    updateBankReviewSummary();
+    return;
+  }
+
+  bankDetectedList.innerHTML = bankDetectedItems.map((item) => {
+    const isConfirmed = item.status === 'confirmed';
+    const isDuplicate = isBankImportDuplicate(item);
+    const dueDate = formatDate(parseDateInput(item.dueDate));
+    const confidenceLabel = isDuplicate ? 'Duplicado' : isConfirmed ? 'Confirmado' : 'Revisar';
+    const checkedAttr = item.selected ? 'checked' : '';
+    const disabledAttr = isDuplicate ? 'disabled' : '';
+
+    return `
+      <article class="bank-detected-item ${isDuplicate ? 'is-duplicate' : isConfirmed ? 'is-confirmed' : 'needs-review'}">
+        <label class="bank-detected-check">
+          <input type="checkbox" data-bank-detected-id="${escapeHtml(item.id)}" ${checkedAttr} ${disabledAttr}>
+          <span></span>
+        </label>
+        <div class="bank-detected-content">
+          <div class="bank-detected-top">
+            <div>
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>${escapeHtml(item.bank)} • ${escapeHtml(item.kind)}</span>
+            </div>
+            <em class="${isDuplicate ? 'is-muted' : isConfirmed ? 'is-safe' : 'is-warning'}">${confidenceLabel}${isDuplicate ? '' : ` ${item.confidence}%`}</em>
+          </div>
+          <div class="bank-detected-meta">
+            <span>Vence ${dueDate}</span>
+            <strong>${formatCurrency(item.amount)}</strong>
+          </div>
+          <p>${escapeHtml(isDuplicate ? 'Este compromisso já foi adicionado anteriormente e ficará bloqueado para evitar duplicidade.' : item.evidence)}</p>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  bankDetectedList.querySelectorAll('[data-bank-detected-id]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const item = bankDetectedItems.find((entry) => entry.id === checkbox.dataset.bankDetectedId);
+      if (item) {
+        item.selected = checkbox.checked;
+        updateBankReviewSummary();
+      }
+    });
+  });
+
+  updateBankReviewSummary();
+}
+
+function updateBankReviewSummary() {
+  const selectedItems = bankDetectedItems.filter((item) => item.selected);
+  const confirmedCount = bankDetectedItems.filter((item) => item.status === 'confirmed' && !isBankImportDuplicate(item)).length;
+  const reviewCount = bankDetectedItems.filter((item) => item.status !== 'confirmed').length;
+  const selectedTotal = selectedItems.reduce((total, item) => total + item.amount, 0);
+
+  if (bankConfirmedCount) bankConfirmedCount.textContent = String(confirmedCount);
+  if (bankReviewCount) bankReviewCount.textContent = String(reviewCount);
+  if (bankDetectedTotal) bankDetectedTotal.textContent = formatCurrency(selectedTotal);
+  if (confirmBankImportBtn) confirmBankImportBtn.disabled = selectedItems.length === 0;
+}
+
+function confirmBankDetectedItems() {
+  const selectedItems = bankDetectedItems.filter((item) => item.selected && !isBankImportDuplicate(item));
+
+  if (selectedItems.length === 0) {
+    setBankImportStatus('Selecione pelo menos uma fatura nova para adicionar.', 'error');
+    return;
+  }
+
+  const nextPlans = selectedItems.map((item) => ({
+    id: createPlanId(),
+    name: item.name,
+    startDate: item.dueDate,
+    totalMonths: 1,
+    countMode: DEFAULT_COUNT_MODE,
+    planType: PLAN_TYPE_ACCOUNT,
+    isExpense: false,
+    totalValue: roundMoney(item.amount),
+    installmentValue: roundMoney(item.amount),
+    manualMonthValues: {},
+    partialMonthCredits: {},
+    paidMonths: [],
+    importSource: {
+      type: 'open-finance-demo',
+      externalId: getBankImportExternalId(item),
+      bank: item.bank,
+      bankId: item.bankId,
+      kind: item.kind,
+      confidence: item.confidence,
+      evidence: item.evidence,
+      importedAt: new Date().toISOString()
+    }
+  }));
+
+  plans.unshift(...nextPlans);
+  selectedPlanId = nextPlans[0].id;
+  savePlans();
+  renderPlansList();
+  renderPlanDetails(nextPlans[0], { resetTimelineScroll: true });
+  closeBankImportModal();
+  setStatus(`${nextPlans.length} ${nextPlans.length === 1 ? 'compromisso foi adicionado' : 'compromissos foram adicionados'} a partir da conexão bancária de teste.`, 'success');
+  scrollToSection(plansPanel);
+}
+
+function getBankImportExternalId(item) {
+  return `${item.bankId || selectedBankId || 'bank'}:${item.id}:${item.dueDate}`;
+}
+
+function isBankImportDuplicate(item) {
+  const externalId = getBankImportExternalId(item);
+
+  return plans.some((plan) => plan.importSource?.externalId === externalId);
+}
+
+function setBankImportStatus(message, type) {
+  if (!bankImportStatus) {
+    return;
+  }
+
+  if (!message) {
+    bankImportStatus.hidden = true;
+    bankImportStatus.className = 'status-message bank-import-status';
+    return;
+  }
+
+  bankImportStatus.hidden = false;
+  bankImportStatus.textContent = message;
+  bankImportStatus.className = 'status-message bank-import-status';
+
+  if (type) {
+    bankImportStatus.classList.add(type);
+  }
+}
+
 function openCreateModal() {
   createForm.reset();
   const defaultRadio = document.querySelector('input[name="createPlanType"][value="debt"]');
@@ -3669,6 +4697,8 @@ function syncModalBodyState() {
   document.body.classList.toggle(
     'modal-open',
     !createModal.hidden ||
+      Boolean(statementImportModal && !statementImportModal.hidden) ||
+      Boolean(bankImportModal && !bankImportModal.hidden) ||
       !editModal.hidden ||
       !deleteModal.hidden ||
       !reorderModal.hidden ||

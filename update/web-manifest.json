@@ -1,8 +1,8 @@
 {
-  "version": "2.3.2",
-  "notes": "Fix: Correção do posicionamento da seta do tutorial na etapa de configurações.",
-  "publishedAt": "2026-05-02",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777749549491",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777749549491",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.2/Controle.de.Dividas.apk"
+  "version": "2.3.3",
+  "notes": "Atualizacao do aplicativo Android via APK na versao 2.3.3.",
+  "publishedAt": "2026-05-04",
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777859626143",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777859626143",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.3/Controle.de.Dividas.apk"
 }

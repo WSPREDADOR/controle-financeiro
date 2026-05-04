@@ -61,11 +61,11 @@
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.3.2</strong>
+            <strong id="appVersionLabel">v2.3.3</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
-            <strong id="appReleaseDateLabel">02/05/2026</strong>
+            <strong id="appReleaseDateLabel">03/05/2026</strong>
           </div>
         </div>
         <div class="version-pill app-date-pill">
@@ -296,6 +296,23 @@
         </div>
       </section>
 
+      <section class="bank-connect-panel" id="bankConnectPanel">
+        <div class="bank-connect-copy">
+          <span class="section-kicker">Importação gratuita</span>
+          <h2>Ler extrato ou fatura sem custo</h2>
+          <p>Envie OFX, CSV ou PDF. O app analisa no seu dispositivo, sugere possíveis compromissos e só cadastra o que você confirmar.</p>
+        </div>
+        <div class="bank-connect-status">
+          <span class="bank-connect-badge">Leitura local</span>
+          <button type="button" class="btn-primary bank-connect-btn" id="openStatementImportModalBtn">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8l-6-6Zm0 0v6h6M8 13h8M8 17h5"/>
+            </svg>
+            Importar arquivo
+          </button>
+        </div>
+      </section>
+
       <section class="workspace">
         <aside class="plans-panel">
           <div class="section-heading">
@@ -429,6 +446,178 @@
         Desenvolvido por <strong class="signature-name">Werbert Silva</strong>
       </p>
     </footer>
+  </div>
+
+  <div class="modal-overlay" id="statementImportModal" hidden>
+    <section class="edit-modal bank-import-modal" role="dialog" aria-modal="true" aria-labelledby="statementImportModalTitle">
+      <div class="modal-header">
+        <div class="modal-heading">
+          <span class="section-kicker">Importação local</span>
+          <h2 id="statementImportModalTitle">Importar extrato ou fatura</h2>
+          <p>OFX e CSV são mais confiáveis. PDF funciona como leitura experimental e sempre exige revisão.</p>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeStatementImportModalBtn" aria-label="Fechar importação" title="Fechar">
+          ×
+        </button>
+      </div>
+
+      <div class="bank-flow-steps statement-flow-steps" aria-label="Etapas da importação">
+        <span class="bank-flow-step is-active" data-statement-step="file">Arquivo</span>
+        <span class="bank-flow-step" data-statement-step="reading">Leitura</span>
+        <span class="bank-flow-step" data-statement-step="review">Revisão</span>
+      </div>
+
+      <div class="bank-import-body">
+        <div class="bank-import-stage" id="statementFileStage">
+          <label class="statement-dropzone" for="statementFileInput">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v12m0-12 4 4m-4-4-4 4M5 15v3a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-3"/>
+            </svg>
+            <strong id="statementFileName">Escolher OFX, CSV ou PDF</strong>
+            <span>O arquivo será lido localmente. Nada é enviado para servidores.</span>
+          </label>
+          <input type="file" id="statementFileInput" accept=".ofx,.csv,.txt,.pdf,text/csv,application/pdf" hidden>
+
+          <div class="statement-format-grid">
+            <article>
+              <strong>OFX</strong>
+              <span>Mais recomendado para extrato.</span>
+            </article>
+            <article>
+              <strong>CSV</strong>
+              <span>Bom, mas varia por banco.</span>
+            </article>
+            <article>
+              <strong>PDF</strong>
+              <span>Melhor para fatura; precisa revisar.</span>
+            </article>
+          </div>
+        </div>
+
+        <div class="bank-import-stage" id="statementReadingStage" hidden>
+          <div class="bank-reading-card">
+            <span class="bank-reading-spinner" aria-hidden="true"></span>
+            <strong>Lendo arquivo</strong>
+            <p>Identificando banco, vencimentos, valores e possíveis faturas.</p>
+          </div>
+        </div>
+
+        <div class="bank-import-stage" id="statementReviewStage" hidden>
+          <div class="bank-review-summary">
+            <article>
+              <span>Banco provável</span>
+              <strong id="statementDetectedBank">--</strong>
+            </article>
+            <article>
+              <span>Encontrados</span>
+              <strong id="statementDetectedCount">0</strong>
+            </article>
+            <article>
+              <span>Total selecionado</span>
+              <strong id="statementDetectedTotal">R$ 0,00</strong>
+            </article>
+          </div>
+
+          <div class="bank-detected-list" id="statementDetectedList"></div>
+          <p class="bank-import-note">O app prioriza segurança: item incerto fica desmarcado e duplicado fica bloqueado.</p>
+        </div>
+      </div>
+
+      <div class="status-message bank-import-status" id="statementImportStatus" aria-live="polite" hidden></div>
+
+      <div class="button-row modal-actions bank-import-actions">
+        <button type="button" class="btn-secondary" id="cancelStatementImportBtn">Cancelar</button>
+        <button type="button" class="btn-secondary" id="backStatementImportBtn" hidden>Voltar</button>
+        <button type="button" class="btn-primary" id="analyzeStatementFileBtn" disabled>Analisar arquivo</button>
+        <button type="button" class="btn-primary" id="confirmStatementImportBtn" hidden>Adicionar selecionados</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="bankImportModal" hidden>
+    <section class="edit-modal bank-import-modal" role="dialog" aria-modal="true" aria-labelledby="bankImportModalTitle">
+      <div class="modal-header">
+        <div class="modal-heading">
+          <span class="section-kicker">Open Finance</span>
+          <h2 id="bankImportModalTitle">Conexão bancária segura</h2>
+          <p id="bankImportModalSubtitle">Protótipo local: nenhuma senha é pedida e nenhum dado sai deste aplicativo.</p>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeBankImportModalBtn" aria-label="Fechar conexão bancária" title="Fechar">
+          ×
+        </button>
+      </div>
+
+      <div class="bank-flow-steps" aria-label="Etapas da conexão bancária">
+        <span class="bank-flow-step is-active" data-bank-step="select">Banco</span>
+        <span class="bank-flow-step" data-bank-step="consent">Consentimento</span>
+        <span class="bank-flow-step" data-bank-step="reading">Leitura</span>
+        <span class="bank-flow-step" data-bank-step="review">Revisão</span>
+      </div>
+
+      <div class="bank-import-body">
+        <div class="bank-import-stage" id="bankSelectStage">
+          <div class="bank-stage-heading">
+            <h3>Escolha o banco</h3>
+            <p>Selecione a instituição que será conectada. Na integração real, esta lista virá do provedor Open Finance autorizado.</p>
+          </div>
+          <div class="bank-picker-grid" id="bankPickerGrid"></div>
+        </div>
+
+        <div class="bank-import-stage" id="bankConsentStage">
+          <div class="bank-auth-card">
+            <span class="bank-auth-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 10V8l8-5 8 5v2H4Zm2 2h2v6H6v-6Zm5 0h2v6h-2v-6Zm5 0h2v6h-2v-6ZM4 20h16"/>
+              </svg>
+            </span>
+            <div>
+              <h3 id="bankConsentTitle">Banco escolhido</h3>
+              <p id="bankConsentDescription">Na versão real, o usuário será enviado ao app oficial do banco para autorizar dados de conta, cartão e crédito.</p>
+            </div>
+          </div>
+
+          <div class="bank-permissions-grid" id="bankPermissionsGrid"></div>
+        </div>
+
+        <div class="bank-import-stage" id="bankReadingStage" hidden>
+          <div class="bank-reading-card">
+            <span class="bank-reading-spinner" aria-hidden="true"></span>
+            <strong id="bankReadingTitle">Lendo dados autorizados</strong>
+            <p id="bankReadingMessage">Cruzando faturas abertas, vencimentos e contratos ativos.</p>
+          </div>
+        </div>
+
+        <div class="bank-import-stage" id="bankReviewStage" hidden>
+          <div class="bank-review-summary">
+            <article>
+              <span>Confirmados</span>
+              <strong id="bankConfirmedCount">0</strong>
+            </article>
+            <article>
+              <span>Precisam revisão</span>
+              <strong id="bankReviewCount">0</strong>
+            </article>
+            <article>
+              <span>Total encontrado</span>
+              <strong id="bankDetectedTotal">R$ 0,00</strong>
+            </article>
+          </div>
+
+          <div class="bank-detected-list" id="bankDetectedList"></div>
+          <p class="bank-import-note">Itens com baixa confiança ficam desmarcados por segurança. O app real manteria origem, data da leitura e comprovante de consentimento.</p>
+        </div>
+      </div>
+
+      <div class="status-message bank-import-status" id="bankImportStatus" aria-live="polite" hidden></div>
+
+      <div class="button-row modal-actions bank-import-actions">
+        <button type="button" class="btn-secondary" id="cancelBankImportBtn">Cancelar</button>
+        <button type="button" class="btn-secondary" id="backBankImportBtn" hidden>Voltar</button>
+        <button type="button" class="btn-primary" id="continueBankConsentBtn" disabled>Continuar</button>
+        <button type="button" class="btn-secondary" id="simulateBankReadBtn">Simular leitura</button>
+        <button type="button" class="btn-primary" id="confirmBankImportBtn" hidden>Adicionar confirmados</button>
+      </div>
+    </section>
   </div>
 
   <div class="modal-overlay" id="createModal" hidden>
