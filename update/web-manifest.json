@@ -2,7 +2,7 @@
   "version": "2.3.3",
   "notes": "Atualizacao do aplicativo Android via APK na versao 2.3.3.",
   "publishedAt": "2026-05-04",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777859626143",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777859626143",
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777896535782",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777896535782",
   "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.3/Controle.de.Dividas.apk"
 }
