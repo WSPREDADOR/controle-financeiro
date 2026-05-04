@@ -1,6 +1,6 @@
 {
-  "version": "2.3.5",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.5/Controle.de.Dividas.apk",
-  "notes": "Painel admin com monitoramento de dispositivos, sincronizacao automatica de suporte, chat no app com envio de imagem e melhorias visuais no atendimento.",
+  "version": "2.3.6",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.6/Controle.de.Dividas.apk",
+  "notes": "Correcao da sincronizacao administrativa: licenca e avisos aplicados pelo polling do suporte e comandos remotos buscados com menor intervalo.",
   "publishedAt": "2026-05-04"
 }

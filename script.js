@@ -592,7 +592,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.5',
+  currentVersion: '2.3.6',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1364,7 +1364,7 @@ function getSupportConfig() {
     enabled: false,
     supabaseUrl: '',
     supabaseAnonKey: '',
-    checkInIntervalMs: 120000,
+    checkInIntervalMs: 30000,
     requestTimeoutMs: 8000,
     ...(window.CF_SUPPORT_CONFIG || {})
   };
@@ -1587,6 +1587,10 @@ async function handleSupportDeviceState(device) {
   const message = typeof device.remote_message === 'string' ? device.remote_message : '';
   await Storage.set(SUPPORT_LICENSE_STATUS_KEY, status);
   await Storage.set(SUPPORT_REMOTE_MESSAGE_KEY, message);
+  updateSupportLicenseBadge(status);
+  if (supportRemoteMessage) {
+    supportRemoteMessage.textContent = message || 'Nenhum aviso.';
+  }
   applySupportLicenseStatus(status, message);
 }
 
@@ -1718,6 +1722,7 @@ async function loadSupportChatMessages(options = {}) {
       throw new Error(result?.error || 'Falha ao carregar conversa.');
     }
 
+    await handleSupportDeviceState(result.device || {});
     renderSupportChatMessages(result.messages || []);
     updateSupportAdminPresence(result.device || {});
 

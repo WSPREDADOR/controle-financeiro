@@ -1,8 +1,8 @@
 {
-  "version": "2.3.5",
-  "notes": "Painel admin com monitoramento de dispositivos, sincronizacao automatica de suporte, chat no app com envio de imagem e melhorias visuais no atendimento.",
+  "version": "2.3.6",
+  "notes": "Correcao da sincronizacao administrativa: licenca e avisos aplicados pelo polling do suporte e comandos remotos buscados com menor intervalo.",
   "publishedAt": "2026-05-04",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777918158111",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777918158111",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.5/Controle.de.Dividas.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1777921666320",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1777921666320",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.6/Controle.de.Dividas.apk"
 }
