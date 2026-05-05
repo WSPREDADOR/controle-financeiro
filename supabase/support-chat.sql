@@ -36,9 +36,12 @@ with check (public.is_admin_user());
 grant select, insert, update, delete on public.support_messages to authenticated;
 revoke all on public.support_messages from anon;
 
+drop function if exists public.app_list_support_messages(text, text);
+
 create or replace function public.app_list_support_messages(
   p_support_id text,
-  p_device_token text
+  p_device_token text,
+  p_mark_read boolean default true
 )
 returns jsonb
 language plpgsql
@@ -67,11 +70,13 @@ begin
     where id = device_record.id
     returning * into device_record;
 
-  update public.support_messages
-    set read_at = coalesce(read_at, now())
-    where device_id = device_record.id
-      and sender = 'admin'
-      and read_at is null;
+  if coalesce(p_mark_read, true) then
+    update public.support_messages
+      set read_at = coalesce(read_at, now())
+      where device_id = device_record.id
+        and sender = 'admin'
+        and read_at is null;
+  end if;
 
   select coalesce(
     jsonb_agg(
@@ -285,7 +290,7 @@ begin
 end;
 $$;
 
-grant execute on function public.app_list_support_messages(text, text) to anon, authenticated;
+grant execute on function public.app_list_support_messages(text, text, boolean) to anon, authenticated;
 grant execute on function public.app_send_support_message(text, text, text) to anon, authenticated;
 grant execute on function public.app_send_support_image(text, text, text, text, text) to anon, authenticated;
 grant execute on function public.app_set_support_typing(text, text, boolean) to anon, authenticated;

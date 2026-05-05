@@ -10,6 +10,7 @@ const SUPPORT_LAST_CHECKIN_KEY = 'cf-support-last-checkin-v1';
 const SUPPORT_LICENSE_STATUS_KEY = 'cf-support-license-status-v1';
 const SUPPORT_REMOTE_MESSAGE_KEY = 'cf-support-remote-message-v1';
 const SUPPORT_CHAT_LAST_OPEN_KEY = 'cf-support-chat-last-open-v1';
+const SUPPORT_LAST_NOTIFIED_MESSAGE_KEY = 'cf-support-last-notified-message-v1';
 const TUTORIAL_COMPLETED_KEY = 'cf-tutorial-completed-v1';
 const DEFAULT_COUNT_MODE = 'start_month';
 const PLAN_TYPE_DEBT = 'debt';
@@ -231,6 +232,7 @@ let supportTypingTimeoutId = null;
 let supportLastTypingSentAt = 0;
 let isSupportSyncInFlight = false;
 let isSupportChatInFlight = false;
+let isNativeAppActive = true;
 let paymentNotificationListenersRegistered = false;
 let notificationBannerMode = 'notification';
 let bulkPaymentModalMode = 'create';
@@ -433,6 +435,7 @@ const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
 
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
+const SUPPORT_NOTIFICATION_CHANNEL_ID = 'support-messages-v1';
 const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
@@ -645,6 +648,7 @@ updateResultsNavigation();
     await Storage.migrate(SUPPORT_LICENSE_STATUS_KEY);
     await Storage.migrate(SUPPORT_REMOTE_MESSAGE_KEY);
     await Storage.migrate(SUPPORT_CHAT_LAST_OPEN_KEY);
+    await Storage.migrate(SUPPORT_LAST_NOTIFIED_MESSAGE_KEY);
     await Storage.migrate(TUTORIAL_COMPLETED_KEY);
 
     await checkOnboarding();
@@ -1376,6 +1380,7 @@ function isSupportConfigured(config = getSupportConfig()) {
 
 async function initializeSupportSync() {
   await refreshSupportUi();
+  registerPaymentNotificationListeners();
 
   const config = getSupportConfig();
   if (!isSupportConfigured(config)) {
@@ -1699,6 +1704,184 @@ async function getSupportIdentity() {
   return { supportId, deviceToken };
 }
 
+function isSupportChatVisible() {
+  return Boolean(
+    supportModal &&
+    !supportModal.hidden &&
+    document.visibilityState !== 'hidden' &&
+    isNativeAppActive
+  );
+}
+
+async function handleSupportAdminMessageNotifications(messages, options = {}) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return;
+  }
+
+  const adminMessages = messages
+    .filter((message) => message?.sender === 'admin')
+    .sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
+
+  const latestAdminMessage = adminMessages[adminMessages.length - 1];
+  if (!latestAdminMessage?.id) {
+    return;
+  }
+
+  if (options.markRead || isSupportChatVisible()) {
+    await Storage.set(SUPPORT_LAST_NOTIFIED_MESSAGE_KEY, latestAdminMessage.id);
+    await Storage.set(SUPPORT_CHAT_LAST_OPEN_KEY, new Date().toISOString());
+    return;
+  }
+
+  const unreadAdminMessages = adminMessages.filter((message) => !message.read_at);
+  const messageToNotify = unreadAdminMessages[unreadAdminMessages.length - 1];
+  if (!messageToNotify?.id) {
+    return;
+  }
+
+  const lastNotifiedMessageId = await Storage.get(SUPPORT_LAST_NOTIFIED_MESSAGE_KEY);
+  if (lastNotifiedMessageId === messageToNotify.id) {
+    return;
+  }
+
+  showSupportMessagePopup(messageToNotify, unreadAdminMessages.length);
+  await scheduleSupportMessageNotification(messageToNotify, unreadAdminMessages.length);
+  await Storage.set(SUPPORT_LAST_NOTIFIED_MESSAGE_KEY, messageToNotify.id);
+}
+
+function getSupportMessagePreview(message) {
+  if (message?.message_type === 'image') {
+    return 'O suporte enviou uma imagem.';
+  }
+
+  return String(message?.message || 'Nova resposta do suporte.').trim().slice(0, 180);
+}
+
+function showSupportMessagePopup(message, unreadCount = 1) {
+  if (!message?.id || !isNativeAppActive || document.visibilityState === 'hidden' || isSupportChatVisible()) {
+    return;
+  }
+
+  let popup = document.getElementById('supportMessagePopup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'supportMessagePopup';
+    popup.className = 'support-message-popup';
+    popup.innerHTML = `
+      <section class="support-message-popup-card" role="dialog" aria-modal="false" aria-labelledby="supportMessagePopupTitle">
+        <button type="button" class="support-message-popup-close" id="supportMessagePopupClose" aria-label="Fechar aviso" title="Fechar">×</button>
+        <span class="section-kicker">Suporte</span>
+        <h2 id="supportMessagePopupTitle"></h2>
+        <p id="supportMessagePopupText"></p>
+        <div class="support-message-popup-actions">
+          <button type="button" class="btn-secondary" id="supportMessagePopupLater">Depois</button>
+          <button type="button" class="btn-primary" id="supportMessagePopupOpen">Ver mensagem</button>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(popup);
+    popup.querySelector('#supportMessagePopupClose')?.addEventListener('click', hideSupportMessagePopup);
+    popup.querySelector('#supportMessagePopupLater')?.addEventListener('click', hideSupportMessagePopup);
+    popup.querySelector('#supportMessagePopupOpen')?.addEventListener('click', () => {
+      hideSupportMessagePopup();
+      openSupportModal();
+    });
+    popup.addEventListener('click', (event) => {
+      if (event.target === popup) {
+        hideSupportMessagePopup();
+      }
+    });
+  }
+
+  const title = unreadCount > 1 ? `${unreadCount} mensagens do suporte` : 'Resposta do suporte';
+  popup.querySelector('#supportMessagePopupTitle').textContent = title;
+  popup.querySelector('#supportMessagePopupText').textContent = getSupportMessagePreview(message);
+  popup.dataset.messageId = message.id;
+  popup.hidden = false;
+  window.setTimeout(() => popup.classList.add('is-visible'), 20);
+}
+
+function hideSupportMessagePopup() {
+  const popup = document.getElementById('supportMessagePopup');
+  if (!popup) {
+    return;
+  }
+
+  popup.classList.remove('is-visible');
+  window.setTimeout(() => {
+    if (!popup.classList.contains('is-visible')) {
+      popup.hidden = true;
+    }
+  }, 180);
+}
+
+async function scheduleSupportMessageNotification(message, unreadCount = 1) {
+  const plugin = getLocalNotificationsPlugin();
+  if (!plugin) {
+    return;
+  }
+
+  const permission = await requestPaymentNotificationPermission();
+  if (permission !== 'granted') {
+    return;
+  }
+
+  await createSupportNotificationChannel();
+
+  const body = getSupportMessagePreview(message);
+
+  try {
+    await plugin.schedule({
+      notifications: [{
+        id: createSupportNotificationId(message.id),
+        title: unreadCount > 1 ? `${unreadCount} mensagens do suporte` : 'Resposta do suporte',
+        body,
+        largeBody: body,
+        summaryText: 'Falar com suporte',
+        channelId: SUPPORT_NOTIFICATION_CHANNEL_ID,
+        autoCancel: true,
+        extra: {
+          type: 'support_chat',
+          messageId: message.id
+        }
+      }]
+    });
+  } catch (_) {}
+}
+
+async function createSupportNotificationChannel() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin?.createChannel) {
+    return;
+  }
+
+  try {
+    await plugin.createChannel({
+      id: SUPPORT_NOTIFICATION_CHANNEL_ID,
+      name: 'Mensagens do suporte',
+      description: 'Avisos quando o suporte responder no chat.',
+      importance: 4,
+      visibility: 1,
+      lights: true,
+      lightColor: '#55d4cb',
+      vibration: true
+    });
+  } catch (_) {}
+}
+
+function createSupportNotificationId(messageId) {
+  const source = `support:${messageId}`;
+  let hash = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash = ((hash << 5) - hash) + source.charCodeAt(index);
+    hash |= 0;
+  }
+
+  return 300000000 + ((hash >>> 0) % 1200000000);
+}
+
 async function loadSupportChatMessages(options = {}) {
   const config = getSupportConfig();
   if (!isSupportConfigured(config) || isSupportChatInFlight) {
@@ -1711,11 +1894,13 @@ async function loadSupportChatMessages(options = {}) {
   }
 
   isSupportChatInFlight = true;
+  const markRead = options.markRead ?? isSupportChatVisible();
 
   try {
     const result = await callSupportRpc('app_list_support_messages', {
       p_support_id: identity.supportId,
-      p_device_token: identity.deviceToken
+      p_device_token: identity.deviceToken,
+      p_mark_read: markRead
     }, config);
 
     if (!result?.ok) {
@@ -1723,6 +1908,7 @@ async function loadSupportChatMessages(options = {}) {
     }
 
     await handleSupportDeviceState(result.device || {});
+    await handleSupportAdminMessageNotifications(result.messages || [], { markRead });
     renderSupportChatMessages(result.messages || []);
     updateSupportAdminPresence(result.device || {});
 
@@ -2303,11 +2489,19 @@ if (window.Capacitor?.Plugins?.App) {
   });
 
   window.Capacitor.Plugins.App.addListener('appStateChange', (state) => {
+    isNativeAppActive = Boolean(state?.isActive);
     if (state?.isActive) {
       queuePaymentNotificationSync();
+      loadSupportChatMessages({ silent: true });
     }
   });
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    loadSupportChatMessages({ silent: true });
+  }
+});
 
 plansFilterNav?.addEventListener('click', (event) => {
   if (event.target.tagName === 'BUTTON') {
@@ -5358,6 +5552,7 @@ async function openSupportModal() {
     return;
   }
 
+  hideSupportMessagePopup();
   await refreshSupportUi();
   supportModal.hidden = false;
   syncModalBodyState();
@@ -5365,6 +5560,7 @@ async function openSupportModal() {
     supportChatInput?.focus();
   }, 20);
   await loadSupportChatMessages({ silent: true });
+  await Storage.set(SUPPORT_CHAT_LAST_OPEN_KEY, new Date().toISOString());
 }
 
 function closeSupportModal() {
@@ -6708,6 +6904,11 @@ function registerPaymentNotificationListeners() {
 
   paymentNotificationListenersRegistered = true;
   plugin.addListener('localNotificationActionPerformed', (event) => {
+    if (event?.notification?.extra?.type === 'support_chat') {
+      openSupportModal();
+      return;
+    }
+
     const planId = event?.notification?.extra?.planId;
     const plan = plans.find((item) => item.id === planId);
 
