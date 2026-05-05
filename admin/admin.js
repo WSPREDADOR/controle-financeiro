@@ -643,19 +643,8 @@ async function deleteDevice(device) {
     return;
   }
 
-  const supportId = device.support_id || '';
-  const title = getDeviceTitle(device);
-  const confirmed = window.confirm(
-    `Excluir o usuario "${title}"?\n\nIsso apaga o cadastro, mensagens e comandos deste usuario. Essa acao nao pode ser desfeita.`
-  );
-
+  const confirmed = await confirmDeviceDeletion(device);
   if (!confirmed) {
-    return;
-  }
-
-  const typedSupportId = window.prompt(`Para confirmar, digite o ID de suporte:\n${supportId}`);
-  if (typedSupportId !== supportId) {
-    alert('Exclusao cancelada. O ID de suporte digitado nao confere.');
     return;
   }
 
@@ -689,6 +678,70 @@ async function deleteDevice(device) {
     </div>
   `;
   await loadDevices({ skipDetail: true });
+}
+
+function confirmDeviceDeletion(device) {
+  return new Promise((resolve) => {
+    const supportId = device.support_id || '';
+    const title = getDeviceTitle(device);
+    const subtitle = getDeviceSubtitle(device);
+    const overlay = document.createElement('div');
+    overlay.className = 'admin-dialog-overlay';
+    overlay.innerHTML = `
+      <section class="admin-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteUserDialogTitle">
+        <button type="button" class="admin-dialog-close" aria-label="Fechar confirmacao" data-dialog-cancel>&times;</button>
+        <span class="kicker">Confirmacao necessaria</span>
+        <h2 id="deleteUserDialogTitle">Excluir usuario do suporte?</h2>
+        <p class="admin-dialog-lead">Esta acao remove o cadastro selecionado e todo o historico vinculado a ele.</p>
+        <div class="admin-dialog-user">
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(supportId)}</span>
+          <small>${escapeHtml(subtitle)}</small>
+        </div>
+        <label class="admin-dialog-confirm">
+          Digite o ID de suporte para confirmar
+          <input type="text" id="deleteUserConfirmInput" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(supportId)}">
+        </label>
+        <p class="admin-dialog-warning">Mensagens, comandos e anotacoes internas deste usuario serao apagados permanentemente.</p>
+        <div class="admin-dialog-actions">
+          <button type="button" class="secondary" data-dialog-cancel>Cancelar</button>
+          <button type="button" class="danger" id="confirmDeleteUserBtn" disabled>Excluir definitivamente</button>
+        </div>
+      </section>
+    `;
+
+    const close = (value) => {
+      document.removeEventListener('keydown', handleKeydown);
+      overlay.remove();
+      resolve(value);
+    };
+
+    const handleKeydown = (event) => {
+      if (event.key === 'Escape') {
+        close(false);
+      }
+    };
+
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#deleteUserConfirmInput');
+    const confirmButton = overlay.querySelector('#confirmDeleteUserBtn');
+
+    input?.addEventListener('input', () => {
+      confirmButton.disabled = input.value.trim().toUpperCase() !== supportId.toUpperCase();
+    });
+    confirmButton?.addEventListener('click', () => close(true));
+    overlay.querySelectorAll('[data-dialog-cancel]').forEach((button) => {
+      button.addEventListener('click', () => close(false));
+    });
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) {
+        close(false);
+      }
+    });
+    document.addEventListener('keydown', handleKeydown);
+
+    window.setTimeout(() => input?.focus(), 30);
+  });
 }
 
 async function sendCommand(deviceId, commandType, payload) {
