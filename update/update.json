@@ -1,6 +1,6 @@
 {
-  "version": "2.3.6",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.6/Controle.de.Dividas.apk",
-  "notes": "Correcao da sincronizacao administrativa: licenca e avisos aplicados pelo polling do suporte e comandos remotos buscados com menor intervalo.",
-  "publishedAt": "2026-05-04"
+  "version": "2.3.7",
+  "apkUrl": "",
+  "notes": "Adiciona avisos de mensagens do suporte com notificacoes e janela pop-up dentro do app.",
+  "publishedAt": "2026-05-05"
 }

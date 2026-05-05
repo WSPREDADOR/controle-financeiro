@@ -18,8 +18,6 @@ const packagePath = path.join(projectRoot, 'package.json');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
 const manifestOutPath = path.join(projectRoot, 'update', 'web-manifest.json');
 const bundleOutPath = path.join(projectRoot, 'update', 'web-bundle.json');
-const releaseAssetName = 'Controle.de.Dividas.apk';
-const releaseAssetUrlName = encodeURIComponent(releaseAssetName);
 
 function minifyCss(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{:;,])\s*/g, '$1').trim();
@@ -102,9 +100,12 @@ function main() {
     notes: updateInfo.notes || '',
     publishedAt: new Date().toISOString().split('T')[0],
     bundleUrl: `https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=${Date.now()}`,
-    bundleFallbackUrl: `https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=${Date.now()}`,
-    apkUrl: `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${version}/${releaseAssetUrlName}`
+    bundleFallbackUrl: `https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=${Date.now()}`
   };
+
+  if (updateInfo.apkUrl) {
+    manifest.apkUrl = updateInfo.apkUrl;
+  }
 
   // BUNDLE HÍBRIDO
   const bundle = { 
