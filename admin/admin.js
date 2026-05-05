@@ -454,6 +454,7 @@ async function renderDeviceDetail(deviceId) {
         <button type="button" class="secondary" id="sendMessageCommandBtn">Enviar aviso agora</button>
         <button type="button" class="secondary" id="forceUpdateCommandBtn">Forcar busca de atualizacao</button>
         <button type="button" class="danger" id="blockDeviceBtn">Bloquear</button>
+        <button type="button" class="danger" id="deleteDeviceBtn">Excluir usuario</button>
       </div>
       <div>
         <span class="kicker">Comandos recentes</span>
@@ -472,6 +473,7 @@ async function renderDeviceDetail(deviceId) {
     document.getElementById('licenseStatusInput').value = 'blocked';
     await saveDevice(device.id);
   });
+  document.getElementById('deleteDeviceBtn').addEventListener('click', () => deleteDevice(device));
 
   const adminChatInput = document.getElementById('adminChatInput');
   document.getElementById('adminChatSendBtn').addEventListener('click', () => sendAdminMessage(device.id));
@@ -634,6 +636,59 @@ async function saveDevice(deviceId) {
   }
 
   await loadDevices();
+}
+
+async function deleteDevice(device) {
+  if (!device?.id) {
+    return;
+  }
+
+  const supportId = device.support_id || '';
+  const title = getDeviceTitle(device);
+  const confirmed = window.confirm(
+    `Excluir o usuario "${title}"?\n\nIsso apaga o cadastro, mensagens e comandos deste usuario. Essa acao nao pode ser desfeita.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const typedSupportId = window.prompt(`Para confirmar, digite o ID de suporte:\n${supportId}`);
+  if (typedSupportId !== supportId) {
+    alert('Exclusao cancelada. O ID de suporte digitado nao confere.');
+    return;
+  }
+
+  const deleteButton = document.getElementById('deleteDeviceBtn');
+  if (deleteButton) {
+    deleteButton.disabled = true;
+    deleteButton.textContent = 'Excluindo...';
+  }
+
+  const { error } = await supabase
+    .from('support_devices')
+    .delete()
+    .eq('id', device.id);
+
+  if (error) {
+    if (deleteButton) {
+      deleteButton.disabled = false;
+      deleteButton.textContent = 'Excluir usuario';
+    }
+    alert(error.message);
+    return;
+  }
+
+  selectedDeviceId = null;
+  unreadCounts.delete(device.id);
+  pendingCommandCounts.delete(device.id);
+  deviceDetail.innerHTML = `
+    <div class="empty-state">
+      <strong>Usuario excluido.</strong>
+      <span>Selecione outro cadastro para continuar o atendimento.</span>
+    </div>
+  `;
+  await loadDevices({ skipDetail: true });
 }
 
 async function sendCommand(deviceId, commandType, payload) {
