@@ -595,7 +595,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.8',
+  currentVersion: '2.3.9',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1897,11 +1897,7 @@ async function loadSupportChatMessages(options = {}) {
   const markRead = options.markRead ?? isSupportChatVisible();
 
   try {
-    const result = await callSupportRpc('app_list_support_messages', {
-      p_support_id: identity.supportId,
-      p_device_token: identity.deviceToken,
-      p_mark_read: markRead
-    }, config);
+    const result = await listSupportMessagesRpc(identity, markRead, config);
 
     if (!result?.ok) {
       throw new Error(result?.error || 'Falha ao carregar conversa.');
@@ -1921,6 +1917,34 @@ async function loadSupportChatMessages(options = {}) {
     }
   } finally {
     isSupportChatInFlight = false;
+  }
+}
+
+async function listSupportMessagesRpc(identity, markRead, config) {
+  const payload = {
+    p_support_id: identity.supportId,
+    p_device_token: identity.deviceToken,
+    p_mark_read: markRead
+  };
+
+  try {
+    return await callSupportRpc('app_list_support_messages', payload, config);
+  } catch (error) {
+    const message = String(error?.message || '').toLowerCase();
+    const canRetryWithoutMarkRead =
+      message.includes('p_mark_read') ||
+      message.includes('schema cache') ||
+      message.includes('could not find') ||
+      message.includes('function');
+
+    if (!canRetryWithoutMarkRead) {
+      throw error;
+    }
+
+    return await callSupportRpc('app_list_support_messages', {
+      p_support_id: identity.supportId,
+      p_device_token: identity.deviceToken
+    }, config);
   }
 }
 

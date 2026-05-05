@@ -1,6 +1,6 @@
 {
-  "version": "2.3.8",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.8/Controle.de.Dividas.apk",
-  "notes": "Atualiza o app e o painel admin com melhorias nos avisos de suporte, pop-up de mensagens e exclusao segura de usuarios.",
+  "version": "2.3.9",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.9/Controle.de.Dividas.apk",
+  "notes": "Corrige carregamento do chat de suporte no app quando a funcao do Supabase ainda esta no formato anterior.",
   "publishedAt": "2026-05-05"
 }
