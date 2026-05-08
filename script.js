@@ -456,14 +456,7 @@ const FIRST_USE_TUTORIAL_STEPS = [
     element: '.finance-hub',
     kicker: 'Visão Geral',
     title: 'Resumo do Mês',
-    description: 'Aqui em cima você acompanha o total que tem para pagar este mês, o saldo que informou e quanto sobrará (projeção).',
-    position: 'bottom'
-  },
-  {
-    element: '#openMonthlyBalanceModalBtn',
-    kicker: 'Configuração',
-    title: 'Informe seu Saldo',
-    description: 'Toque no ícone do lápis para informar quanto você recebeu ou tem disponível para pagar as contas deste mês.',
+    description: 'Aqui em cima você acompanha o total que tem para pagar, quanto já pagou no mês e o total quitado até agora.',
     position: 'bottom'
   },
   {
@@ -595,7 +588,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.9',
+  currentVersion: '2.3.10',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -2812,32 +2805,14 @@ function updateMonthlyBalanceSummary(monthlyTotal = currentMonthlyDebtTotal) {
     return;
   }
 
-  const balance = getCurrentMonthBalance();
   const monthlyPaid = getMonthlyPaidBreakdown(new Date());
-  const monthlyCommitments = getMonthlyCommitmentBreakdown(new Date());
-  const currentBalance = roundMoney(balance - monthlyPaid.total);
-  const projectedBalance = roundMoney(balance - monthlyCommitments.total);
-  const hasBalance = balance > MONEY_EPSILON;
+  const totalPaid = getTotalPaidAmount();
 
-  monthlyBalanceValue.textContent = formatCurrency(currentBalance);
-  monthlyBalanceValue.classList.toggle('is-empty', !hasBalance);
-  monthlyBalanceValue.classList.toggle('is-negative', hasBalance && currentBalance < -MONEY_EPSILON);
+  monthlyBalanceValue.textContent = formatCurrency(monthlyPaid.total);
+  monthlyBalanceValue.classList.remove('is-empty', 'is-negative');
 
+  monthlyBalanceRemaining.textContent = formatCurrency(totalPaid);
   monthlyBalanceRemaining.classList.remove('is-negative', 'is-empty');
-
-  if (!hasBalance) {
-    monthlyBalanceRemaining.textContent = 'Saldo não informado';
-    monthlyBalanceRemaining.classList.add('is-empty');
-    return;
-  }
-
-  if (projectedBalance < -MONEY_EPSILON) {
-    monthlyBalanceRemaining.textContent = `Falta: ${formatCurrency(Math.abs(projectedBalance))}`;
-    monthlyBalanceRemaining.classList.add('is-negative');
-    return;
-  }
-
-  monthlyBalanceRemaining.textContent = `Sobra: ${formatCurrency(projectedBalance)}`;
 }
 
 function setMonthlyBalanceStatus(message, type = '') {
@@ -2962,13 +2937,10 @@ function renderMonthlyOverviewDetails() {
   const debtBreakdown = getMonthlyDebtBreakdown(currentDateRef);
   const commitmentBreakdown = getMonthlyCommitmentBreakdown(currentDateRef);
   const paidBreakdown = getMonthlyPaidBreakdown(currentDateRef);
-  const receivedBalance = getCurrentMonthBalance();
-  const currentBalance = roundMoney(receivedBalance - paidBreakdown.total);
-  const available = roundMoney(receivedBalance - commitmentBreakdown.total);
-  const hasBalance = receivedBalance > MONEY_EPSILON;
-  const committedRatio = hasBalance
-    ? clamp(commitmentBreakdown.total / receivedBalance, 0, 1)
-    : commitmentBreakdown.total > MONEY_EPSILON
+  const totalPaid = getTotalPaidAmount();
+  const committedRatio = commitmentBreakdown.total > MONEY_EPSILON
+    ? clamp(paidBreakdown.total / commitmentBreakdown.total, 0, 1)
+    : paidBreakdown.total > MONEY_EPSILON
       ? 1
       : 0;
   const committedPercent = Math.round(committedRatio * 100);
@@ -2978,8 +2950,8 @@ function renderMonthlyOverviewDetails() {
   }
 
   if (overviewBalanceValue) {
-    overviewBalanceValue.textContent = formatCurrency(currentBalance);
-    overviewBalanceValue.classList.toggle('is-negative', hasBalance && currentBalance < -MONEY_EPSILON);
+    overviewBalanceValue.textContent = formatCurrency(paidBreakdown.total);
+    overviewBalanceValue.classList.remove('is-negative');
   }
 
   if (overviewDebtValue) {
@@ -2987,14 +2959,11 @@ function renderMonthlyOverviewDetails() {
   }
 
   if (overviewAvailableValue) {
-    overviewAvailableValue.textContent = hasBalance
-      ? formatCurrency(available)
-      : 'Sem saldo';
+    overviewAvailableValue.textContent = formatCurrency(totalPaid);
   }
 
   if (overviewAvailableCard) {
-    overviewAvailableCard.classList.toggle('is-negative', hasBalance && available < -MONEY_EPSILON);
-    overviewAvailableCard.classList.toggle('is-empty', !hasBalance);
+    overviewAvailableCard.classList.remove('is-negative', 'is-empty');
   }
 
   if (overviewOpenCount) {
@@ -3015,7 +2984,7 @@ function renderMonthlyOverviewDetails() {
 
   if (monthlyBalanceChart) {
     monthlyBalanceChart.style.setProperty('--debt-angle', `${committedRatio * 360}deg`);
-    monthlyBalanceChart.classList.toggle('is-empty', !hasBalance && commitmentBreakdown.total <= MONEY_EPSILON);
+    monthlyBalanceChart.classList.toggle('is-empty', commitmentBreakdown.total <= MONEY_EPSILON && paidBreakdown.total <= MONEY_EPSILON);
   }
 
   if (monthlyBalanceChartCenter) {
@@ -3084,16 +3053,10 @@ function renderMonthlyBalanceHistory() {
     .map((entry) => {
       const balanceScale = clamp(entry.balance / maxValue, 0, 1);
       const debtScale = clamp(entry.totalCommitted / maxValue, 0, 1);
-      const hasBalance = entry.balance > MONEY_EPSILON;
-      const available = roundMoney(entry.balance - entry.totalCommitted);
-      const resultLabel = hasBalance
-        ? available < -MONEY_EPSILON
-          ? `Falta ${formatCurrency(Math.abs(available))}`
-          : `Livre ${formatCurrency(available)}`
-        : 'Saldo não informado';
+      const resultLabel = `Pago ${formatCurrency(entry.balance)}`;
 
       return `
-        <div class="monthly-history-item${hasBalance && available < -MONEY_EPSILON ? ' is-negative' : ''}" style="--balance-scale:${balanceScale}; --debt-scale:${debtScale};">
+        <div class="monthly-history-item" style="--balance-scale:${balanceScale}; --debt-scale:${debtScale};">
           <div class="monthly-history-top">
             <strong>${formatMonthYear(entry.date)}</strong>
             <span>${resultLabel}</span>
@@ -3103,8 +3066,8 @@ function renderMonthlyBalanceHistory() {
             <span class="history-debt-bar"></span>
           </div>
           <div class="monthly-history-values">
-            <span>Saldo ${hasBalance ? formatCurrency(entry.balance) : '--'}</span>
-            <span>Pagamentos ${formatCurrency(entry.totalCommitted)}</span>
+            <span>Pago ${formatCurrency(entry.balance)}</span>
+            <span>Previsto ${formatCurrency(entry.totalCommitted)}</span>
           </div>
         </div>
       `;
@@ -3239,6 +3202,13 @@ function getMonthlyPaidBreakdown(targetDate = new Date()) {
   };
 }
 
+function getTotalPaidAmount() {
+  return roundMoney(plans.reduce((total, plan) => {
+    const financials = calculatePlanFinancials(plan);
+    return total + financials.totalPaid;
+  }, 0));
+}
+
 function getMonthlyDebtItem(plan, targetDate) {
   const startDate = parseDateInput(plan.startDate);
   const effectiveStartDate = getEffectiveStartDate(startDate, plan.countMode);
@@ -3371,13 +3341,12 @@ function getMonthlyOverviewHistory(monthCount = 6) {
     const anchorDate = index === 0
       ? today
       : normalizeDate(new Date(monthDate.getFullYear(), monthDate.getMonth(), 15));
-    const balance = roundMoney(normalizeMoneyValue(monthlyBalances[getCurrentMonthKey(monthDate)]));
     const commitments = getMonthlyCommitmentBreakdown(anchorDate);
     const paid = getMonthlyPaidBreakdown(anchorDate);
 
     return {
       date: monthDate,
-      balance: roundMoney(balance - paid.total),
+      balance: paid.total,
       totalCommitted: commitments.total
     };
   });

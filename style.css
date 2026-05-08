@@ -1453,19 +1453,22 @@ button,
 }
 
 .settings-icon-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 54px;
-  min-width: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 178px;
   height: 54px;
-  padding: 0;
-  border: 1px solid rgba(85, 212, 203, 0.18);
+  padding: 0 18px;
+  border: 1px solid rgba(241, 182, 111, 0.42);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(35, 45, 52, 0.96), rgba(21, 29, 35, 0.92));
-  color: var(--primary-strong);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.22), transparent 24%),
+    linear-gradient(135deg, rgba(242, 184, 75, 0.94), rgba(47, 211, 125, 0.86));
+  color: #092018;
   cursor: pointer;
-  box-shadow: var(--shadow-soft);
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  box-shadow: 0 18px 34px rgba(47, 211, 125, 0.18), 0 10px 24px rgba(242, 184, 75, 0.14);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .settings-icon-btn svg {
@@ -1478,10 +1481,16 @@ button,
   stroke-width: 2;
 }
 
+.settings-icon-btn span {
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .settings-icon-btn:hover {
   transform: translateY(-2px);
-  border-color: rgba(85, 212, 203, 0.42);
-  background: linear-gradient(180deg, rgba(42, 56, 64, 0.98), rgba(24, 34, 40, 0.96));
+  border-color: rgba(255, 255, 255, 0.54);
+  box-shadow: 0 22px 42px rgba(47, 211, 125, 0.24), 0 12px 28px rgba(242, 184, 75, 0.18);
 }
 
 .version-pill {
@@ -2014,26 +2023,82 @@ button.version-pill {
   background:
     linear-gradient(135deg, rgba(85, 212, 203, 0.1), rgba(27, 36, 42, 0.94));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 20px;
 }
 
-.create-launcher-copy {
+.create-option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.create-option-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 66px;
+  padding: 13px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.create-option-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(85, 212, 203, 0.28);
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.create-option-primary {
+  background: linear-gradient(135deg, rgba(85, 212, 203, 0.2), rgba(47, 211, 125, 0.13));
+  border-color: rgba(85, 212, 203, 0.24);
+}
+
+.create-option-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  color: var(--primary-strong);
+  background: rgba(85, 212, 203, 0.12);
+  border: 1px solid rgba(85, 212, 203, 0.16);
+}
+
+.create-option-icon svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.create-option-card strong,
+.create-option-card small {
+  display: block;
   min-width: 0;
 }
 
-.create-launcher-copy p {
-  margin-top: 10px;
-  color: var(--muted);
-  line-height: 1.55;
-  max-width: 58ch;
+.create-option-card strong {
+  font-size: 0.94rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
-.create-launcher-actions {
-  margin-top: 0;
-  flex-shrink: 0;
+.create-option-card small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .creation-badge {
@@ -2983,6 +3048,10 @@ button.version-pill {
 }
 
 @media (max-width: 860px) {
+  .create-option-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .monthly-overview-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2992,21 +3061,46 @@ button.version-pill {
   }
 }
 
+@media (max-width: 520px) {
+  .create-launcher {
+    padding: 14px;
+  }
+
+  .create-option-grid {
+    gap: 8px;
+  }
+
+  .create-option-card {
+    flex-direction: column;
+    gap: 7px;
+    min-height: 82px;
+    padding: 10px 6px;
+    border-radius: 16px;
+  }
+
+  .create-option-icon {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+  }
+
+  .create-option-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .create-option-card strong {
+    font-size: clamp(0.7rem, 3.2vw, 0.8rem);
+  }
+}
+
 @media (max-width: 700px) {
-  .bank-connect-panel,
   .bank-picker-grid,
   .bank-permissions-grid,
   .bank-review-summary,
   .statement-format-grid {
     grid-template-columns: 1fr;
-  }
-
-  .bank-connect-status {
-    justify-items: stretch;
-  }
-
-  .bank-connect-btn {
-    width: 100%;
   }
 
   .bank-flow-steps {
@@ -4931,12 +5025,17 @@ button.version-pill {
     width: 42px;
     min-width: 42px;
     height: 42px;
+    padding: 0;
     border-radius: 15px;
   }
 
   .settings-icon-btn svg {
     width: 20px;
     height: 20px;
+  }
+
+  .settings-icon-btn span {
+    display: none;
   }
 
   .app-date-pill {

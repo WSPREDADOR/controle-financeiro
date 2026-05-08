@@ -1,6 +1,6 @@
 {
-  "version": "2.3.9",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.9/Controle.de.Dividas.apk",
-  "notes": "Corrige carregamento do chat de suporte no app quando a funcao do Supabase ainda esta no formato anterior.",
-  "publishedAt": "2026-05-05"
+  "version": "2.3.10",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.10/Controle.de.Dividas.apk",
+  "notes": "Atualizacao visual e de resumo financeiro: importacao dentro de Adicionar, indicadores automaticos de Pago no mes e Total ja pago, e botao de configuracoes mais visivel.",
+  "publishedAt": "2026-05-08"
 }

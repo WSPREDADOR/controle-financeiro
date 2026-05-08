@@ -57,15 +57,16 @@
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M14.7 6.3a4.5 4.5 0 0 0-5.8 5.8l-5.6 5.6a2 2 0 0 0 2.8 2.8l5.6-5.6a4.5 4.5 0 0 0 5.8-5.8l-3.1 3.1-2.6-2.6 2.9-3.3Z"/>
           </svg>
+          <span>Configurações</span>
         </button>
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.3.9</strong>
+            <strong id="appVersionLabel">v2.3.10</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
-            <strong id="appReleaseDateLabel">05/05/2026</strong>
+            <strong id="appReleaseDateLabel">08/05/2026</strong>
           </div>
         </div>
         <div class="version-pill app-date-pill">
@@ -336,20 +337,15 @@
           </button>
         </div>
 
-        <!-- Lado Direito: Entradas/Sobra -->
+        <!-- Lado Direito: Pagamentos -->
         <div class="hub-column right">
           <div class="hub-item">
-            <div class="hub-label-row">
-              <span class="hub-label">Saldo do mês</span>
-              <button type="button" class="hub-mini-btn" id="openMonthlyBalanceModalBtn" title="Editar saldo">
-                <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>
-              </button>
-            </div>
+            <span class="hub-label">Pago no mês</span>
             <strong id="monthlyBalanceValue" class="hub-value balance">R$ 0,00</strong>
           </div>
           <div class="hub-item">
-            <span class="hub-label">Sobra (Projeção)</span>
-            <strong id="monthlyBalanceRemaining" class="hub-value sobra">Saldo não informado</strong>
+            <span class="hub-label">Total já pago</span>
+            <strong id="monthlyBalanceRemaining" class="hub-value sobra">R$ 0,00</strong>
           </div>
         </div>
       </section>
@@ -364,27 +360,40 @@
         </div>
 
         <div class="create-launcher">
-          <div class="button-row create-launcher-actions" style="display: flex; gap: 10px;">
-            <button type="button" id="openCreateModalBtn" class="btn-primary" style="flex: 1;">Adicionar</button>
-            <button type="button" id="openReorderModalBtn" class="btn-secondary" style="flex: 1;">Reorganizar</button>
-          </div>
-        </div>
-      </section>
+          <div class="create-option-grid">
+            <button type="button" id="openCreateModalBtn" class="create-option-card create-option-primary">
+              <span class="create-option-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              </span>
+              <span>
+                <strong>Adicionar</strong>
+              </span>
+            </button>
 
-      <section class="bank-connect-panel" id="bankConnectPanel">
-        <div class="bank-connect-copy">
-          <span class="section-kicker">Importação gratuita</span>
-          <h2>Ler extrato ou fatura sem custo</h2>
-          <p>Envie OFX, CSV ou PDF. O app analisa no seu dispositivo, sugere possíveis compromissos e só cadastra o que você confirmar.</p>
-        </div>
-        <div class="bank-connect-status">
-          <span class="bank-connect-badge">Leitura local</span>
-          <button type="button" class="btn-primary bank-connect-btn" id="openStatementImportModalBtn">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M14 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8l-6-6Zm0 0v6h6M8 13h8M8 17h5"/>
-            </svg>
-            Importar arquivo
-          </button>
+            <button type="button" id="openStatementImportModalBtn" class="create-option-card">
+              <span class="create-option-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M14 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8l-6-6Zm0 0v6h6M8 13h8M8 17h5"/>
+                </svg>
+              </span>
+              <span>
+                <strong>Importação</strong>
+              </span>
+            </button>
+
+            <button type="button" id="openReorderModalBtn" class="create-option-card">
+              <span class="create-option-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+                </svg>
+              </span>
+              <span>
+                <strong>Reorganizar</strong>
+              </span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -945,29 +954,6 @@
     </section>
   </div>
 
-  <div class="modal-overlay" id="monthlyBalanceModal" hidden>
-    <section class="edit-modal monthly-balance-modal" role="dialog" aria-modal="true" aria-labelledby="monthlyBalanceModalTitle">
-      <button type="button" class="modal-close-btn" id="closeMonthlyBalanceModalBtn" aria-label="Fechar saldo do mês" title="Fechar">
-        X
-      </button>
-      <div class="modal-heading">
-        <span class="section-kicker">Saldo mensal</span>
-        <h2 id="monthlyBalanceModalTitle">Saldo do mês</h2>
-      </div>
-      <label class="input-group monthly-balance-input-group">
-        <span>Valor para adicionar ao saldo</span>
-        <input type="text" id="monthlyBalanceInput" class="input-field currency-input" placeholder="R$ 0,00" inputmode="decimal">
-      </label>
-      <p id="monthlyBalanceCurrentValue" class="monthly-balance-current">Saldo recebido no mês: R$ 0,00</p>
-      <p id="monthlyBalanceStatus" class="bulk-payment-status" hidden></p>
-      <div class="button-row modal-actions monthly-balance-actions">
-        <button type="button" id="saveMonthlyBalanceBtn" class="btn-primary">Adicionar</button>
-        <button type="button" id="replaceMonthlyBalanceBtn" class="btn-secondary">Corrigir total</button>
-        <button type="button" id="cancelMonthlyBalanceBtn" class="btn-secondary">Cancelar</button>
-      </div>
-    </section>
-  </div>
-
   <div class="modal-overlay" id="monthlyOverviewModal" hidden>
     <section class="edit-modal monthly-overview-modal" role="dialog" aria-modal="true" aria-labelledby="monthlyOverviewModalTitle">
       <button type="button" class="modal-close-btn" id="closeMonthlyOverviewModalBtn" aria-label="Fechar detalhes mensais" title="Fechar">
@@ -983,7 +969,7 @@
 
       <div class="monthly-overview-summary">
         <article class="monthly-overview-stat">
-          <span>Saldo do mês</span>
+          <span>Pago no mês</span>
           <strong id="overviewBalanceValue">R$ 0,00</strong>
         </article>
         <article class="monthly-overview-stat">
@@ -991,7 +977,7 @@
           <strong id="overviewDebtValue">R$ 0,00</strong>
         </article>
         <article class="monthly-overview-stat" id="overviewAvailableCard">
-          <span>Sobra</span>
+          <span>Total já pago</span>
           <strong id="overviewAvailableValue">R$ 0,00</strong>
         </article>
         <article class="monthly-overview-stat">
@@ -1008,15 +994,15 @@
         <article class="monthly-overview-panel">
           <div class="monthly-overview-panel-heading">
             <span class="section-kicker">Gráfico</span>
-            <h3>Saldo comprometido</h3>
+            <h3>Pagamentos do mês</h3>
           </div>
           <div class="monthly-donut-wrap">
             <div class="monthly-donut" id="monthlyBalanceChart" style="--debt-angle: 0deg;">
               <span id="monthlyBalanceChartCenter">0%</span>
             </div>
             <div class="monthly-chart-legend">
-              <span><i class="legend-dot legend-debt"></i>Pagamentos do mês</span>
-              <span><i class="legend-dot legend-free"></i>Sobra</span>
+              <span><i class="legend-dot legend-debt"></i>Pago</span>
+              <span><i class="legend-dot legend-free"></i>Previsto</span>
             </div>
           </div>
         </article>
