@@ -1270,6 +1270,14 @@ button,
   transition: transform 0.2s ease;
 }
 
+.update-available-popup-card {
+  border-color: rgba(242, 184, 75, 0.32);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(242, 184, 75, 0.16), transparent 36%),
+    radial-gradient(circle at 94% 18%, rgba(47, 211, 125, 0.12), transparent 34%),
+    linear-gradient(170deg, rgba(31, 39, 42, 0.98), rgba(13, 18, 23, 0.99));
+}
+
 .support-message-popup.is-visible .support-message-popup-card {
   transform: translateY(0) scale(1);
 }

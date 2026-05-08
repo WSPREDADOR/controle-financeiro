@@ -429,6 +429,7 @@ const adjustLastBulkPaymentBtn = document.getElementById('adjustLastBulkPaymentB
 const deleteLastBulkPaymentBtn = document.getElementById('deleteLastBulkPaymentBtn');
 
 const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
+const LAST_UPDATE_POPUP_VERSION_KEY = 'last-update-popup-version';
 const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
 const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
@@ -588,7 +589,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.10',
+  currentVersion: '2.3.11',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1751,7 +1752,7 @@ function getSupportMessagePreview(message) {
 }
 
 function showSupportMessagePopup(message, unreadCount = 1) {
-  if (!message?.id || !isNativeAppActive || document.visibilityState === 'hidden' || isSupportChatVisible()) {
+  if (!message?.id || document.visibilityState === 'hidden' || isSupportChatVisible()) {
     return;
   }
 
@@ -2625,19 +2626,7 @@ document.querySelectorAll('input[name="editPastMonthsStatus"]').forEach((input) 
 });
 
 updatePrimaryBtn?.addEventListener('click', () => {
-  if (updateBannerTitle?.textContent === 'Instalador encontrado!') {
-    installLocalApk();
-    return;
-  }
-
-  if (availableUpdate?.apkUrl) {
-    startApkUpdate(availableUpdate);
-    return;
-  }
-
-  if (availableUpdate?.bundleUrl) {
-    startAppUpdate(availableUpdate);
-  }
+  startAvailableUpdate();
 });
 
 enableNotificationsBtn?.addEventListener('click', () => {
@@ -7316,6 +7305,25 @@ function isRemoteVersionNewer(remoteVersion, currentVersion) {
   return false;
 }
 
+function startAvailableUpdate() {
+  if (updateBannerTitle?.textContent === 'Instalador encontrado!') {
+    hideUpdatePopup();
+    installLocalApk();
+    return;
+  }
+
+  if (availableUpdate?.apkUrl) {
+    hideUpdatePopup();
+    startApkUpdate(availableUpdate);
+    return;
+  }
+
+  if (availableUpdate?.bundleUrl) {
+    hideUpdatePopup();
+    startAppUpdate(availableUpdate);
+  }
+}
+
 function showUpdateBanner(title, message, version, apkUrl = null) {
   if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
     return;
@@ -7338,6 +7346,7 @@ function showUpdateBanner(title, message, version, apkUrl = null) {
   }
   
   resetUpdateProgress();
+  showUpdatePopup(title, message, version, apkUrl);
 }
 
 function showUpdatedBanner(version) {
@@ -7351,6 +7360,7 @@ function showUpdatedBanner(version) {
   updatePrimaryBtn.disabled = false;
   updatePrimaryBtn.hidden = true;
   setUpdateProgress('Atualização concluída', 100);
+  hideUpdatePopup();
 }
 
 function hideUpdateBanner() {
@@ -7363,6 +7373,82 @@ function hideUpdateBanner() {
   updatePrimaryBtn.disabled = false;
   updatePrimaryBtn.textContent = 'Atualizar app';
   resetUpdateProgress();
+  hideUpdatePopup();
+}
+
+async function showUpdatePopup(title, message, version, apkUrl = null) {
+  if (!version || document.visibilityState === 'hidden') {
+    return;
+  }
+
+  const popupVersionKey = String(version);
+  const lastPopupVersion = await Storage.get(LAST_UPDATE_POPUP_VERSION_KEY);
+  if (lastPopupVersion === popupVersionKey) {
+    return;
+  }
+
+  let popup = document.getElementById('updateAvailablePopup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'updateAvailablePopup';
+    popup.className = 'support-message-popup update-available-popup';
+    popup.innerHTML = `
+      <section class="support-message-popup-card update-available-popup-card" role="dialog" aria-modal="false" aria-labelledby="updateAvailablePopupTitle">
+        <button type="button" class="support-message-popup-close" id="updateAvailablePopupClose" aria-label="Fechar aviso" title="Fechar">×</button>
+        <span class="section-kicker">Atualização</span>
+        <h2 id="updateAvailablePopupTitle"></h2>
+        <p id="updateAvailablePopupText"></p>
+        <div class="support-message-popup-actions">
+          <button type="button" class="btn-secondary" id="updateAvailablePopupLater">Depois</button>
+          <button type="button" class="btn-primary" id="updateAvailablePopupInstall">Atualizar agora</button>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(popup);
+    popup.querySelector('#updateAvailablePopupClose')?.addEventListener('click', dismissUpdatePopup);
+    popup.querySelector('#updateAvailablePopupLater')?.addEventListener('click', dismissUpdatePopup);
+    popup.querySelector('#updateAvailablePopupInstall')?.addEventListener('click', () => {
+      dismissUpdatePopup();
+      startAvailableUpdate();
+    });
+    popup.addEventListener('click', (event) => {
+      if (event.target === popup) {
+        dismissUpdatePopup();
+      }
+    });
+  }
+
+  popup.querySelector('#updateAvailablePopupTitle').textContent = title || `Nova versão v${version} disponível`;
+  popup.querySelector('#updateAvailablePopupText').textContent = message || 'Uma nova versão do app está disponível.';
+  popup.querySelector('#updateAvailablePopupInstall').textContent = apkUrl ? 'Baixar atualização' : 'Atualizar agora';
+  popup.dataset.version = popupVersionKey;
+  popup.hidden = false;
+  window.setTimeout(() => popup.classList.add('is-visible'), 20);
+}
+
+function hideUpdatePopup() {
+  const popup = document.getElementById('updateAvailablePopup');
+  if (!popup) {
+    return;
+  }
+
+  popup.classList.remove('is-visible');
+  window.setTimeout(() => {
+    if (!popup.classList.contains('is-visible')) {
+      popup.hidden = true;
+    }
+  }, 180);
+}
+
+async function dismissUpdatePopup() {
+  const popup = document.getElementById('updateAvailablePopup');
+  const version = popup?.dataset.version;
+
+  if (version) {
+    await Storage.set(LAST_UPDATE_POPUP_VERSION_KEY, version);
+  }
+
+  hideUpdatePopup();
 }
 
 function showUpdateError(message) {

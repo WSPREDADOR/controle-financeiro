@@ -1,6 +1,6 @@
 {
-  "version": "2.3.10",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.10/Controle.de.Dividas.apk",
-  "notes": "Atualizacao visual e de resumo financeiro: importacao dentro de Adicionar, indicadores automaticos de Pago no mes e Total ja pago, e botao de configuracoes mais visivel.",
+  "version": "2.3.11",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.11/Controle.de.Dividas.apk",
+  "notes": "Adiciona pop-up para avisar sobre novas atualizacoes e melhora o pop-up de mensagens do suporte quando o app esta aberto.",
   "publishedAt": "2026-05-08"
 }
