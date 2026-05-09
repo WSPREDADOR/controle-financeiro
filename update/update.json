@@ -1,6 +1,6 @@
 {
-  "version": "2.3.12",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.12/Controle.de.Dividas.apk",
-  "notes": "Adiciona verificacao nativa em segundo plano para mensagens do suporte e novas atualizacoes, melhora notificacoes Android e ajusta o titulo visual do app.",
+  "version": "2.3.13",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.13/Controle.de.Dividas.apk",
+  "notes": "Versao de teste para validar notificacoes de mensagens do suporte em segundo plano.",
   "publishedAt": "2026-05-09"
 }
