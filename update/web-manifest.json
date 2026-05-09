@@ -1,8 +1,8 @@
 {
-  "version": "2.3.13",
-  "notes": "Versao de teste para validar notificacoes de mensagens do suporte em segundo plano.",
+  "version": "2.3.14",
+  "notes": "Remove o visto por ultimo do ADM no app do usuario e mostra apenas quando o suporte estiver online.",
   "publishedAt": "2026-05-09",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1778343979653",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1778343979654",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.13/Controle.de.Dividas.apk"
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1778346154902",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1778346154902",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.14/Controle.de.Dividas.apk"
 }
