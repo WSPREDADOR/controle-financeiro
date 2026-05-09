@@ -1,8 +1,8 @@
 {
-  "version": "2.3.11",
-  "notes": "Adiciona pop-up para avisar sobre novas atualizacoes e melhora o pop-up de mensagens do suporte quando o app esta aberto.",
-  "publishedAt": "2026-05-08",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1778267448404",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1778267448404",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.11/Controle.de.Dividas.apk"
+  "version": "2.3.12",
+  "notes": "Adiciona verificacao nativa em segundo plano para mensagens do suporte e novas atualizacoes, melhora notificacoes Android e ajusta o titulo visual do app.",
+  "publishedAt": "2026-05-09",
+  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1778293396584",
+  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1778293396584",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.12/Controle.de.Dividas.apk"
 }

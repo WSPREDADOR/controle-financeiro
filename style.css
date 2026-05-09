@@ -1446,10 +1446,47 @@ button,
 
 .topbar-title {
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
-  font-size: clamp(1.45rem, 2.7vw, 2rem);
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 1.36rem;
+  font-weight: 500;
   line-height: 1;
-  margin-top: 2px;
-  letter-spacing: -0.04em;
+  margin-top: 4px;
+  letter-spacing: 0;
+  color: #fff9ec;
+  text-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+}
+
+.topbar-title span {
+  display: inline-block;
+  position: relative;
+  font-family: "Arial Black", "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 1.34em;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: transparent;
+  background: linear-gradient(110deg, #f8fff6 0%, var(--primary-strong) 42%, #f2b84b 88%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-stroke: 1px rgba(157, 242, 194, 0.16);
+  text-shadow:
+    0 0 18px rgba(47, 211, 125, 0.26),
+    0 10px 26px rgba(0, 0, 0, 0.34);
+}
+
+.topbar-title span::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: -5px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  box-shadow: 0 0 14px rgba(47, 211, 125, 0.24);
 }
 
 .topbar-meta {
@@ -5008,7 +5045,15 @@ button.version-pill {
   }
 
   .topbar-title {
-    font-size: 1.36rem;
+    gap: 5px;
+    font-size: 1.08rem;
+    line-height: 1;
+  }
+
+  .topbar-title span {
+    font-size: 1.22em;
+    letter-spacing: 0.015em;
+    -webkit-text-stroke-width: 0;
   }
 
   .topbar-meta,

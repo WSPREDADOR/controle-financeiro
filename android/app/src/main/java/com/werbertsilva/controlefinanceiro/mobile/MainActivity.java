@@ -1,22 +1,42 @@
 package com.werbertsilva.controlefinanceiro.mobile;
 
 import android.content.SharedPreferences;
+import android.content.Intent;
 import android.os.Bundle;
 import android.webkit.ValueCallback;
 
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    public static final String ACTION_OPEN_SUPPORT_CHAT = "com.werbertsilva.controlefinanceiro.mobile.OPEN_SUPPORT_CHAT";
+    public static final String ACTION_OPEN_UPDATE = "com.werbertsilva.controlefinanceiro.mobile.OPEN_UPDATE";
+    public static final String EXTRA_OPEN_SUPPORT_CHAT = "cf_open_support_chat";
+    public static final String EXTRA_SUPPORT_MESSAGE_ID = "cf_support_message_id";
+    public static final String EXTRA_OPEN_UPDATE = "cf_open_update";
+    public static final String EXTRA_UPDATE_VERSION = "cf_update_version";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(UpdateInstallerPlugin.class);
         registerPlugin(NativeSharePlugin.class);
         registerPlugin(NotificationPermissionsPlugin.class);
+        registerPlugin(SupportBackgroundSyncPlugin.class);
+        registerPlugin(UpdateBackgroundSyncPlugin.class);
         registerPlugin(com.capacitorjs.plugins.filesystem.FilesystemPlugin.class);
         registerPlugin(com.capacitorjs.plugins.app.AppPlugin.class);
         registerPlugin(com.capacitorjs.plugins.preferences.PreferencesPlugin.class);
         super.onCreate(savedInstanceState);
+        SupportBackgroundSyncScheduler.scheduleNext(this, 15000L);
+        UpdateBackgroundSyncScheduler.scheduleNext(this, 30000L);
         runLegacyWebMigrationIfNeeded();
+        handleNotificationIntent(getIntent(), 1800L);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleNotificationIntent(intent, 450L);
     }
 
     private void runLegacyWebMigrationIfNeeded() {
@@ -84,5 +104,40 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception ignored) {
             return "unknown";
         }
+    }
+
+    private void handleNotificationIntent(Intent intent, long delayMs) {
+        if (intent == null) {
+            return;
+        }
+
+        boolean shouldOpenSupport = ACTION_OPEN_SUPPORT_CHAT.equals(intent.getAction())
+            || intent.getBooleanExtra(EXTRA_OPEN_SUPPORT_CHAT, false);
+        boolean shouldOpenUpdate = ACTION_OPEN_UPDATE.equals(intent.getAction())
+            || intent.getBooleanExtra(EXTRA_OPEN_UPDATE, false);
+
+        if ((!shouldOpenSupport && !shouldOpenUpdate) || getBridge() == null || getBridge().getWebView() == null) {
+            return;
+        }
+
+        dispatchNotificationIntent(shouldOpenSupport, shouldOpenUpdate, delayMs);
+        dispatchNotificationIntent(shouldOpenSupport, shouldOpenUpdate, delayMs + 2400L);
+    }
+
+    private void dispatchNotificationIntent(boolean shouldOpenSupport, boolean shouldOpenUpdate, long delayMs) {
+        getBridge().getWebView().postDelayed(() -> {
+            try {
+                String script = "";
+                if (shouldOpenSupport) {
+                    script += "window.__CF_SUPPORT_NOTIFICATION_OPENED__ = Date.now();"
+                        + "window.dispatchEvent(new CustomEvent('cf:support-notification-opened'));";
+                }
+                if (shouldOpenUpdate) {
+                    script += "window.__CF_UPDATE_NOTIFICATION_OPENED__ = Date.now();"
+                        + "window.dispatchEvent(new CustomEvent('cf:update-notification-opened'));";
+                }
+                getBridge().getWebView().evaluateJavascript(script, null);
+            } catch (Exception ignored) {}
+        }, delayMs);
     }
 }

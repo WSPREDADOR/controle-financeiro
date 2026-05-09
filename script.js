@@ -436,7 +436,8 @@ const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
 
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
-const SUPPORT_NOTIFICATION_CHANNEL_ID = 'support-messages-v1';
+const SUPPORT_NOTIFICATION_CHANNEL_ID = 'support-messages-v2';
+const UPDATE_NOTIFICATION_CHANNEL_ID = 'app-updates-v1';
 const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
@@ -589,7 +590,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.11',
+  currentVersion: '2.3.12',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -1377,6 +1378,8 @@ async function initializeSupportSync() {
   registerPaymentNotificationListeners();
 
   const config = getSupportConfig();
+  await configureSupportBackgroundSync(config);
+
   if (!isSupportConfigured(config)) {
     return;
   }
@@ -1400,6 +1403,29 @@ async function initializeSupportSync() {
   supportChatIntervalId = window.setInterval(() => {
     loadSupportChatMessages({ silent: true });
   }, 5000);
+}
+
+async function configureSupportBackgroundSync(config = getSupportConfig()) {
+  const plugin = getSupportBackgroundSyncPlugin();
+  if (!plugin?.configure || !isNativeAndroidApp()) {
+    return;
+  }
+
+  const supportId = await Storage.get(USER_ID_KEY);
+  const deviceToken = supportId ? await getSupportDeviceToken() : '';
+  const enabled = isSupportConfigured(config) && Boolean(supportId && deviceToken);
+
+  try {
+    await plugin.configure({
+      enabled,
+      supabaseUrl: config.supabaseUrl || '',
+      supabaseAnonKey: config.supabaseAnonKey || '',
+      supportId: supportId || '',
+      deviceToken: deviceToken || '',
+      checkInIntervalMs: Math.max(30000, Number(config.checkInIntervalMs) || 30000),
+      requestTimeoutMs: Number(config.requestTimeoutMs) || 8000
+    });
+  } catch (_) {}
 }
 
 async function refreshSupportUi() {
@@ -2510,13 +2536,35 @@ if (window.Capacitor?.Plugins?.App) {
     isNativeAppActive = Boolean(state?.isActive);
     if (state?.isActive) {
       queuePaymentNotificationSync();
+      configureSupportBackgroundSync();
+      configureUpdateBackgroundSync();
       loadSupportChatMessages({ silent: true });
     }
   });
 }
 
+window.addEventListener('cf:support-notification-opened', () => {
+  isNativeAppActive = true;
+  openSupportModal();
+});
+
+if (window.__CF_SUPPORT_NOTIFICATION_OPENED__) {
+  window.setTimeout(() => openSupportModal(), 600);
+}
+
+window.addEventListener('cf:update-notification-opened', () => {
+  configureUpdateBackgroundSync();
+  checkForUpdates({ force: true });
+});
+
+if (window.__CF_UPDATE_NOTIFICATION_OPENED__) {
+  window.setTimeout(() => checkForUpdates({ force: true }), 600);
+}
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
+    configureSupportBackgroundSync();
+    configureUpdateBackgroundSync();
     loadSupportChatMessages({ silent: true });
   }
 });
@@ -6568,6 +6616,14 @@ function getNotificationPermissionsPlugin() {
   return window.Capacitor?.Plugins?.NotificationPermissions ?? null;
 }
 
+function getSupportBackgroundSyncPlugin() {
+  return window.Capacitor?.Plugins?.SupportBackgroundSync ?? null;
+}
+
+function getUpdateBackgroundSyncPlugin() {
+  return window.Capacitor?.Plugins?.UpdateBackgroundSync ?? null;
+}
+
 function getFilesystemPlugin() {
   return window.Capacitor?.Plugins?.Filesystem ?? null;
 }
@@ -6673,6 +6729,27 @@ async function createPaymentNotificationChannel() {
       importance: 4,
       visibility: 1,
       sound: NOTIFICATION_SOUND_FILE,
+      lights: true,
+      lightColor: '#55d4cb',
+      vibration: true
+    });
+  } catch (_) {}
+}
+
+async function createUpdateNotificationChannel() {
+  const plugin = getLocalNotificationsPlugin();
+
+  if (!plugin?.createChannel) {
+    return;
+  }
+
+  try {
+    await plugin.createChannel({
+      id: UPDATE_NOTIFICATION_CHANNEL_ID,
+      name: 'Atualizações do app',
+      description: 'Avisos quando uma nova versão estiver disponível ou pronta para instalar.',
+      importance: 4,
+      visibility: 1,
       lights: true,
       lightColor: '#55d4cb',
       vibration: true
@@ -6886,6 +6963,17 @@ function registerPaymentNotificationListeners() {
 
   paymentNotificationListenersRegistered = true;
   plugin.addListener('localNotificationActionPerformed', (event) => {
+    if (event?.notification?.extra?.type === 'update_available') {
+      configureUpdateBackgroundSync();
+      checkForUpdates({ force: true });
+      return;
+    }
+
+    if (event?.notification?.extra?.type === 'update_downloaded') {
+      checkForUpdates({ force: true });
+      return;
+    }
+
     if (event?.notification?.extra?.type === 'support_chat') {
       openSupportModal();
       return;
@@ -6933,6 +7021,7 @@ function hideNotificationBanner() {
 
 function initializeUpdateCheck(installedVersion = null) {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
+  configureUpdateBackgroundSync(config);
 
   if (!config.bundleManifestUrl) {
     hideUpdateBanner();
@@ -6965,6 +7054,7 @@ function initializeUpdateCheck(installedVersion = null) {
   });
 
   window.addEventListener('focus', () => {
+    configureUpdateBackgroundSync(config);
     checkForUpdates({ force: true });
   });
 
@@ -7324,6 +7414,27 @@ function startAvailableUpdate() {
   }
 }
 
+async function configureUpdateBackgroundSync(config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) }) {
+  const plugin = getUpdateBackgroundSyncPlugin();
+  if (!plugin?.configure || !isNativeAndroidApp()) {
+    return;
+  }
+
+  const currentVersion = getCurrentAppVersion(config);
+
+  try {
+    await plugin.configure({
+      enabled: Boolean(config.bundleManifestUrl || config.releaseApiUrl),
+      currentVersion,
+      bundleManifestUrl: config.bundleManifestUrl || '',
+      bundleManifestFallbackUrl: config.bundleManifestFallbackUrl || '',
+      releaseApiUrl: config.releaseApiUrl || '',
+      requestTimeoutMs: Number(config.requestTimeoutMs) || 8000,
+      recheckIntervalMs: Math.max(30000, Number(config.recheckIntervalMs) || 1800000)
+    });
+  } catch (_) {}
+}
+
 function showUpdateBanner(title, message, version, apkUrl = null) {
   if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
     return;
@@ -7508,12 +7619,19 @@ async function startApkUpdate(update) {
     // Notificar o usuário
     const localNotifications = getLocalNotificationsPlugin();
     if (localNotifications) {
+      await createUpdateNotificationChannel();
       localNotifications.schedule({
         notifications: [{
           id: 999,
           title: 'Atualização Baixada',
           body: 'Toque para instalar a nova versão do app.',
-          schedule: { at: new Date(Date.now() + 500) }
+          schedule: { at: new Date(Date.now() + 500) },
+          channelId: UPDATE_NOTIFICATION_CHANNEL_ID,
+          autoCancel: true,
+          extra: {
+            type: 'update_downloaded',
+            version: update.version || ''
+          }
         }]
       });
     }
@@ -7599,12 +7717,19 @@ async function startAppUpdate(update) {
     // Notificar o usuário que baixou
     const localNotifications = getLocalNotificationsPlugin();
     if (localNotifications) {
+      await createUpdateNotificationChannel();
       localNotifications.schedule({
         notifications: [{
           id: 1000,
           title: 'Atualização Concluída',
           body: 'O app foi atualizado para a versão ' + (update.version || 'mais recente') + '.',
-          schedule: { at: new Date(Date.now() + 500) }
+          schedule: { at: new Date(Date.now() + 500) },
+          channelId: UPDATE_NOTIFICATION_CHANNEL_ID,
+          autoCancel: true,
+          extra: {
+            type: 'update_downloaded',
+            version: update.version || ''
+          }
         }]
       });
     }
