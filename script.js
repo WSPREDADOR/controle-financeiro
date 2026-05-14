@@ -35,6 +35,13 @@ const updateProgress = document.getElementById('updateProgress');
 const updateProgressLabel = document.getElementById('updateProgressLabel');
 const updateProgressPercent = document.getElementById('updateProgressPercent');
 const updateProgressBar = document.getElementById('updateProgressBar');
+const bottomHomeBtn = document.getElementById('bottomHomeBtn');
+const openCompletedPlansModalBtn = document.getElementById('openCompletedPlansModalBtn');
+const completedPlansModal = document.getElementById('completedPlansModal');
+const closeCompletedPlansModalBtn = document.getElementById('closeCompletedPlansModalBtn');
+const completedPlansList = document.getElementById('completedPlansList');
+const completedPlansCount = document.getElementById('completedPlansCount');
+const completedPlansTotal = document.getElementById('completedPlansTotal');
 const openAppSettingsModalBtn = document.getElementById('openAppSettingsModalBtn');
 const appSettingsModal = document.getElementById('appSettingsModal');
 const closeAppSettingsModalBtn = document.getElementById('closeAppSettingsModalBtn');
@@ -86,7 +93,7 @@ const plansList = document.getElementById('plansList');
 const selectedPlanTitle = document.getElementById('selectedPlanTitle');
 const selectedPlanSubtitle = document.getElementById('selectedPlanSubtitle');
 const openCreateModalBtn = document.getElementById('openCreateModalBtn');
-const openStatementImportModalBtn = document.getElementById('openStatementImportModalBtn');
+const openStatementImportFromCreateBtn = document.getElementById('openStatementImportFromCreateBtn');
 const statementImportModal = document.getElementById('statementImportModal');
 const closeStatementImportModalBtn = document.getElementById('closeStatementImportModalBtn');
 const cancelStatementImportBtn = document.getElementById('cancelStatementImportBtn');
@@ -206,7 +213,7 @@ const cancelPromptValueBtn = document.getElementById('cancelPromptValueBtn');
 let plans = loadPlans();
 let monthlyBalances = loadMonthlyBalances();
 let currentPlanFilter = 'all';
-let selectedPlanId = plans[0]?.id ?? null;
+let selectedPlanId = getActivePlans()[0]?.id ?? plans[0]?.id ?? null;
 let editingPlanId = null;
 let currentPromptMonth = null;
 let currentMonthlyDebtTotal = 0;
@@ -450,37 +457,58 @@ const FIRST_USE_TUTORIAL_STEPS = [
   {
     element: '.topbar-brand',
     kicker: 'Boas-vindas!',
-    title: 'Olá! Que bom te ver.',
-    description: 'Este é o seu Controle de Dívidas. Vamos te mostrar como dar os primeiros passos para organizar sua vida financeira.',
+    title: 'Seu controle financeiro',
+    description: 'Aqui você acompanha dívidas, despesas e contas em um só lugar. O tutorial mostra o caminho principal para começar sem se perder.',
     position: 'bottom'
   },
   {
     element: '.finance-hub',
-    kicker: 'Visão Geral',
-    title: 'Resumo do Mês',
-    description: 'Aqui em cima você acompanha o total que tem para pagar, quanto já pagou no mês e o total quitado até agora.',
+    kicker: 'Resumo',
+    title: 'Painel de valores',
+    description: 'Este painel mostra o que falta pagar, atrasos, o que foi pago no mês e o total já quitado. É o seu radar financeiro.',
     position: 'bottom'
   },
   {
-    element: '.calculator-card',
-    kicker: 'Cadastro',
-    title: 'Adicione Compromissos',
-    description: 'Use o botão Adicionar para cadastrar novas dívidas, parcelas, contas fixas ou despesas eventuais.',
+    element: '.calculator-card-compact',
+    kicker: 'Cadastro rápido',
+    title: 'Adicione novos registros',
+    description: 'Use o botão Adicionar para cadastrar dívida, despesa ou conta. Dentro do cadastro você também encontra a opção de importação.',
     position: 'top'
   },
   {
     element: '.plans-panel',
-    kicker: 'Gestão',
-    title: 'Sua Lista',
-    description: 'Aqui aparecerão todos os seus compromissos. Você pode filtrar por tipo e tocar neles para ver detalhes e marcar pagamentos.',
+    kicker: 'Lista',
+    title: 'Compromissos em aberto',
+    description: 'Aqui ficam os compromissos que ainda precisam de acompanhamento. Use os filtros por tipo e toque em um item para abrir os detalhes.',
+    position: 'top'
+  },
+  {
+    element: '#openMonthlyOverviewModalBtn',
+    kicker: 'Detalhes',
+    title: 'Resumo mensal completo',
+    description: 'O botão Detalhes abre uma visão mais completa do mês, com composição dos pagamentos, histórico e valores em aberto.',
+    position: 'top'
+  },
+  {
+    element: '#openCompletedPlansModalBtn',
+    kicker: 'Arquivo',
+    title: 'Compromissos concluídos',
+    description: 'Quando todas as parcelas de um compromisso forem marcadas como pagas, ele sai da lista principal e aparece em Concluídos.',
+    position: 'top'
+  },
+  {
+    element: '#openReorderModalBtn',
+    kicker: 'Organização',
+    title: 'Reorganize sua lista',
+    description: 'Use Organizar para mudar a ordem dos compromissos em aberto. Assim você deixa no topo aquilo que quer acompanhar primeiro.',
     position: 'top'
   },
   {
     element: '#openAppSettingsModalBtn',
-    kicker: 'Personalização',
-    title: 'Ajustes e Mais',
-    description: 'Nas configurações você pode ver o seu ID de suporte único ou rever este tutorial sempre que precisar.',
-    position: 'bottom'
+    kicker: 'Configurações',
+    title: 'Ajustes e suporte',
+    description: 'Em Config você encontra informações do app, suporte, compartilhamento e o botão para rever este tutorial quando quiser.',
+    position: 'top'
   }
 ];
 
@@ -524,6 +552,14 @@ function createTourUI() {
   document.getElementById('tourSkipBtn').addEventListener('click', () => closeAppTutorial());
   document.getElementById('tourPrevBtn').addEventListener('click', showPreviousAppTutorialStep);
   document.getElementById('tourNextBtn').addEventListener('click', showNextAppTutorialStep);
+  tourOverlay.addEventListener('touchmove', preventAppTutorialScroll, { passive: false });
+  tourOverlay.addEventListener('wheel', preventAppTutorialScroll, { passive: false });
+}
+
+function preventAppTutorialScroll(event) {
+  if (tourOverlay && tourOverlay.classList.contains('is-active')) {
+    event.preventDefault();
+  }
 }
 
 // ─── Armazenamento Persistente (protegido contra limpeza do Android) ───────────
@@ -590,7 +626,7 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.3.14',
+  currentVersion: '2.4.0',
   bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
   bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
   releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
@@ -656,7 +692,7 @@ updateResultsNavigation();
     const migratedPlans = await loadPlansAsync();
     if (migratedPlans.length > 0 && plans.length === 0) {
       plans = migratedPlans;
-      selectedPlanId = plans[0]?.id ?? null;
+      selectedPlanId = getActivePlans()[0]?.id ?? plans[0]?.id ?? null;
       renderPlansList();
       if (selectedPlanId) {
         renderPlanDetails(getSelectedPlan(), { resetTimelineScroll: true });
@@ -827,7 +863,36 @@ closeMonthlyBalanceModalBtn?.addEventListener('click', closeMonthlyBalanceModal)
 cancelMonthlyBalanceBtn?.addEventListener('click', closeMonthlyBalanceModal);
 saveMonthlyBalanceBtn?.addEventListener('click', saveMonthlyBalanceModal);
 replaceMonthlyBalanceBtn?.addEventListener('click', replaceMonthlyBalanceModal);
-openMonthlyOverviewModalBtn?.addEventListener('click', openMonthlyOverviewModal);
+bottomHomeBtn?.addEventListener('click', returnToHomeScreen);
+openMonthlyOverviewModalBtn?.addEventListener('click', (event) => {
+  closeAppNavigationPanels({ keep: 'monthlyOverview' });
+  setBottomNavActive(openMonthlyOverviewModalBtn);
+  openMonthlyOverviewModal(event);
+});
+openCompletedPlansModalBtn?.addEventListener('click', (event) => {
+  closeAppNavigationPanels({ keep: 'completedPlans' });
+  setBottomNavActive(openCompletedPlansModalBtn);
+  openCompletedPlansModal(event);
+});
+closeCompletedPlansModalBtn?.addEventListener('click', closeCompletedPlansModal);
+completedPlansList?.addEventListener('click', (event) => {
+  const openButton = event.target.closest('[data-completed-plan-id]');
+
+  if (!openButton) {
+    return;
+  }
+
+  const plan = plans.find((item) => item.id === openButton.dataset.completedPlanId);
+
+  if (!plan) {
+    return;
+  }
+
+  selectedPlanId = plan.id;
+  closeCompletedPlansModal();
+  renderPlansList();
+  openDetailsModal(plan, { resetTimelineScroll: true });
+});
 closeMonthlyOverviewModalBtn?.addEventListener('click', closeMonthlyOverviewModal);
 monthlyBalanceInput?.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
@@ -842,6 +907,9 @@ plansList.addEventListener('scroll', () => {
 
 window.addEventListener('resize', () => {
   schedulePlanFocusUpdate();
+  if (tourOverlay && tourOverlay.classList.contains('is-active')) {
+    renderAppTutorialStep();
+  }
 });
 
 const REORDER_AUTO_SCROLL_EDGE = 68;
@@ -984,7 +1052,10 @@ openCreateModalBtn.addEventListener('click', () => {
   openCreateModal();
 });
 
-openStatementImportModalBtn?.addEventListener('click', openStatementImportModal);
+openStatementImportFromCreateBtn?.addEventListener('click', () => {
+  closeCreateModal();
+  openStatementImportModal();
+});
 closeStatementImportModalBtn?.addEventListener('click', closeStatementImportModal);
 cancelStatementImportBtn?.addEventListener('click', closeStatementImportModal);
 backStatementImportBtn?.addEventListener('click', () => setStatementImportStage('file'));
@@ -1108,8 +1179,11 @@ confirmDeleteModalBtn.addEventListener('click', () => {
 });
 
 openReorderModalBtn.addEventListener('click', () => {
-  if (plans.length === 0) {
-    setStatus('Cadastre pelo menos um compromisso para reorganizar a lista.', 'error');
+  closeAppNavigationPanels({ keep: 'reorder' });
+  setBottomNavActive(openReorderModalBtn);
+
+  if (getActivePlans().length === 0) {
+    setStatus(plans.length === 0 ? 'Cadastre pelo menos um compromisso para reorganizar a lista.' : 'Nenhum compromisso em aberto para reorganizar.', 'error');
     return;
   }
 
@@ -1125,6 +1199,8 @@ closeDetailsModalBtn.addEventListener('click', () => {
 });
 
 openAppSettingsModalBtn?.addEventListener('click', () => {
+  closeAppNavigationPanels({ keep: 'settings' });
+  setBottomNavActive(openAppSettingsModalBtn);
   openAppSettingsModal();
 });
 
@@ -2302,6 +2378,8 @@ function renderAppTutorialStep() {
   }
 
   tourOverlay.classList.add('is-active');
+  document.body.classList.add('tutorial-open');
+  syncModalBodyState();
 }
 
 function openAppTutorial(startStep = 0) {
@@ -2315,6 +2393,7 @@ async function closeAppTutorial({ markCompleted = true } = {}) {
   }
 
   tourOverlay.classList.remove('is-active');
+  document.body.classList.remove('tutorial-open');
   tourPopover.classList.remove('is-visible');
   document.querySelectorAll('.tour-highlighted').forEach(el => el.classList.remove('tour-highlighted'));
   syncModalBodyState();
@@ -2966,6 +3045,75 @@ function closeMonthlyOverviewModal() {
   syncModalBodyState();
 }
 
+function openCompletedPlansModal(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+
+  if (!completedPlansModal) {
+    return;
+  }
+
+  renderCompletedPlansModal();
+  completedPlansModal.hidden = false;
+  syncModalBodyState();
+
+  window.setTimeout(() => {
+    closeCompletedPlansModalBtn?.focus();
+  }, 20);
+}
+
+function closeCompletedPlansModal() {
+  if (completedPlansModal) {
+    completedPlansModal.hidden = true;
+  }
+
+  syncModalBodyState();
+}
+
+function renderCompletedPlansModal() {
+  if (!completedPlansList) {
+    return;
+  }
+
+  const completedPlans = getCompletedPlans();
+  const completedTotal = completedPlans.reduce((total, plan) => {
+    return total + calculatePlanFinancials(plan).totalPaid;
+  }, 0);
+
+  if (completedPlansCount) {
+    completedPlansCount.textContent = String(completedPlans.length);
+  }
+
+  if (completedPlansTotal) {
+    completedPlansTotal.textContent = formatCurrency(completedTotal);
+  }
+
+  if (completedPlans.length === 0) {
+    completedPlansList.innerHTML = '<div class="empty-state">Nenhum compromisso concluído ainda. Quando quitar tudo, ele aparece aqui automaticamente.</div>';
+    return;
+  }
+
+  completedPlansList.innerHTML = completedPlans.map((plan, index) => {
+    const financials = calculatePlanFinancials(plan);
+    const planStartDate = parseDateInput(plan.startDate);
+    const effectiveStartDate = getEffectiveStartDate(planStartDate, plan.countMode);
+    const planEndDate = getPlanEndDate(plan, effectiveStartDate);
+
+    return `
+      <article class="completed-plan-card">
+        <button type="button" class="completed-plan-open" data-completed-plan-id="${plan.id}">
+          <span class="completed-plan-number">${String(index + 1).padStart(2, '0')}</span>
+          <span class="completed-plan-content">
+            <strong>${escapeHtml(plan.name)}</strong>
+            <small>${getPlanTypeLabel(plan)} concluída em ${formatDateShort(planEndDate)}</small>
+          </span>
+          <span class="completed-plan-value">${formatCurrency(financials.totalPaid)}</span>
+        </button>
+      </article>
+    `;
+  }).join('');
+}
+
 function renderMonthlyOverviewDetails() {
   const currentDateRef = normalizeDate(new Date());
   const debtBreakdown = getMonthlyDebtBreakdown(currentDateRef);
@@ -3419,11 +3567,12 @@ function renderPlansList() {
   plansList.innerHTML = '';
 
   const filteredPlans = getFilteredPlans();
+  const activePlans = getActivePlans();
 
   if (filteredPlans.length === 0) {
     plansList.innerHTML = `
       <div class="empty-state">
-        ${plans.length === 0 ? 'Nenhum compromisso salvo ainda. Cadastre algo como parcelas da moto, do carro ou da casa.' : 'Nenhum compromisso encontrado para este filtro.'}
+        ${plans.length === 0 ? 'Nenhum compromisso salvo ainda. Cadastre algo como parcelas da moto, do carro ou da casa.' : activePlans.length === 0 ? 'Todos os compromissos foram concluídos. Toque em Concluídos para ver o arquivo.' : 'Nenhum compromisso encontrado para este filtro.'}
       </div>
     `;
     if (plans.length === 0) closeDetailsModal();
@@ -4291,6 +4440,9 @@ function refreshPlanUiAfterPaymentChange(plan, options = {}) {
   refreshMonthlyTimelineCards(plan, options);
   refreshPlanListEntry(plan);
   updateResultsNavigation();
+  if (completedPlansModal && !completedPlansModal.hidden) {
+    renderCompletedPlansModal();
+  }
 
   if (!resultsSection.hidden) {
     syncModalBodyState();
@@ -5499,8 +5651,9 @@ function closeDeleteModal() {
 }
 
 function openReorderModal() {
-  reorderDraftPlanIds = plans.map((plan) => plan.id);
-  reorderSavedOrderSignature = getPlanOrderSignature(plans);
+  const activePlans = getActivePlans();
+  reorderDraftPlanIds = activePlans.map((plan) => plan.id);
+  reorderSavedOrderSignature = getPlanOrderSignature(activePlans);
   renderReorderList();
   editModal.hidden = true;
   syncModalBodyState();
@@ -5524,8 +5677,9 @@ function closeDeleteModal() {
 }
 
 function openReorderModal() {
-  reorderDraftPlanIds = plans.map((plan) => plan.id);
-  reorderSavedOrderSignature = getPlanOrderSignature(plans);
+  const activePlans = getActivePlans();
+  reorderDraftPlanIds = activePlans.map((plan) => plan.id);
+  reorderSavedOrderSignature = getPlanOrderSignature(activePlans);
   renderReorderList();
   reorderModal.hidden = false;
   syncModalBodyState();
@@ -5600,6 +5754,62 @@ function closeSupportModal() {
   syncModalBodyState();
 }
 
+function closeAppNavigationPanels(options = {}) {
+  const keep = options.keep ?? '';
+
+  if (statementImportModal && !statementImportModal.hidden) closeStatementImportModal();
+  if (bankImportModal && !bankImportModal.hidden) closeBankImportModal();
+  if (createModal && !createModal.hidden) closeCreateModal();
+  if (editModal && !editModal.hidden) closeEditModal();
+  if (deleteModal && !deleteModal.hidden) closeDeleteModal();
+  if (reorderModal && !reorderModal.hidden && keep !== 'reorder') closeReorderModal();
+  if (promptValueModal && !promptValueModal.hidden) closeInstallmentValuePrompt();
+  if (monthlyBalanceModal && !monthlyBalanceModal.hidden) closeMonthlyBalanceModal();
+  if (monthlyOverviewModal && !monthlyOverviewModal.hidden && keep !== 'monthlyOverview') closeMonthlyOverviewModal();
+  if (completedPlansModal && !completedPlansModal.hidden && keep !== 'completedPlans') closeCompletedPlansModal();
+  if (supportModal && !supportModal.hidden) closeSupportModal();
+  if (appSettingsModal && !appSettingsModal.hidden && keep !== 'settings') closeAppSettingsModal();
+  if (bulkPaymentModal && !bulkPaymentModal.hidden) closeBulkPaymentModal();
+  if (tourOverlay && tourOverlay.classList.contains('is-active')) closeAppTutorial();
+  if (resultsSection && !resultsSection.hidden) closeDetailsModal();
+}
+
+function setBottomNavActive(activeButton) {
+  document.querySelectorAll('.bottom-nav-btn').forEach((button) => {
+    button.classList.toggle('is-active', button === activeButton);
+  });
+}
+
+function returnToHomeScreen() {
+  closeAppNavigationPanels();
+  setBottomNavActive(bottomHomeBtn);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function syncBottomNavState() {
+  if (monthlyOverviewModal && !monthlyOverviewModal.hidden) {
+    setBottomNavActive(openMonthlyOverviewModalBtn);
+    return;
+  }
+
+  if (completedPlansModal && !completedPlansModal.hidden) {
+    setBottomNavActive(openCompletedPlansModalBtn);
+    return;
+  }
+
+  if (reorderModal && !reorderModal.hidden) {
+    setBottomNavActive(openReorderModalBtn);
+    return;
+  }
+
+  if (appSettingsModal && !appSettingsModal.hidden) {
+    setBottomNavActive(openAppSettingsModalBtn);
+    return;
+  }
+
+  setBottomNavActive(bottomHomeBtn);
+}
+
 function renderReorderList() {
   reorderList.innerHTML = '';
 
@@ -5652,8 +5862,10 @@ function syncModalBodyState() {
       Boolean(supportModal && !supportModal.hidden) ||
       Boolean(monthlyBalanceModal && !monthlyBalanceModal.hidden) ||
       Boolean(monthlyOverviewModal && !monthlyOverviewModal.hidden) ||
+      Boolean(completedPlansModal && !completedPlansModal.hidden) ||
       !resultsSection.hidden
   );
+  syncBottomNavState();
 }
 
 function setCreateStatus(message, type) {
@@ -5737,19 +5949,39 @@ function getPlanTypeLabel(plan) {
 }
 
 function getFilteredPlans() {
+  const activePlans = getActivePlans();
+
   if (currentPlanFilter === 'debt') {
-    return plans.filter((plan) => getPlanType(plan) === PLAN_TYPE_DEBT);
+    return activePlans.filter((plan) => getPlanType(plan) === PLAN_TYPE_DEBT);
   }
 
   if (currentPlanFilter === 'expense') {
-    return plans.filter((plan) => getPlanType(plan) === PLAN_TYPE_EXPENSE);
+    return activePlans.filter((plan) => getPlanType(plan) === PLAN_TYPE_EXPENSE);
   }
 
   if (currentPlanFilter === 'account') {
-    return plans.filter((plan) => getPlanType(plan) === PLAN_TYPE_ACCOUNT);
+    return activePlans.filter((plan) => getPlanType(plan) === PLAN_TYPE_ACCOUNT);
   }
 
-  return plans;
+  return activePlans;
+}
+
+function getActivePlans() {
+  return plans.filter((plan) => !isPlanCompleted(plan));
+}
+
+function getCompletedPlans() {
+  return plans.filter(isPlanCompleted);
+}
+
+function isPlanCompleted(plan) {
+  const maxMonths = getPlanMonthLimit(plan);
+
+  if (!plan || maxMonths <= 0) {
+    return false;
+  }
+
+  return getPaidMonths(plan).length >= maxMonths;
 }
 
 function createPlanId() {
@@ -6497,7 +6729,7 @@ function deletePlan(planId) {
   plans = plans.filter((plan) => plan.id !== planId);
 
   if (selectedPlanId === planId) {
-    selectedPlanId = plans[0]?.id ?? null;
+    selectedPlanId = getActivePlans()[0]?.id ?? plans[0]?.id ?? null;
   }
 
   if (editingPlanId === planId) {
@@ -8102,8 +8334,10 @@ function flushReorderAutosave(options = {}) {
 function saveReorderFromDom(options = {}) {
   persistReorderDraftFromDom();
   const orderedPlans = getOrderedPlansFromReorderDom();
+  const completedPlans = getCompletedPlans();
+  const activePlansCount = getActivePlans().length;
 
-  if (orderedPlans.length !== plans.length) {
+  if (orderedPlans.length !== activePlansCount) {
     renderReorderList();
     setStatus('Não foi possível salvar a nova ordem dos compromissos.', 'error');
     return false;
@@ -8118,7 +8352,7 @@ function saveReorderFromDom(options = {}) {
     return false;
   }
 
-  plans = orderedPlans;
+  plans = [...orderedPlans, ...completedPlans];
   reorderSavedOrderSignature = nextOrderSignature;
   savePlans();
   renderPlansList();

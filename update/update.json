@@ -1,6 +1,6 @@
 {
-  "version": "2.3.14",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.3.14/Controle.de.Dividas.apk",
-  "notes": "Remove o visto por ultimo do ADM no app do usuario e mostra apenas quando o suporte estiver online.",
-  "publishedAt": "2026-05-09"
+  "version": "2.4.0",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.0/Controle.de.Dividas.apk",
+  "notes": "Atualiza tela inicial, menu inferior, concluidos, importacao no cadastro e tutorial revisado.",
+  "publishedAt": "2026-05-14"
 }

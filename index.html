@@ -53,20 +53,14 @@
         </div>
       </div>
       <div class="topbar-meta">
-        <button type="button" class="settings-icon-btn" id="openAppSettingsModalBtn" aria-label="Abrir configurações do app" title="Configurações">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M14.7 6.3a4.5 4.5 0 0 0-5.8 5.8l-5.6 5.6a2 2 0 0 0 2.8 2.8l5.6-5.6a4.5 4.5 0 0 0 5.8-5.8l-3.1 3.1-2.6-2.6 2.9-3.3Z"/>
-          </svg>
-          <span>Configurações</span>
-        </button>
         <div class="version-pill app-version-pill">
           <div class="version-item">
             <span class="version-label">Versão</span>
-            <strong id="appVersionLabel">v2.3.14</strong>
+            <strong id="appVersionLabel">v2.4.0</strong>
           </div>
           <div class="version-item release-item">
             <span class="version-label">Lançado</span>
-            <strong id="appReleaseDateLabel">09/05/2026</strong>
+            <strong id="appReleaseDateLabel">14/05/2026</strong>
           </div>
         </div>
         <div class="version-pill app-date-pill">
@@ -314,36 +308,25 @@
       <section class="finance-hub">
         <!-- Lado Esquerdo: Saídas -->
         <div class="hub-column left">
-          <div class="hub-item">
+          <div class="hub-item hub-item-danger">
             <span class="hub-label">Total a pagar</span>
             <strong id="monthlyTotalValue" class="hub-value debt">R$ 0,00</strong>
           </div>
-          <div class="hub-item overdue-item" id="monthlyOverdueContainer">
+          <div class="hub-item hub-item-warning overdue-item" id="monthlyOverdueContainer">
             <span class="hub-label">Atrasadas (meses ant.)</span>
             <strong id="monthlyOverdueValue" class="hub-value negative">R$ 0,00</strong>
           </div>
         </div>
 
-        <!-- Centro: Ação -->
-        <div class="hub-column center">
-          <button type="button" class="hub-details-btn" id="openMonthlyOverviewModalBtn" aria-label="Ver detalhes financeiros">
-            <div class="hub-icon-wrapper">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6Z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            </div>
-            <span>Detalhes</span>
-          </button>
-        </div>
+        <div class="hub-column center" aria-hidden="true"></div>
 
         <!-- Lado Direito: Pagamentos -->
         <div class="hub-column right">
-          <div class="hub-item">
+          <div class="hub-item hub-item-success">
             <span class="hub-label">Pago no mês</span>
             <strong id="monthlyBalanceValue" class="hub-value balance">R$ 0,00</strong>
           </div>
-          <div class="hub-item">
+          <div class="hub-item hub-item-primary">
             <span class="hub-label">Total já pago</span>
             <strong id="monthlyBalanceRemaining" class="hub-value sobra">R$ 0,00</strong>
           </div>
@@ -353,46 +336,24 @@
       <section class="calculator-card calculator-card-compact">
         <div class="section-heading add-plan-header">
           <div class="add-plan-copy">
-            <span class="section-kicker">Área de Cadastro</span>
-            <h2>Adicionar compromisso</h2>
-            <p>Registre aqui suas novas faturas e parcelas para acompanhamento.</p>
+            <span class="section-kicker">Cadastro rápido</span>
+            <h2>Novo registro</h2>
+            <p>Dívida, despesa ou conta em poucos passos.</p>
           </div>
-        </div>
 
-        <div class="create-launcher">
-          <div class="create-option-grid">
-            <button type="button" id="openCreateModalBtn" class="create-option-card create-option-primary">
-              <span class="create-option-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M12 5v14M5 12h14"/>
-                </svg>
-              </span>
-              <span>
-                <strong>Adicionar</strong>
-              </span>
-            </button>
-
-            <button type="button" id="openStatementImportModalBtn" class="create-option-card">
-              <span class="create-option-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M14 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8l-6-6Zm0 0v6h6M8 13h8M8 17h5"/>
-                </svg>
-              </span>
-              <span>
-                <strong>Importação</strong>
-              </span>
-            </button>
-
-            <button type="button" id="openReorderModalBtn" class="create-option-card">
-              <span class="create-option-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
-                </svg>
-              </span>
-              <span>
-                <strong>Reorganizar</strong>
-              </span>
-            </button>
+          <div class="create-launcher">
+            <div class="create-option-grid">
+              <button type="button" id="openCreateModalBtn" class="create-option-card create-option-primary" aria-label="Adicionar novo compromisso">
+                <span class="create-option-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </span>
+                <span>
+                  <strong>Adicionar</strong>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -530,7 +491,43 @@
         Desenvolvido por <strong class="signature-name">Werbert Silva</strong>
       </p>
     </footer>
+
   </div>
+
+  <nav class="bottom-app-nav" aria-label="Atalhos principais">
+    <button type="button" class="bottom-nav-btn is-active" id="bottomHomeBtn" aria-label="Voltar para a tela inicial">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3V10.5Z"/>
+      </svg>
+      <span>Home</span>
+    </button>
+    <button type="button" class="bottom-nav-btn" id="openMonthlyOverviewModalBtn" aria-label="Ver detalhes financeiros">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6Z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+      <span>Detalhes</span>
+    </button>
+    <button type="button" class="bottom-nav-btn" id="openCompletedPlansModalBtn" aria-label="Ver compromissos concluídos">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20 6 9 17l-5-5"/>
+        <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+      </svg>
+      <span>Concluídos</span>
+    </button>
+    <button type="button" class="bottom-nav-btn" id="openReorderModalBtn" aria-label="Reorganizar compromissos">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+      </svg>
+      <span>Organizar</span>
+    </button>
+    <button type="button" class="bottom-nav-btn" id="openAppSettingsModalBtn" aria-label="Abrir configurações do app">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M14.7 6.3a4.5 4.5 0 0 0-5.8 5.8l-5.6 5.6a2 2 0 0 0 2.8 2.8l5.6-5.6a4.5 4.5 0 0 0 5.8-5.8l-3.1 3.1-2.6-2.6 2.9-3.3Z"/>
+      </svg>
+      <span>Config</span>
+    </button>
+  </nav>
 
   <div class="modal-overlay" id="statementImportModal" hidden>
     <section class="edit-modal bank-import-modal" role="dialog" aria-modal="true" aria-labelledby="statementImportModalTitle">
@@ -731,6 +728,12 @@
             <input type="radio" name="createPlanType" value="account" style="accent-color: var(--primary);">
             <strong style="font-size: 1.05rem; color: var(--text);">Conta</strong>
           </label>
+          <button type="button" id="openStatementImportFromCreateBtn" class="plan-type-choice plan-type-import-action">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8l-6-6Zm0 0v6h6M8 13h8M8 17h5"/>
+            </svg>
+            <strong>Importação</strong>
+          </button>
         </div>
 
         <div class="input-group-row">
@@ -934,6 +937,34 @@
       <div class="reorder-modal-body">
         <div class="reorder-list" id="reorderList" aria-label="Lista para reorganizar compromissos"></div>
       </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="completedPlansModal" hidden>
+    <section class="edit-modal completed-plans-modal" role="dialog" aria-modal="true" aria-labelledby="completedPlansModalTitle">
+      <button type="button" class="modal-close-btn" id="closeCompletedPlansModalBtn" aria-label="Fechar concluídos" title="Fechar">
+        X
+      </button>
+      <div class="modal-header completed-plans-header">
+        <div class="modal-heading">
+          <span class="section-kicker">Arquivo</span>
+          <h2 id="completedPlansModalTitle">Concluídos</h2>
+          <p>Compromissos quitados saem da lista principal e ficam guardados aqui.</p>
+        </div>
+      </div>
+
+      <div class="completed-plans-summary">
+        <article>
+          <span>Finalizados</span>
+          <strong id="completedPlansCount">0</strong>
+        </article>
+        <article>
+          <span>Total quitado</span>
+          <strong id="completedPlansTotal">R$ 0,00</strong>
+        </article>
+      </div>
+
+      <div class="completed-plans-list" id="completedPlansList" aria-label="Lista de compromissos concluídos"></div>
     </section>
   </div>
 
