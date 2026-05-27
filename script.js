@@ -447,7 +447,7 @@ const BULK_PAYMENT_HISTORY_LIMIT = 10;
 const APP_APK_FILE_NAME = 'Controle.de.Dividas.apk';
 const APP_APK_FILE_URL_NAME = encodeURIComponent(APP_APK_FILE_NAME);
 const APP_SHARE_URL = `https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/${APP_APK_FILE_URL_NAME}`;
-const APP_ANDROID_VERSION_CODE = 129;
+const APP_ANDROID_VERSION_CODE = 130;
 
 const FIRST_USE_TUTORIAL_STEPS = [
   {
@@ -623,7 +623,7 @@ const Storage = {
 };
 const defaultUpdateConfig = {
   currentVersionCode: APP_ANDROID_VERSION_CODE,
-  currentVersionName: '2.4.1',
+  currentVersionName: '2.4.2',
   releaseDate: '27/05/2026',
   updateJsonUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
   updateJsonFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/update.json',
