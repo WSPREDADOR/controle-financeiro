@@ -153,12 +153,11 @@ function publishUpdateFiles(version, versionCode, notes, publishedAt) {
   }
 
   const apkUrl = getGithubReleaseApkUrl(version);
-  const apkBase64 = fs.readFileSync(builtApkPath).toString('base64');
   writeJson(updateInfoPath, {
     versionCode,
     versionName: version,
     apkUrl,
-    apkBase64,
+    apkBase64: '',
     notes,
     publishedAt
   });
