@@ -11,8 +11,11 @@ const indexPath = path.join(projectRoot, 'index.html');
 const splashPath = path.join(projectRoot, 'splash.html');
 const updateConfigPath = path.join(projectRoot, 'update-config.js');
 const updateInfoPath = path.join(projectRoot, 'update', 'update.json');
+const compatibilityManifestPath = path.join(projectRoot, 'update', 'web-manifest.json');
 const androidBuildPath = path.join(androidRoot, 'app', 'build.gradle');
 const builtApkPath = path.join(androidRoot, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
+const releaseApkFileName = 'Controle.de.Dividas.apk';
+const releaseApkPath = path.join(androidRoot, 'app', 'build', 'outputs', 'apk', 'release', releaseApkFileName);
 
 function parseArgs(argv) {
   const options = { bump: 'patch', version: null, notes: 'Nova atualizacao disponivel.' };
@@ -140,20 +143,34 @@ function updateVersionFiles(version, versionCode, notes) {
   return { isoDate, notes };
 }
 
-function publishUpdateJson(version, versionCode, notes, publishedAt) {
+function getGithubReleaseApkUrl(version) {
+  return `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${version}/${releaseApkFileName}`;
+}
+
+function publishUpdateFiles(version, versionCode, notes, publishedAt) {
   if (!fs.existsSync(builtApkPath)) {
     throw new Error(`APK gerado nao encontrado: ${builtApkPath}`);
   }
 
+  const apkUrl = getGithubReleaseApkUrl(version);
   const apkBase64 = fs.readFileSync(builtApkPath).toString('base64');
   writeJson(updateInfoPath, {
     versionCode,
     versionName: version,
-    apkUrl: '',
+    apkUrl,
     apkBase64,
     notes,
     publishedAt
   });
+
+  writeJson(compatibilityManifestPath, {
+    version,
+    notes,
+    publishedAt,
+    apkUrl
+  });
+
+  fs.copyFileSync(builtApkPath, releaseApkPath);
 }
 
 function main() {
@@ -169,11 +186,12 @@ function main() {
   run('npm', ['run', 'mobile:sync']);
   run(process.platform === 'win32' ? '.\\gradlew.bat' : './gradlew', ['assembleRelease'], { cwd: androidRoot });
 
-  console.log('Gerando update/update.json com APK em Base64...');
-  publishUpdateJson(version, versionCode, releaseInfo.notes, releaseInfo.isoDate);
+  console.log('Gerando arquivos de atualizacao...');
+  publishUpdateFiles(version, versionCode, releaseInfo.notes, releaseInfo.isoDate);
 
   console.log(`Atualizacao ${version} pronta.`);
-  console.log('Publique/commit o arquivo update/update.json para o app encontrar a nova versao.');
+  console.log('Publique/commit update/update.json e update/web-manifest.json.');
+  console.log(`Crie a release v${version} no GitHub usando o APK: ${releaseApkPath}`);
 }
 
 main();
