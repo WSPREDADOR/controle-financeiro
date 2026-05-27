@@ -49,19 +49,6 @@
             </intent-filter>
         </receiver>
 
-        <receiver
-            android:name=".UpdateBackgroundSyncReceiver"
-            android:exported="false" />
-
-        <receiver
-            android:name=".UpdateBackgroundSyncBootReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-            </intent-filter>
-        </receiver>
     </application>
 
     <!-- Permissions -->

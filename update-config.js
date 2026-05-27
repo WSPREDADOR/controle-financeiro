@@ -1,9 +1,9 @@
 window.APP_UPDATE_CONFIG = {
-  currentVersion: '2.4.0',
-  expirationDate: '14/05/2026',
-  bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
-  bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
-  releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
+  currentVersionCode: 129,
+  currentVersionName: '2.4.1',
+  releaseDate: '27/05/2026',
+  updateJsonUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
+  updateJsonFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/update.json',
   checkOnStartup: true,
   requestTimeoutMs: 8000,
   recheckIntervalMs: 30000

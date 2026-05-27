@@ -9,7 +9,6 @@ const rootFiles = [
   'index.html',
   'style.css',
   'script.js',
-  'web-runtime.js',
   'support-config.js',
   'update-config.js',
   'manifest.webmanifest',

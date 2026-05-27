@@ -230,7 +230,6 @@ let planFocusFrameId = null;
 let availableUpdate = null;
 let updateCheckIntervalId = null;
 let isUpdateCheckInFlight = false;
-let isUpdateInstallInFlight = false;
 let updateBannerHoldUntil = 0;
 let notificationSyncTimeoutId = null;
 let supportSyncIntervalId = null;
@@ -435,16 +434,12 @@ const bulkPaymentHistoryActions = document.getElementById('bulkPaymentHistoryAct
 const adjustLastBulkPaymentBtn = document.getElementById('adjustLastBulkPaymentBtn');
 const deleteLastBulkPaymentBtn = document.getElementById('deleteLastBulkPaymentBtn');
 
-const PENDING_UPDATE_VERSION_KEY = 'pending-app-update-version';
 const LAST_UPDATE_POPUP_VERSION_KEY = 'last-update-popup-version';
-const WEB_BUNDLE_STORAGE_KEY = 'cf-active-web-bundle';
-const MAX_WEB_BUNDLE_CHARS = 1024 * 1024;
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
 
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
 const NOTIFICATION_CHANNEL_ID = 'payment-reminders-v2';
 const SUPPORT_NOTIFICATION_CHANNEL_ID = 'support-messages-v2';
-const UPDATE_NOTIFICATION_CHANNEL_ID = 'app-updates-v1';
 const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
@@ -452,6 +447,7 @@ const BULK_PAYMENT_HISTORY_LIMIT = 10;
 const APP_APK_FILE_NAME = 'Controle.de.Dividas.apk';
 const APP_APK_FILE_URL_NAME = encodeURIComponent(APP_APK_FILE_NAME);
 const APP_SHARE_URL = `https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/${APP_APK_FILE_URL_NAME}`;
+const APP_ANDROID_VERSION_CODE = 129;
 
 const FIRST_USE_TUTORIAL_STEPS = [
   {
@@ -626,10 +622,11 @@ const Storage = {
   }
 };
 const defaultUpdateConfig = {
-  currentVersion: '2.4.0',
-  bundleManifestUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-manifest.json',
-  bundleManifestFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-manifest.json',
-  releaseApiUrl: 'https://api.github.com/repos/WSPREDADOR/controle-financeiro/releases/latest',
+  currentVersionCode: APP_ANDROID_VERSION_CODE,
+  currentVersionName: '2.4.1',
+  releaseDate: '27/05/2026',
+  updateJsonUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
+  updateJsonFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/update.json',
   checkOnStartup: true,
   requestTimeoutMs: 6000,
   recheckIntervalMs: 45000
@@ -671,7 +668,6 @@ updateResultsNavigation();
     await Storage.migrate(STORAGE_KEY);
     await Storage.migrate(MONTHLY_BALANCES_KEY);
     await Storage.migrate(NOTIFICATION_PREFERENCE_KEY);
-    await Storage.migrate(PENDING_UPDATE_VERSION_KEY);
     await Storage.migrate(USER_NAME_KEY);
     await Storage.migrate(USER_ID_KEY);
     await Storage.migrate(SUPPORT_DEVICE_TOKEN_KEY);
@@ -1636,13 +1632,37 @@ function generateSecureToken() {
 async function getSupportDeviceInfo() {
   const capacitorPlatform = window.Capacitor?.getPlatform?.();
   const devicePlugin = window.Capacitor?.Plugins?.Device;
+  const formatDetail = (label, value) => {
+    if (value === undefined || value === null || value === '') {
+      return '';
+    }
+
+    return `${label}: ${String(value).replace(/;/g, ',')}`;
+  };
+  const screenDetails = [
+    formatDetail('Resolucao', window.screen ? `${window.screen.width}x${window.screen.height}` : ''),
+    formatDetail('Pixel ratio', window.devicePixelRatio || ''),
+    formatDetail('Idioma', navigator.language || '')
+  ].filter(Boolean);
 
   if (devicePlugin?.getInfo) {
     try {
       const info = await devicePlugin.getInfo();
+      const details = [
+        formatDetail('Fabricante', info.manufacturer),
+        formatDetail('Modelo', info.model),
+        formatDetail('Nome', info.name),
+        formatDetail('Sistema', info.operatingSystem),
+        formatDetail('Versao SO', info.osVersion),
+        formatDetail('Plataforma', info.platform || capacitorPlatform),
+        formatDetail('WebView', info.webViewVersion),
+        formatDetail('Virtual', typeof info.isVirtual === 'boolean' ? (info.isVirtual ? 'true' : 'false') : ''),
+        ...screenDetails
+      ].filter(Boolean);
+
       return {
         deviceName: info.name || info.model || info.manufacturer || 'Dispositivo Android',
-        deviceModel: [info.manufacturer, info.model, info.osVersion].filter(Boolean).join(' ') || navigator.userAgent,
+        deviceModel: details.join('; ') || navigator.userAgent,
         platform: info.platform || info.operatingSystem || capacitorPlatform || navigator.platform || 'web'
       };
     } catch (_) {}
@@ -1650,7 +1670,11 @@ async function getSupportDeviceInfo() {
 
   return {
     deviceName: navigator.platform || capacitorPlatform || 'Dispositivo',
-    deviceModel: navigator.userAgent || 'Modelo não informado',
+    deviceModel: [
+      formatDetail('User agent', navigator.userAgent),
+      formatDetail('Plataforma', navigator.platform || capacitorPlatform),
+      ...screenDetails
+    ].filter(Boolean).join('; ') || 'Modelo não informado',
     platform: capacitorPlatform || navigator.platform || 'web'
   };
 }
@@ -2613,7 +2637,6 @@ if (window.Capacitor?.Plugins?.App) {
     if (state?.isActive) {
       queuePaymentNotificationSync();
       configureSupportBackgroundSync();
-      configureUpdateBackgroundSync();
       loadSupportChatMessages({ silent: true });
     }
   });
@@ -2628,19 +2651,9 @@ if (window.__CF_SUPPORT_NOTIFICATION_OPENED__) {
   window.setTimeout(() => openSupportModal(), 600);
 }
 
-window.addEventListener('cf:update-notification-opened', () => {
-  configureUpdateBackgroundSync();
-  checkForUpdates({ force: true });
-});
-
-if (window.__CF_UPDATE_NOTIFICATION_OPENED__) {
-  window.setTimeout(() => checkForUpdates({ force: true }), 600);
-}
-
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     configureSupportBackgroundSync();
-    configureUpdateBackgroundSync();
     loadSupportChatMessages({ silent: true });
   }
 });
@@ -5704,7 +5717,7 @@ async function openAppSettingsModal() {
 
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
   if (settingsAppVersion) settingsAppVersion.textContent = `v${getCurrentAppVersion(config)}`;
-  if (settingsAppRelease) settingsAppRelease.textContent = config.expirationDate || '28/04/2026';
+  if (settingsAppRelease) settingsAppRelease.textContent = config.releaseDate || '14/05/2026';
   await refreshSupportUi();
    
   if (shareOptionsPanel) shareOptionsPanel.hidden = true;
@@ -6764,12 +6777,12 @@ function updateDisplayedAppVersion() {
   }
 
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
-  const version = getCurrentAppVersion(config);
+  const version = config.currentVersionName || defaultUpdateConfig.currentVersionName;
   appVersionLabel.textContent = `v${version}`;
 
   if (appReleaseDateLabel) {
-    const expiration = config.expirationDate || '29/04/2026';
-    appReleaseDateLabel.textContent = expiration;
+    const releaseDate = config.releaseDate || '14/05/2026';
+    appReleaseDateLabel.textContent = releaseDate;
   }
 }
 
@@ -6847,10 +6860,6 @@ function getNotificationPermissionsPlugin() {
 
 function getSupportBackgroundSyncPlugin() {
   return window.Capacitor?.Plugins?.SupportBackgroundSync ?? null;
-}
-
-function getUpdateBackgroundSyncPlugin() {
-  return window.Capacitor?.Plugins?.UpdateBackgroundSync ?? null;
 }
 
 function getFilesystemPlugin() {
@@ -6964,35 +6973,6 @@ async function createPaymentNotificationChannel() {
     });
   } catch (_) {}
 }
-
-async function createUpdateNotificationChannel() {
-  const plugin = getLocalNotificationsPlugin();
-
-  if (!plugin?.createChannel) {
-    return;
-  }
-
-  try {
-    await plugin.createChannel({
-      id: UPDATE_NOTIFICATION_CHANNEL_ID,
-      name: 'Atualizações do app',
-      description: 'Avisos quando uma nova versão estiver disponível ou pronta para instalar.',
-      importance: 4,
-      visibility: 1,
-      lights: true,
-      lightColor: '#55d4cb',
-      vibration: true
-    });
-  } catch (_) {}
-}
-
-
-
-
-
-
-
-
 
 
 async function openNotificationPermissionSettings() {
@@ -7192,17 +7172,6 @@ function registerPaymentNotificationListeners() {
 
   paymentNotificationListenersRegistered = true;
   plugin.addListener('localNotificationActionPerformed', (event) => {
-    if (event?.notification?.extra?.type === 'update_available') {
-      configureUpdateBackgroundSync();
-      checkForUpdates({ force: true });
-      return;
-    }
-
-    if (event?.notification?.extra?.type === 'update_downloaded') {
-      checkForUpdates({ force: true });
-      return;
-    }
-
     if (event?.notification?.extra?.type === 'support_chat') {
       openSupportModal();
       return;
@@ -7250,9 +7219,8 @@ function hideNotificationBanner() {
 
 function initializeUpdateCheck(installedVersion = null) {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
-  configureUpdateBackgroundSync(config);
 
-  if (!config.bundleManifestUrl) {
+  if (!config.updateJsonUrl && !config.updateJsonFallbackUrl) {
     hideUpdateBanner();
     return;
   }
@@ -7283,7 +7251,6 @@ function initializeUpdateCheck(installedVersion = null) {
   });
 
   window.addEventListener('focus', () => {
-    configureUpdateBackgroundSync(config);
     checkForUpdates({ force: true });
   });
 
@@ -7303,7 +7270,7 @@ function initializeUpdateCheck(installedVersion = null) {
 async function checkForUpdates(options = {}) {
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
-  if (!config.bundleManifestUrl) {
+  if (!config.updateJsonUrl && !config.updateJsonFallbackUrl) {
     hideUpdateBanner();
     return;
   }
@@ -7315,22 +7282,15 @@ async function checkForUpdates(options = {}) {
   isUpdateCheckInFlight = true;
 
   try {
-    const currentVersion = getCurrentAppVersion(config);
+    const currentVersionCode = getCurrentVersionCode(config);
+    const update = await fetchLatestAvailableUpdate(config);
 
-    cleanupUpdateState(currentVersion);
-
-    const release = await fetchLatestAvailableUpdate(
-      config,
-      currentVersion
-    );
-
-    if (release?.version && isRemoteVersionNewer(release.version, currentVersion)) {
-      availableUpdate = release;
+    if (update?.versionCode > currentVersionCode && (update.apkBase64 || update.apkUrl)) {
+      availableUpdate = update;
       showUpdateBanner(
-        `Nova versão v${release.version} disponível`,
-        release.notes || 'Uma nova versão do aplicativo está disponível para download. Toque no botão abaixo para baixar o instalador (APK) e atualizar.',
-        release.version,
-        release.apkUrl
+        `Nova versão ${update.versionName || update.versionCode} disponível`,
+        update.notes || 'Uma nova versão do app foi encontrada. Toque em Atualizar para instalar.',
+        update.versionName || String(update.versionCode)
       );
       return;
     }
@@ -7350,235 +7310,35 @@ async function checkForUpdates(options = {}) {
     isUpdateCheckInFlight = false;
   }
 
-  // Novo: Scaneia por APK já baixado se não houver banner de atualização remota
-  if (!availableUpdate && (updateBanner && updateBanner.hidden)) {
-    await scanForDownloadedUpdate();
-  }
 }
 
-async function scanForDownloadedUpdate() {
-  const fs = getFilesystemPlugin();
-  if (!fs) return;
-
-  try {
-    const nativeStatus = await getNativePermissionStatus();
-    if (nativeStatus?.requiresAllFilesAccess && !nativeStatus?.allFilesAccessGranted) return;
-
-    // Verifica se temos permissão
-    const status = await fs.checkPermissions();
-    if (status.publicStorage !== 'granted') return;
-
-    // Tentamos listar a pasta de Downloads
-    const result = await fs.readdir({
-      path: 'Download',
-      directory: 'EXTERNAL_STORAGE'
-    }).catch(() => null);
-
-    if (!result?.files) return;
-
-    const apkFile = result.files.find((file) => file.name === APP_APK_FILE_NAME);
-    
-    if (apkFile) {
-       showUpdateBanner(
-         'Instalador encontrado!',
-         'Encontramos o arquivo de atualização (APK) na sua pasta de Downloads. Deseja instalar agora?',
-         'Local',
-         null
-       );
-    }
-  } catch (_) {}
-}
-
-async function installLocalApk() {
-  const fs = getFilesystemPlugin();
-  const installer = getUpdateInstallerPlugin();
-  if (!fs || !installer?.installApk) return;
-
-  try {
-    const nativeStatus = await getNativePermissionStatus();
-    if (nativeStatus?.requiresAllFilesAccess && !nativeStatus?.allFilesAccessGranted) {
-      await requestStorageAccess();
-      setStatus('Libere o acesso aos arquivos e toque em instalar novamente.', 'success');
-      return;
-    }
-
-    const uriResult = await fs.getUri({
-      path: `Download/${APP_APK_FILE_NAME}`,
-      directory: 'EXTERNAL_STORAGE'
-    });
-
-    if (uriResult?.uri) {
-      await installer.installApk({ path: uriResult.uri });
-    }
-  } catch (error) {
-    console.error('Falha ao instalar APK local:', error);
-    setStatus('Falha ao abrir o instalador. Verifique as permissões de armazenamento.', 'error');
-  }
-}
-
-function buildManifestUrls(config) {
+function buildUpdateJsonUrls(config) {
   const urls = [
-    config.bundleManifestUrl,
-    config.bundleManifestFallbackUrl
+    config.updateJsonUrl,
+    config.updateJsonFallbackUrl
   ].filter(Boolean);
 
   return urls.map((url, index) => {
     const separator = url.includes('?') ? '&' : '?';
-    // Adicionamos um timestamp e um número aleatório para garantir que o GitHub não entregue nada do cache
-    return `${url}${separator}app=${encodeURIComponent(config.currentVersion || defaultUpdateConfig.currentVersion)}&cache_bust=${Date.now()}_${Math.random().toString(36).substring(7)}&t=${index}`;
+    return `${url}${separator}cache_bust=${Date.now()}_${Math.random().toString(36).slice(2)}&t=${index}`;
   });
 }
 
-async function fetchLatestAvailableUpdate(config, currentVersion) {
+async function fetchLatestAvailableUpdate(config) {
   const timeoutMs = config.requestTimeoutMs ?? 6000;
-  const candidates = [];
+  const urls = buildUpdateJsonUrls(config);
+  let lastError = null;
 
-  try {
-    const manifestCandidate = await fetchBundleManifest(
-      buildManifestUrls(config),
-      timeoutMs,
-      currentVersion
-    );
-
-    if (manifestCandidate?.version) {
-      candidates.push(manifestCandidate);
+  for (const url of urls) {
+    try {
+      const update = await fetchManifestCandidate(url, timeoutMs);
+      return normalizeUpdatePayload(update);
+    } catch (error) {
+      lastError = error;
     }
-  } catch (_) {}
-
-  try {
-    const releaseCandidate = await fetchReleaseApiCandidate(config.releaseApiUrl, timeoutMs);
-
-    if (releaseCandidate?.version) {
-      candidates.push(releaseCandidate);
-    }
-  } catch (_) {}
-
-  if (candidates.length === 0) {
-    throw new Error('Nenhuma fonte de atualização respondeu.');
   }
 
-  return candidates.reduce((latest, candidate) => {
-    if (!latest) {
-      return candidate;
-    }
-
-    if (isRemoteVersionNewer(candidate.version, latest.version)) {
-      return candidate;
-    }
-
-    if (
-      candidate.version === latest.version &&
-      getUpdateCandidateScore(candidate) > getUpdateCandidateScore(latest)
-    ) {
-      return candidate;
-    }
-
-    return latest;
-  }, null);
-}
-
-function getUpdateCandidateScore(candidate) {
-  const apkUrl = String(candidate?.apkUrl || '');
-
-  if (/github\.com\/[^/]+\/[^/]+\/releases\/download\/v/i.test(apkUrl)) {
-    return 3;
-  }
-
-  if (apkUrl.includes('raw.githubusercontent.com')) {
-    return 2;
-  }
-
-  if (apkUrl.includes('cdn.jsdelivr.net')) {
-    return 1;
-  }
-
-  return 0;
-}
-
-async function fetchBundleManifest(urls, timeoutMs, currentVersion) {
-  const responses = await Promise.allSettled(
-    urls.map((url) => fetchManifestCandidate(url, timeoutMs))
-  );
-
-  const manifests = responses
-    .filter((result) => result.status === 'fulfilled')
-    .map((result) => result.value)
-    .filter((manifest) => manifest?.version);
-
-  if (manifests.length === 0) {
-    const rejection = responses.find((result) => result.status === 'rejected');
-    throw rejection?.reason ?? new Error('Manifesto web indisponível.');
-  }
-
-  return manifests.reduce((latest, manifest) => {
-    if (!latest) {
-      return manifest;
-    }
-
-    if (isRemoteVersionNewer(manifest.version, latest.version)) {
-      return manifest;
-    }
-
-    if (
-      currentVersion &&
-      latest.version === currentVersion &&
-      manifest.version === currentVersion &&
-      manifest.bundleFallbackUrl &&
-      !latest.bundleFallbackUrl
-    ) {
-      return manifest;
-    }
-
-    return latest;
-  }, null);
-}
-
-async function fetchReleaseApiCandidate(url, timeoutMs) {
-  if (!url) {
-    throw new Error('API de release indisponivel.');
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, {
-      cache: 'no-store',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/vnd.github+json'
-      }
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error('Release do GitHub indisponivel.');
-    }
-
-    const release = await response.json();
-    const tagName = String(release?.tag_name || '').trim().replace(/^v/i, '');
-
-    if (!tagName) {
-      throw new Error('Release do GitHub invalida.');
-    }
-
-    const apkAsset = Array.isArray(release?.assets)
-      ? release.assets.find((asset) => asset?.name === APP_APK_FILE_NAME)
-        || release.assets.find((asset) => String(asset?.browser_download_url || '').endsWith(`/${APP_APK_FILE_URL_NAME}`))
-        || release.assets.find((asset) => /\.apk$/i.test(String(asset?.name || asset?.browser_download_url || '')))
-      : null;
-
-    return {
-      version: tagName,
-      notes: String(release?.body || '').trim() || 'Uma nova interface foi encontrada. Toque no botao verde para aplicar a atualização sem reinstalar o app.',
-      bundleUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json',
-      bundleFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json',
-      apkUrl: apkAsset?.browser_download_url || `https://github.com/WSPREDADOR/controle-financeiro/releases/download/v${tagName}/${APP_APK_FILE_URL_NAME}`
-    };
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  throw lastError ?? new Error('Arquivo de atualização indisponível.');
 }
 
 async function fetchManifestCandidate(url, timeoutMs) {
@@ -7594,7 +7354,7 @@ async function fetchManifestCandidate(url, timeoutMs) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error('Manifesto web indisponível.');
+      throw new Error('Arquivo de atualização indisponível.');
     }
 
     return await response.json();
@@ -7603,9 +7363,34 @@ async function fetchManifestCandidate(url, timeoutMs) {
   }
 }
 
+function normalizeUpdatePayload(update) {
+  const versionCode = Number.parseInt(update?.versionCode ?? update?.version_code ?? 0, 10) || 0;
+  const versionName = String(update?.versionName ?? update?.version ?? '').trim();
+  const apkUrl = String(update?.apkUrl ?? update?.apk_url ?? '').trim();
+  const apkBase64 = String(update?.apkBase64 ?? update?.apk_base64 ?? '').trim();
+  const notes = String(update?.notes ?? '').trim();
+
+  if (!versionCode) {
+    throw new Error('Arquivo de atualização inválido: sem versionCode.');
+  }
+
+  return { versionCode, versionName, apkUrl, apkBase64, notes };
+}
+
+function getCurrentVersionCode(config) {
+  return Number.parseInt(
+    window.APP_UPDATE_CONFIG?.currentVersionCode ?? config.currentVersionCode ?? defaultUpdateConfig.currentVersionCode,
+    10
+  ) || 0;
+}
+
+function getCurrentAppVersion(config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) }) {
+  return config.currentVersionName || defaultUpdateConfig.currentVersionName;
+}
+
 function isRemoteVersionNewer(remoteVersion, currentVersion) {
-  const remote = remoteVersion.split('.').map((part) => Number.parseInt(part, 10) || 0);
-  const current = currentVersion.split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const remote = String(remoteVersion || '').split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const current = String(currentVersion || '').split('.').map((part) => Number.parseInt(part, 10) || 0);
   const maxLength = Math.max(remote.length, current.length);
 
   for (let index = 0; index < maxLength; index += 1) {
@@ -7625,46 +7410,11 @@ function isRemoteVersionNewer(remoteVersion, currentVersion) {
 }
 
 function startAvailableUpdate() {
-  if (updateBannerTitle?.textContent === 'Instalador encontrado!') {
-    hideUpdatePopup();
-    installLocalApk();
-    return;
-  }
-
-  if (availableUpdate?.apkUrl) {
-    hideUpdatePopup();
-    startApkUpdate(availableUpdate);
-    return;
-  }
-
-  if (availableUpdate?.bundleUrl) {
-    hideUpdatePopup();
-    startAppUpdate(availableUpdate);
-  }
+  hideUpdatePopup();
+  startApkUpdate(availableUpdate);
 }
 
-async function configureUpdateBackgroundSync(config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) }) {
-  const plugin = getUpdateBackgroundSyncPlugin();
-  if (!plugin?.configure || !isNativeAndroidApp()) {
-    return;
-  }
-
-  const currentVersion = getCurrentAppVersion(config);
-
-  try {
-    await plugin.configure({
-      enabled: Boolean(config.bundleManifestUrl || config.releaseApiUrl),
-      currentVersion,
-      bundleManifestUrl: config.bundleManifestUrl || '',
-      bundleManifestFallbackUrl: config.bundleManifestFallbackUrl || '',
-      releaseApiUrl: config.releaseApiUrl || '',
-      requestTimeoutMs: Number(config.requestTimeoutMs) || 8000,
-      recheckIntervalMs: Math.max(30000, Number(config.recheckIntervalMs) || 1800000)
-    });
-  } catch (_) {}
-}
-
-function showUpdateBanner(title, message, version, apkUrl = null) {
+function showUpdateBanner(title, message, version) {
   if (!updateBanner || !updateBannerTitle || !updateBannerMessage || !updatePrimaryBtn) {
     return;
   }
@@ -7675,18 +7425,14 @@ function showUpdateBanner(title, message, version, apkUrl = null) {
   
   updatePrimaryBtn.hidden = false;
   updatePrimaryBtn.disabled = false;
-  if (version === 'Local') {
-    updatePrimaryBtn.textContent = 'Instalar Agora';
-  } else {
-    updatePrimaryBtn.textContent = apkUrl ? 'Baixar Atualização (APK)' : `Atualizar para ${version}`;
-  }
+  updatePrimaryBtn.textContent = 'Atualizar';
 
   if (updateNativeBtn) {
     updateNativeBtn.hidden = true;
   }
   
   resetUpdateProgress();
-  showUpdatePopup(title, message, version, apkUrl);
+  showUpdatePopup(title, message, version);
 }
 
 function showUpdatedBanner(version) {
@@ -7711,12 +7457,12 @@ function hideUpdateBanner() {
   updateBanner.hidden = true;
   updatePrimaryBtn.hidden = true;
   updatePrimaryBtn.disabled = false;
-  updatePrimaryBtn.textContent = 'Atualizar app';
+  updatePrimaryBtn.textContent = 'Atualizar';
   resetUpdateProgress();
   hideUpdatePopup();
 }
 
-async function showUpdatePopup(title, message, version, apkUrl = null) {
+async function showUpdatePopup(title, message, version) {
   if (!version || document.visibilityState === 'hidden') {
     return;
   }
@@ -7760,7 +7506,7 @@ async function showUpdatePopup(title, message, version, apkUrl = null) {
 
   popup.querySelector('#updateAvailablePopupTitle').textContent = title || `Nova versão v${version} disponível`;
   popup.querySelector('#updateAvailablePopupText').textContent = message || 'Uma nova versão do app está disponível.';
-  popup.querySelector('#updateAvailablePopupInstall').textContent = apkUrl ? 'Baixar atualização' : 'Atualizar agora';
+  popup.querySelector('#updateAvailablePopupInstall').textContent = 'Atualizar';
   popup.dataset.version = popupVersionKey;
   popup.hidden = false;
   window.setTimeout(() => popup.classList.add('is-visible'), 20);
@@ -7802,74 +7548,54 @@ function showUpdateError(message) {
   updateBannerMessage.textContent = message || 'Não foi possível aplicar a atualização agora. Confira a conexão e tente novamente.';
   updatePrimaryBtn.hidden = false;
   updatePrimaryBtn.disabled = false;
-  updatePrimaryBtn.textContent = availableUpdate?.version
-    ? `Tentar ${availableUpdate.version} novamente`
+  updatePrimaryBtn.textContent = availableUpdate?.versionName
+    ? `Tentar ${availableUpdate.versionName} novamente`
     : 'Tentar novamente';
   setUpdateProgress('Falha na atualização', 0);
 }
 
 async function startApkUpdate(update) {
-  const apkUrl = update?.apkUrl;
-
-  if (!apkUrl) {
+  if (!update?.apkBase64 && !update?.apkUrl) {
     return;
   }
 
   const installer = getUpdateInstallerPlugin();
 
-  if (!installer?.downloadAndInstall) {
-    openUpdateUrl(apkUrl);
+  if (!installer?.installEmbeddedUpdate && !installer?.downloadAndInstall) {
+    openUpdateUrl(update.apkUrl);
     hideUpdateBanner();
     return;
   }
 
-  setUpdateProgress('Iniciando download do APK...', 1);
+  setUpdateProgress('Preparando atualização...', 1);
 
   try {
-    if (isNativeAndroidApp()) {
-      const notificationState = await getPaymentNotificationPermissionState();
-      if (notificationState !== 'granted') {
-        await requestPaymentNotificationPermission();
-      }
-    }
-
-    const result = await installer.downloadAndInstall({
-      apkUrl,
-      version: update.version || ''
-    });
+    const result = update.apkBase64 && installer.installEmbeddedUpdate
+      ? await installer.installEmbeddedUpdate({
+        apkBase64: update.apkBase64,
+        versionName: update.versionName || ''
+      })
+      : await installer.downloadAndInstall({
+        apkUrl: update.apkUrl,
+        version: update.versionName || ''
+      });
 
     if (result?.requiresPermission) {
       showUpdateError('Permita a instalação por fontes desconhecidas para este app e toque em atualizar novamente.');
       return;
     }
 
-    setUpdateProgress('Baixado, verifique em suas notificações', 100);
-
-    // Notificar o usuário
-    const localNotifications = getLocalNotificationsPlugin();
-    if (localNotifications) {
-      await createUpdateNotificationChannel();
-      localNotifications.schedule({
-        notifications: [{
-          id: 999,
-          title: 'Atualização Baixada',
-          body: 'Toque para instalar a nova versão do app.',
-          schedule: { at: new Date(Date.now() + 500) },
-          channelId: UPDATE_NOTIFICATION_CHANNEL_ID,
-          autoCancel: true,
-          extra: {
-            type: 'update_downloaded',
-            version: update.version || ''
-          }
-        }]
-      });
-    }
-
+    setUpdateProgress('Instalador aberto', 100);
     if (updateBannerMessage) {
-      updateBannerMessage.textContent = 'Download concluído! Verifique suas notificações para instalar.';
+      updateBannerMessage.textContent = 'Confirme a instalação na tela do Android para concluir a atualização.';
     }
-  } catch (_) {
-    openUpdateUrl(apkUrl);
+  } catch (error) {
+    if (update.apkUrl) {
+      openUpdateUrl(update.apkUrl);
+    } else {
+      showUpdateError(error?.message || 'Não foi possível abrir o instalador.');
+      return;
+    }
     hideUpdateBanner();
   }
 }
@@ -7902,275 +7628,11 @@ function setUpdateProgress(message, percent = null) {
   }
 }
 
-function announceInstalledUpdate() {
-  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
-  const currentVersion = getCurrentAppVersion(config);
-  const pendingVersion = localStorage.getItem(PENDING_UPDATE_VERSION_KEY);
-
-  if (!pendingVersion || pendingVersion !== currentVersion) {
-    return null;
-  }
-
-  localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
-  availableUpdate = null;
-  updateBannerHoldUntil = Date.now() + 12000;
-  showUpdatedBanner(currentVersion);
-  return currentVersion;
-}
-
-async function startAppUpdate(update) {
-  if (!update?.bundleUrl || isUpdateInstallInFlight) {
+function openUpdateUrl(url) {
+  if (!url) {
     return;
   }
 
-  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
-  let didStartApply = false;
-  isUpdateInstallInFlight = true;
-  setUpdateProgress('Preparando atualização...', 1);
-
-  try {
-    await Storage.set(PENDING_UPDATE_VERSION_KEY, update.version || '');
-
-    const bundle = await fetchBundlePayload(
-      update,
-      config.currentVersion || defaultUpdateConfig.currentVersion,
-      config.requestTimeoutMs ?? defaultUpdateConfig.requestTimeoutMs,
-      (percent) => setUpdateProgress('Baixando atualização...', percent)
-    );
-
-    setUpdateProgress('Salvando atualização...', 82);
-    persistWebBundle(bundle);
-    setUpdateProgress('Aplicando atualização...', 96);
-    didStartApply = true;
-    
-    // Notificar o usuário que baixou
-    const localNotifications = getLocalNotificationsPlugin();
-    if (localNotifications) {
-      await createUpdateNotificationChannel();
-      localNotifications.schedule({
-        notifications: [{
-          id: 1000,
-          title: 'Atualização Concluída',
-          body: 'O app foi atualizado para a versão ' + (update.version || 'mais recente') + '.',
-          schedule: { at: new Date(Date.now() + 500) },
-          channelId: UPDATE_NOTIFICATION_CHANNEL_ID,
-          autoCancel: true,
-          extra: {
-            type: 'update_downloaded',
-            version: update.version || ''
-          }
-        }]
-      });
-    }
-
-    window.setTimeout(() => {
-      try {
-        setUpdateProgress('Baixado, verifique em suas notificações', 100);
-        window.setTimeout(() => {
-          applyWebBundle(bundle);
-        }, 1500);
-      } catch (error) {
-        isUpdateInstallInFlight = false;
-        Storage.remove(PENDING_UPDATE_VERSION_KEY).finally(() => {
-          showUpdateError(error?.message);
-        });
-      }
-    }, 80);
-  } catch (error) {
-    await Storage.remove(PENDING_UPDATE_VERSION_KEY);
-    showUpdateError(error?.message);
-  } finally {
-    if (!didStartApply) {
-      isUpdateInstallInFlight = false;
-    }
-  }
-}
-
-function buildBundleUrls(update, currentVersion) {
-  const urls = [
-    update.bundleUrl,
-    update.bundleFallbackUrl
-  ].filter(Boolean);
-
-  return urls.map((url, index) => {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}target=${encodeURIComponent(update.version || '')}&base=${encodeURIComponent(currentVersion || '')}&t=${Date.now()}-${index}`;
-  });
-}
-
-async function fetchBundlePayload(update, currentVersion, timeoutMs = 10000, onProgress = null) {
-  let lastError = null;
-
-  for (const url of buildBundleUrls(update, currentVersion)) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const response = await fetch(url, {
-        cache: 'no-store',
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error('Bundle web indisponível.');
-      }
-
-      const bundleText = await readResponseText(response, onProgress);
-      clearTimeout(timeoutId);
-
-      const bundle = JSON.parse(bundleText);
-
-      if (!bundle?.version) {
-        throw new Error('Bundle web inválido: sem versão.');
-      }
-
-      // Aceita formato html (legado) e css+js (novo)
-      const hasHtml = Boolean(bundle.html);
-      const hasCssJs = bundle.css !== undefined && bundle.js !== undefined;
-      if (!hasHtml && !hasCssJs) {
-        throw new Error('Bundle web inválido: sem conteúdo.');
-      }
-
-      // Aceitar qualquer bundle mais novo que a versão atual do app.
-      // Não exige match exato com o manifesto — CDNs podem ter lag.
-      // Aceitar qualquer bundle igual ou mais novo que a versão atual do app.
-      if (isRemoteVersionNewer(currentVersion, bundle.version)) {
-        throw new Error(`Bundle (${bundle.version}) é mais antigo que a versão atual (${currentVersion}).`);
-      }
-
-      assertBundleSize(bundle);
-      return bundle;
-    } catch (error) {
-      lastError = error;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  throw lastError ?? new Error('Bundle web indisponível.');
-}
-
-async function readResponseText(response, onProgress = null) {
-  if (!response.body?.getReader) {
-    const text = await response.text();
-    onProgress?.(70);
-    return text;
-  }
-
-  const contentLength = Number.parseInt(response.headers.get('content-length') || '0', 10);
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const chunks = [];
-  let receivedLength = 0;
-  let fallbackProgress = 8;
-
-  while (true) {
-    const { done, value } = await reader.read();
-
-    if (done) {
-      break;
-    }
-
-    chunks.push(decoder.decode(value, { stream: true }));
-    receivedLength += value.length;
-
-    if (contentLength > 0) {
-      onProgress?.(Math.min(70, Math.max(8, (receivedLength / contentLength) * 70)));
-    } else {
-      fallbackProgress = Math.min(68, fallbackProgress + 4);
-      onProgress?.(fallbackProgress);
-    }
-  }
-
-  chunks.push(decoder.decode());
-  onProgress?.(75);
-  return chunks.join('');
-}
-
-function assertBundleSize(bundle) {
-  const serializedBundle = JSON.stringify(bundle);
-
-  if (serializedBundle.length > MAX_WEB_BUNDLE_CHARS) {
-    throw new Error('Bundle web grande demais para aplicar com segurança no celular.');
-  }
-}
-
-function persistWebBundle(bundle) {
-  if (!bundle?.version) {
-    throw new Error('Bundle web inválido.');
-  }
-
-  const hasHtml = Boolean(bundle.html);
-  const hasCssJs = bundle.css !== undefined && bundle.js !== undefined;
-  if (!hasHtml && !hasCssJs) {
-    throw new Error('Bundle web inválido: sem conteúdo.');
-  }
-
-  const serializedBundle = JSON.stringify(bundle);
-
-  if (serializedBundle.length > MAX_WEB_BUNDLE_CHARS) {
-    throw new Error('Bundle web grande demais para aplicar com segurança no celular.');
-  }
-
-  localStorage.setItem(WEB_BUNDLE_STORAGE_KEY, serializedBundle);
-}
-
-function applyWebBundle(bundle) {
-  if (!bundle?.version) {
-    throw new Error('Bundle web inválido.');
-  }
-
-  // O bundle já foi salvo no localStorage por persistWebBundle().
-  // Ao recarregar, o web-runtime.js do APK detecta o bundle e aplica
-  // via document.write() de forma síncrona no <head> — que é confiável.
-  window.location.reload();
-}
-
-function getCurrentAppVersion(config) {
-  try {
-    const rawBundle = localStorage.getItem(WEB_BUNDLE_STORAGE_KEY);
-
-    if (rawBundle) {
-      const parsedBundle = JSON.parse(rawBundle);
-      if (parsedBundle?.version && !isRemoteVersionNewer(parsedBundle.version, config.currentVersion || defaultUpdateConfig.currentVersion)) {
-        return config.currentVersion || defaultUpdateConfig.currentVersion;
-      }
-      if (parsedBundle?.version) {
-        return parsedBundle.version;
-      }
-    }
-  } catch (_) {}
-
-  return window.APP_UPDATE_CONFIG?.currentVersion || config.currentVersion || defaultUpdateConfig.currentVersion;
-}
-
-function cleanupUpdateState(currentVersion) {
-  const pendingVersion = localStorage.getItem(PENDING_UPDATE_VERSION_KEY);
-
-  if (pendingVersion && !isRemoteVersionNewer(pendingVersion, currentVersion)) {
-    localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
-  }
-
-  try {
-    const rawBundle = localStorage.getItem(WEB_BUNDLE_STORAGE_KEY);
-
-    if (!rawBundle) {
-      return;
-    }
-
-    const bundle = JSON.parse(rawBundle);
-
-    if (!bundle?.html || !bundle?.version) {
-      localStorage.removeItem(WEB_BUNDLE_STORAGE_KEY);
-    }
-  } catch (_) {
-    localStorage.removeItem(WEB_BUNDLE_STORAGE_KEY);
-  }
-}
-
-function openUpdateUrl(url) {
   const link = document.createElement('a');
   link.href = url;
   link.target = '_blank';

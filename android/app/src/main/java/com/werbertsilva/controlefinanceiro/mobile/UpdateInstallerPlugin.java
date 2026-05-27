@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.Base64;
 
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
@@ -22,6 +23,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.File;
+import java.io.FileOutputStream;
 
 @CapacitorPlugin(name = "UpdateInstaller")
 public class UpdateInstallerPlugin extends Plugin {
@@ -124,6 +126,45 @@ public class UpdateInstallerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void installEmbeddedUpdate(PluginCall call) {
+        String apkBase64 = call.getString("apkBase64", "");
+        String versionName = call.getString("versionName", "");
+
+        if (apkBase64 == null || apkBase64.trim().isEmpty()) {
+            call.reject("APK em Base64 não informado.");
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getContext().getPackageManager().canRequestPackageInstalls()) {
+            JSObject result = new JSObject();
+            result.put("started", false);
+            result.put("requiresPermission", true);
+            result.put("version", versionName);
+            call.resolve(result);
+            openInstallSettingsInternal();
+            return;
+        }
+
+        try {
+            byte[] apkBytes = Base64.decode(apkBase64, Base64.DEFAULT);
+            File apkFile = new File(getContext().getCacheDir(), "controle-de-dividas-update.apk");
+
+            try (FileOutputStream output = new FileOutputStream(apkFile)) {
+                output.write(apkBytes);
+            }
+
+            openApkInstaller(apkFile);
+
+            JSObject result = new JSObject();
+            result.put("started", true);
+            result.put("version", versionName);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Não foi possível instalar a atualização: " + error.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void openInstallSettings(PluginCall call) {
         openInstallSettingsInternal();
         call.resolve();
@@ -150,17 +191,7 @@ public class UpdateInstallerPlugin extends Plugin {
         }
 
         try {
-            Uri contentUri = FileProvider.getUriForFile(
-                getContext(),
-                getContext().getPackageName() + ".fileprovider",
-                apkFile
-            );
-
-            Intent installIntent = new Intent(Intent.ACTION_VIEW);
-            installIntent.setDataAndType(contentUri, "application/vnd.android.package-archive");
-            installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            getContext().startActivity(installIntent);
+            openApkInstaller(apkFile);
             call.resolve();
         } catch (Exception e) {
             call.reject("Erro ao instalar APK: " + e.getMessage());
@@ -200,19 +231,23 @@ public class UpdateInstallerPlugin extends Plugin {
 
             Uri localUri = Uri.parse(localUriValue);
             File apkFile = new File(localUri.getPath());
-            Uri contentUri = FileProvider.getUriForFile(
-                getContext(),
-                getContext().getPackageName() + ".fileprovider",
-                apkFile
-            );
-
-            Intent installIntent = new Intent(Intent.ACTION_VIEW);
-            installIntent.setDataAndType(contentUri, "application/vnd.android.package-archive");
-            installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            getContext().startActivity(installIntent);
+            openApkInstaller(apkFile);
         } catch (ActivityNotFoundException ignored) {
         }
+    }
+
+    private void openApkInstaller(File apkFile) {
+        Uri contentUri = FileProvider.getUriForFile(
+            getContext(),
+            getContext().getPackageName() + ".fileprovider",
+            apkFile
+        );
+
+        Intent installIntent = new Intent(Intent.ACTION_VIEW);
+        installIntent.setDataAndType(contentUri, "application/vnd.android.package-archive");
+        installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        getContext().startActivity(installIntent);
     }
 
     private void openInstallSettingsInternal() {

@@ -1,8 +1,0 @@
-{
-  "version": "2.4.0",
-  "notes": "Atualiza tela inicial, menu inferior, concluidos, importacao no cadastro e tutorial revisado.",
-  "publishedAt": "2026-05-14",
-  "bundleUrl": "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/web-bundle.json?v=1778787852202",
-  "bundleFallbackUrl": "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/web-bundle.json?v=1778787852203",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.0/Controle.de.Dividas.apk"
-}
