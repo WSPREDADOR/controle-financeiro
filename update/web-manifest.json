@@ -1,6 +1,6 @@
 {
-  "version": "2.4.6",
-  "notes": "Melhoria no atualizador nativo: o APK agora baixa em uma janela com progresso e o instalador abre automaticamente ao concluir.",
+  "version": "2.4.7",
+  "notes": "Teste do fluxo novo: aviso nativo, download com barra de progresso e abertura automatica do instalador.",
   "publishedAt": "2026-05-28",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.6/Controle.de.Dividas.apk"
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.7/Controle.de.Dividas.apk"
 }
