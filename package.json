@@ -1,6 +1,6 @@
 {
   "name": "controle-financeiro",
-  "version": "2.4.7",
+  "version": "2.4.8",
   "description": "Aplicativo desktop para controle de compromissos e pagamentos.",
   "main": "main.js",
   "author": {
@@ -26,11 +26,11 @@
     "@capacitor/core": "^7.1.0",
     "@capacitor/filesystem": "^7.1.8",
     "@capacitor/local-notifications": "^7.0.6",
-    "@capacitor/preferences": "^8.0.1"
+    "@capacitor/preferences": "^7.0.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.1.0",
-    "electron": "^36.3.2",
+    "electron": "^41.0.2",
     "electron-builder": "^26.0.12",
     "png-to-ico": "^2.1.8",
     "sharp": "^0.34.2"

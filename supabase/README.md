@@ -2,7 +2,10 @@
 
 ## 1. Criar banco
 
-No Supabase, abra **SQL Editor** e execute `supabase/schema.sql`.
+No Supabase, abra **SQL Editor** e execute, nesta ordem:
+
+1. `supabase/schema.sql`
+2. `supabase/support-chat.sql`
 
 ## 2. Criar seu login admin
 

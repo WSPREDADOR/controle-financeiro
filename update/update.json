@@ -1,8 +1,8 @@
 {
-  "versionCode": 135,
-  "versionName": "2.4.7",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.7/Controle.de.Dividas.apk",
+  "versionCode": 136,
+  "versionName": "2.4.8",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.8/Controle.de.Dividas.apk",
   "apkBase64": "",
-  "notes": "Teste do fluxo novo: aviso nativo, download com barra de progresso e abertura automatica do instalador.",
+  "notes": "Correção de inicialização e cliques nos cards do app.",
   "publishedAt": "2026-05-28"
 }

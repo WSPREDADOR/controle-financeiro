@@ -435,6 +435,7 @@ const adjustLastBulkPaymentBtn = document.getElementById('adjustLastBulkPaymentB
 const deleteLastBulkPaymentBtn = document.getElementById('deleteLastBulkPaymentBtn');
 
 const LAST_UPDATE_POPUP_VERSION_KEY = 'last-update-popup-version';
+const INSTALLED_APP_VERSION_KEY = 'installed-app-version-v1';
 const NOTIFICATION_PREFERENCE_KEY = 'payment-notifications-preference-v1';
 
 const SCHEDULED_NOTIFICATION_IDS_KEY = 'payment-notification-ids-v1';
@@ -447,7 +448,7 @@ const BULK_PAYMENT_HISTORY_LIMIT = 10;
 const APP_APK_FILE_NAME = 'Controle.de.Dividas.apk';
 const APP_APK_FILE_URL_NAME = encodeURIComponent(APP_APK_FILE_NAME);
 const APP_SHARE_URL = `https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/${APP_APK_FILE_URL_NAME}`;
-const APP_ANDROID_VERSION_CODE = 135;
+const APP_ANDROID_VERSION_CODE = 136;
 
 const FIRST_USE_TUTORIAL_STEPS = [
   {
@@ -623,8 +624,8 @@ const Storage = {
 };
 const defaultUpdateConfig = {
   currentVersionCode: APP_ANDROID_VERSION_CODE,
-  currentVersionName: '2.4.7',
-  releaseDate: '27/05/2026',
+  currentVersionName: '2.4.8',
+  releaseDate: '28/05/2026',
   updateJsonUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
   updateJsonFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/update.json',
   checkOnStartup: true,
@@ -661,6 +662,7 @@ currentDate.textContent = formatDate(normalizeDate(new Date()));
 updateDisplayedAppVersion();
 renderPlansList();
 updateResultsNavigation();
+finishStartupScreen();
 
 // Migra dados do localStorage para armazenamento nativo (executa em background)
 (async () => {
@@ -679,7 +681,7 @@ updateResultsNavigation();
     await Storage.migrate(TUTORIAL_COMPLETED_KEY);
 
     await checkOnboarding();
-    await initializeSupportSync();
+    initializeSupportSync().catch(() => {});
 
     monthlyBalances = await loadMonthlyBalancesAsync();
     updateMonthlyBalanceSummary(currentMonthlyDebtTotal);
@@ -811,13 +813,13 @@ plansList.addEventListener('click', (event) => {
     return;
   }
 
-  const planButton = event.target.closest('[data-plan-id]');
+  const planCard = event.target.closest('.plan-entry');
 
-  if (!planButton) {
+  if (!planCard || !plansList.contains(planCard)) {
     return;
   }
 
-  selectedPlanId = planButton.dataset.planId;
+  selectedPlanId = planCard.dataset.planId;
   const selectedPlan = getSelectedPlan();
 
   if (!selectedPlan) {
@@ -3616,7 +3618,7 @@ function renderPlansList() {
     item.dataset.planId = plan.id;
     item.innerHTML = `
       <article class="plan-item${plan.id === selectedPlanId ? ' active' : ''}${overdueInfo.hasOverdue ? ' has-overdue' : ''}" style="--plan-progress:${progressRatio};" data-plan-number="${String(index + 1)}" data-plan-id="${plan.id}">
-        <button type="button" class="plan-select-btn" data-plan-id="${plan.id}">
+        <button type="button" class="plan-select-btn">
           <div class="plan-item-head">
             <span class="plan-item-tag">${String(index + 1).padStart(2, '0')}</span>
             <span class="plan-duration-pill">${getPlanListDurationLabel(plan)}</span>
@@ -4349,7 +4351,7 @@ function refreshPlanListEntry(plan) {
 
   const selectButton = entry.querySelector('.plan-select-btn');
   if (selectButton) {
-    selectButton.dataset.planId = plan.id;
+    selectButton.type = 'button';
   }
 
   const planTag = entry.querySelector('.plan-item-tag');
@@ -6784,6 +6786,31 @@ function updateDisplayedAppVersion() {
     const releaseDate = config.releaseDate || '14/05/2026';
     appReleaseDateLabel.textContent = releaseDate;
   }
+}
+
+function announceInstalledUpdate() {
+  const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
+  const version = config.currentVersionName || defaultUpdateConfig.currentVersionName;
+
+  if (!version) {
+    return null;
+  }
+
+  let previousVersion = null;
+
+  try {
+    previousVersion = localStorage.getItem(INSTALLED_APP_VERSION_KEY);
+    localStorage.setItem(INSTALLED_APP_VERSION_KEY, version);
+  } catch (_) {
+    return null;
+  }
+
+  if (previousVersion && previousVersion !== version) {
+    showUpdatedBanner(version);
+    return version;
+  }
+
+  return null;
 }
 
 async function initializePaymentNotifications() {

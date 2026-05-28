@@ -2,6 +2,7 @@ node_modules/
 mobile-web/
 dist/
 release/
+release-check/
 release-splash/
 
 build/icon.ico
