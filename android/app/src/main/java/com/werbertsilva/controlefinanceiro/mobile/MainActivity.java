@@ -1,16 +1,57 @@
 package com.werbertsilva.controlefinanceiro.mobile;
 
+import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.Environment;
+import android.net.Uri;
+import android.provider.Settings;
+import android.util.Base64;
 import android.webkit.ValueCallback;
+import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 
 import com.getcapacitor.BridgeActivity;
+
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends BridgeActivity {
     public static final String ACTION_OPEN_SUPPORT_CHAT = "com.werbertsilva.controlefinanceiro.mobile.OPEN_SUPPORT_CHAT";
     public static final String EXTRA_OPEN_SUPPORT_CHAT = "cf_open_support_chat";
     public static final String EXTRA_SUPPORT_MESSAGE_ID = "cf_support_message_id";
+    private static final String UPDATE_JSON_URL = "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json";
+    private static final String UPDATE_JSON_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/update.json";
+    private static final int UPDATE_REQUEST_TIMEOUT_MS = 15000;
+
+    private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
+    private DownloadManager updateDownloadManager;
+    private BroadcastReceiver updateDownloadReceiver;
+    private long activeUpdateDownloadId = -1L;
+    private String activeUpdateFileName = "controle-de-dividas-update.apk";
+    private boolean nativeUpdateDialogShowing = false;
+    private boolean nativeUpdateCheckStarted = false;
+    private UpdateInfo pendingInstallPermissionUpdate;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -22,9 +63,12 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(com.capacitorjs.plugins.app.AppPlugin.class);
         registerPlugin(com.capacitorjs.plugins.preferences.PreferencesPlugin.class);
         super.onCreate(savedInstanceState);
+        updateDownloadManager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+        registerNativeUpdateDownloadReceiver();
         SupportBackgroundSyncScheduler.scheduleNext(this, 15000L);
         runLegacyWebMigrationIfNeeded();
         handleNotificationIntent(getIntent(), 1800L);
+        getWindow().getDecorView().postDelayed(this::checkForNativeUpdates, 2800L);
     }
 
     @Override
@@ -32,6 +76,38 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleNotificationIntent(intent, 450L);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        if (pendingInstallPermissionUpdate == null) {
+            return;
+        }
+
+        UpdateInfo update = pendingInstallPermissionUpdate;
+        pendingInstallPermissionUpdate = null;
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls()) {
+            installNativeUpdate(update);
+            return;
+        }
+
+        getWindow().getDecorView().postDelayed(() -> showNativeUpdateDialog(update), 500L);
+    }
+
+    @Override
+    public void onDestroy() {
+        if (updateDownloadReceiver != null) {
+            try {
+                unregisterReceiver(updateDownloadReceiver);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        updateExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     private void runLegacyWebMigrationIfNeeded() {
@@ -125,5 +201,278 @@ public class MainActivity extends BridgeActivity {
                 getBridge().getWebView().evaluateJavascript(script, null);
             } catch (Exception ignored) {}
         }, delayMs);
+    }
+
+    private void registerNativeUpdateDownloadReceiver() {
+        updateDownloadReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                long downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L);
+                if (downloadId == activeUpdateDownloadId) {
+                    installDownloadedNativeUpdate();
+                }
+            }
+        };
+
+        ContextCompat.registerReceiver(
+            this,
+            updateDownloadReceiver,
+            new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        );
+    }
+
+    private void checkForNativeUpdates() {
+        if (nativeUpdateCheckStarted) {
+            return;
+        }
+
+        nativeUpdateCheckStarted = true;
+        updateExecutor.execute(() -> {
+            try {
+                UpdateInfo update = fetchLatestNativeUpdate();
+                if (update.versionCode > getInstalledVersionCode() && (hasText(update.apkUrl) || hasText(update.apkBase64))) {
+                    runOnUiThread(() -> showNativeUpdateDialog(update));
+                }
+            } catch (Exception ignored) {
+                nativeUpdateCheckStarted = false;
+            }
+        });
+    }
+
+    private UpdateInfo fetchLatestNativeUpdate() throws Exception {
+        Exception lastError = null;
+
+        for (String url : new String[] { UPDATE_JSON_URL, UPDATE_JSON_FALLBACK_URL }) {
+            try {
+                JSONObject payload = new JSONObject(httpGet(url + "?native_check=" + System.currentTimeMillis()));
+                return new UpdateInfo(
+                    payload.optInt("versionCode", 0),
+                    payload.optString("versionName", ""),
+                    payload.optString("notes", ""),
+                    payload.optString("apkUrl", ""),
+                    payload.optString("apkBase64", "")
+                );
+            } catch (Exception error) {
+                lastError = error;
+            }
+        }
+
+        throw lastError == null ? new IllegalStateException("Atualização indisponível.") : lastError;
+    }
+
+    private void showNativeUpdateDialog(UpdateInfo update) {
+        if (nativeUpdateDialogShowing || isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+            return;
+        }
+
+        nativeUpdateDialogShowing = true;
+        StringBuilder message = new StringBuilder("Existe uma nova versão disponível.");
+        if (hasText(update.versionName)) {
+            message.append("\n\nVersão: ").append(update.versionName);
+        }
+        if (hasText(update.notes)) {
+            message.append("\n\n").append(update.notes);
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle("Atualização disponível")
+            .setMessage(message.toString())
+            .setPositiveButton("Atualizar", (dialog, which) -> {
+                nativeUpdateDialogShowing = false;
+                installNativeUpdate(update);
+            })
+            .setNegativeButton("Depois", (dialog, which) -> nativeUpdateDialogShowing = false)
+            .setOnCancelListener((dialog) -> nativeUpdateDialogShowing = false)
+            .show();
+    }
+
+    private void installNativeUpdate(UpdateInfo update) {
+        if (!ensureInstallPermission()) {
+            pendingInstallPermissionUpdate = update;
+            return;
+        }
+
+        if (hasText(update.apkBase64)) {
+            installEmbeddedNativeUpdate(update);
+            return;
+        }
+
+        downloadAndInstallNativeUpdate(update);
+    }
+
+    private boolean ensureInstallPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls()) {
+            return true;
+        }
+
+        Toast.makeText(this, "Permita a instalação por esta fonte para continuar a atualização.", Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+        intent.setData(Uri.parse("package:" + getPackageName()));
+        startActivity(intent);
+        return false;
+    }
+
+    private void installEmbeddedNativeUpdate(UpdateInfo update) {
+        updateExecutor.execute(() -> {
+            try {
+                byte[] apkBytes = Base64.decode(update.apkBase64, Base64.DEFAULT);
+                File apkFile = new File(getCacheDir(), "controle-de-dividas-update.apk");
+                try (FileOutputStream output = new FileOutputStream(apkFile)) {
+                    output.write(apkBytes);
+                }
+
+                runOnUiThread(() -> openApkInstaller(apkFile));
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this, "Não foi possível instalar a atualização: " + error.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void downloadAndInstallNativeUpdate(UpdateInfo update) {
+        if (!hasText(update.apkUrl)) {
+            Toast.makeText(this, "Link do APK não informado.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (updateDownloadManager == null) {
+            openUpdateUrl(update.apkUrl);
+            return;
+        }
+
+        activeUpdateFileName = hasText(update.versionName)
+            ? "controle-de-dividas-" + update.versionName + ".apk"
+            : "controle-de-dividas-update.apk";
+
+        File existingApk = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), activeUpdateFileName);
+        if (existingApk.exists()) {
+            existingApk.delete();
+        }
+
+        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(update.apkUrl));
+        request.setTitle("Atualização do Controle de Dívidas");
+        request.setDescription("Baixando a versão " + (hasText(update.versionName) ? update.versionName : "mais recente"));
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        request.setMimeType("application/vnd.android.package-archive");
+        request.addRequestHeader("User-Agent", "ControleDeDividasAndroid/1.0");
+        request.addRequestHeader("Accept", "application/vnd.android.package-archive, application/octet-stream, */*");
+        request.setAllowedOverMetered(true);
+        request.setAllowedOverRoaming(true);
+        request.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, activeUpdateFileName);
+
+        activeUpdateDownloadId = updateDownloadManager.enqueue(request);
+        Toast.makeText(this, "Baixando atualização...", Toast.LENGTH_SHORT).show();
+    }
+
+    private void installDownloadedNativeUpdate() {
+        if (updateDownloadManager == null || activeUpdateDownloadId < 0) {
+            return;
+        }
+
+        DownloadManager.Query query = new DownloadManager.Query().setFilterById(activeUpdateDownloadId);
+
+        try (android.database.Cursor cursor = updateDownloadManager.query(query)) {
+            if (cursor == null || !cursor.moveToFirst()) {
+                return;
+            }
+
+            int statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
+            int localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI);
+            if (statusIndex < 0 || localUriIndex < 0 || cursor.getInt(statusIndex) != DownloadManager.STATUS_SUCCESSFUL) {
+                return;
+            }
+
+            String localUriValue = cursor.getString(localUriIndex);
+            if (!hasText(localUriValue)) {
+                return;
+            }
+
+            File apkFile = new File(Uri.parse(localUriValue).getPath());
+            openApkInstaller(apkFile);
+        } catch (ActivityNotFoundException error) {
+            Toast.makeText(this, "Não foi possível abrir o instalador do Android.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openApkInstaller(File apkFile) {
+        Uri contentUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
+        Intent installIntent = new Intent(Intent.ACTION_VIEW);
+        installIntent.setDataAndType(contentUri, "application/vnd.android.package-archive");
+        installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(installIntent);
+    }
+
+    private void openUpdateUrl(String apkUrl) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
+        startActivity(intent);
+    }
+
+    private int getInstalledVersionCode() {
+        try {
+            PackageInfo packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                return (int) packageInfo.getLongVersionCode();
+            }
+            return packageInfo.versionCode;
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private String httpGet(String urlText) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(urlText).openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(UPDATE_REQUEST_TIMEOUT_MS);
+        connection.setReadTimeout(UPDATE_REQUEST_TIMEOUT_MS);
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("User-Agent", "ControleDeDividasAndroid/1.0");
+
+        int code = connection.getResponseCode();
+        InputStream stream = code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream();
+        String response = readAll(stream);
+        connection.disconnect();
+
+        if (code < 200 || code >= 300) {
+            throw new IllegalStateException(response);
+        }
+
+        return response;
+    }
+
+    private String readAll(InputStream stream) throws Exception {
+        if (stream == null) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                builder.append(line);
+            }
+        }
+
+        return builder.toString();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private static final class UpdateInfo {
+        final int versionCode;
+        final String versionName;
+        final String notes;
+        final String apkUrl;
+        final String apkBase64;
+
+        UpdateInfo(int versionCode, String versionName, String notes, String apkUrl, String apkBase64) {
+            this.versionCode = versionCode;
+            this.versionName = versionName;
+            this.notes = notes;
+            this.apkUrl = apkUrl;
+            this.apkBase64 = apkBase64;
+        }
     }
 }

@@ -1,6 +1,6 @@
 {
-  "version": "2.4.3",
-  "notes": "Teste do aviso de atualizacao com arquivo leve e instalacao pelo botao Atualizar.",
+  "version": "2.4.4",
+  "notes": "Atualizacao nativa no Android: o app verifica a nova versao ao abrir e o botao Atualizar baixa e abre a instalacao direto.",
   "publishedAt": "2026-05-27",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.3/Controle.de.Dividas.apk"
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.4/Controle.de.Dividas.apk"
 }
