@@ -16,6 +16,9 @@ import android.net.Uri;
 import android.provider.Settings;
 import android.util.Base64;
 import android.webkit.ValueCallback;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
@@ -43,6 +46,7 @@ public class MainActivity extends BridgeActivity {
     private static final String UPDATE_JSON_URL = "https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json";
     private static final String UPDATE_JSON_FALLBACK_URL = "https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/update.json";
     private static final int UPDATE_REQUEST_TIMEOUT_MS = 15000;
+    private static final int UPDATE_APK_DOWNLOAD_TIMEOUT_MS = 60000;
 
     private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
     private DownloadManager updateDownloadManager;
@@ -52,6 +56,9 @@ public class MainActivity extends BridgeActivity {
     private boolean nativeUpdateDialogShowing = false;
     private boolean nativeUpdateCheckStarted = false;
     private UpdateInfo pendingInstallPermissionUpdate;
+    private AlertDialog nativeUpdateProgressDialog;
+    private ProgressBar nativeUpdateProgressBar;
+    private TextView nativeUpdateProgressText;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -314,6 +321,9 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void installEmbeddedNativeUpdate(UpdateInfo update) {
+        showNativeUpdateProgressDialog(update.versionName);
+        updateNativeUpdateProgressMessage("Preparando instalador...");
+
         updateExecutor.execute(() -> {
             try {
                 byte[] apkBytes = Base64.decode(update.apkBase64, Base64.DEFAULT);
@@ -322,9 +332,18 @@ public class MainActivity extends BridgeActivity {
                     output.write(apkBytes);
                 }
 
-                runOnUiThread(() -> openApkInstaller(apkFile));
+                runOnUiThread(() -> {
+                    updateNativeUpdateProgressMessage("Abrindo instalador...");
+                    getWindow().getDecorView().postDelayed(() -> {
+                        hideNativeUpdateProgressDialog();
+                        openApkInstaller(apkFile);
+                    }, 350L);
+                });
             } catch (Exception error) {
-                runOnUiThread(() -> Toast.makeText(this, "Não foi possível instalar a atualização: " + error.getMessage(), Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> {
+                    hideNativeUpdateProgressDialog();
+                    Toast.makeText(this, "Não foi possível instalar a atualização: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                });
             }
         });
     }
@@ -335,33 +354,187 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
-        if (updateDownloadManager == null) {
-            openUpdateUrl(update.apkUrl);
-            return;
-        }
-
         activeUpdateFileName = hasText(update.versionName)
             ? "controle-de-dividas-" + update.versionName + ".apk"
             : "controle-de-dividas-update.apk";
 
-        File existingApk = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), activeUpdateFileName);
-        if (existingApk.exists()) {
-            existingApk.delete();
+        showNativeUpdateProgressDialog(update.versionName);
+
+        updateExecutor.execute(() -> {
+            try {
+                File apkFile = downloadNativeUpdateToCache(update.apkUrl, activeUpdateFileName);
+                runOnUiThread(() -> {
+                    updateNativeUpdateProgressMessage("Download concluído. Abrindo instalador...");
+                    getWindow().getDecorView().postDelayed(() -> {
+                        hideNativeUpdateProgressDialog();
+                        openApkInstaller(apkFile);
+                    }, 450L);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    hideNativeUpdateProgressDialog();
+                    Toast.makeText(this, "Não foi possível baixar a atualização: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    private File downloadNativeUpdateToCache(String apkUrl, String fileName) throws Exception {
+        File apkFile = new File(getCacheDir(), fileName);
+        if (apkFile.exists() && !apkFile.delete()) {
+            throw new IllegalStateException("Não foi possível preparar o arquivo de atualização.");
         }
 
-        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(update.apkUrl));
-        request.setTitle("Atualização do Controle de Dívidas");
-        request.setDescription("Baixando a versão " + (hasText(update.versionName) ? update.versionName : "mais recente"));
-        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-        request.setMimeType("application/vnd.android.package-archive");
-        request.addRequestHeader("User-Agent", "ControleDeDividasAndroid/1.0");
-        request.addRequestHeader("Accept", "application/vnd.android.package-archive, application/octet-stream, */*");
-        request.setAllowedOverMetered(true);
-        request.setAllowedOverRoaming(true);
-        request.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, activeUpdateFileName);
+        HttpURLConnection connection = openNativeDownloadConnection(apkUrl);
+        long totalBytes = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+            ? connection.getContentLengthLong()
+            : connection.getContentLength();
 
-        activeUpdateDownloadId = updateDownloadManager.enqueue(request);
-        Toast.makeText(this, "Baixando atualização...", Toast.LENGTH_SHORT).show();
+        runOnUiThread(() -> updateNativeUpdateProgress(0L, totalBytes));
+
+        try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(apkFile)) {
+            byte[] buffer = new byte[64 * 1024];
+            long downloadedBytes = 0L;
+            long lastUiUpdateAt = 0L;
+            int lastPercent = -1;
+            int bytesRead;
+
+            while ((bytesRead = input.read(buffer)) != -1) {
+                output.write(buffer, 0, bytesRead);
+                downloadedBytes += bytesRead;
+
+                int percent = totalBytes > 0L
+                    ? (int) Math.min(100L, (downloadedBytes * 100L) / totalBytes)
+                    : -1;
+                long now = System.currentTimeMillis();
+
+                if (percent != lastPercent || now - lastUiUpdateAt >= 350L) {
+                    long currentDownloadedBytes = downloadedBytes;
+                    runOnUiThread(() -> updateNativeUpdateProgress(currentDownloadedBytes, totalBytes));
+                    lastPercent = percent;
+                    lastUiUpdateAt = now;
+                }
+            }
+        } finally {
+            connection.disconnect();
+        }
+
+        if (!apkFile.exists() || apkFile.length() == 0L) {
+            throw new IllegalStateException("Arquivo de atualização vazio.");
+        }
+
+        return apkFile;
+    }
+
+    private HttpURLConnection openNativeDownloadConnection(String urlText) throws Exception {
+        URL url = new URL(urlText);
+
+        for (int redirect = 0; redirect < 5; redirect++) {
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(UPDATE_REQUEST_TIMEOUT_MS);
+            connection.setReadTimeout(UPDATE_APK_DOWNLOAD_TIMEOUT_MS);
+            connection.setRequestProperty("Accept", "application/vnd.android.package-archive, application/octet-stream, */*");
+            connection.setRequestProperty("User-Agent", "ControleDeDividasAndroid/1.0");
+
+            int code = connection.getResponseCode();
+            if (code == HttpURLConnection.HTTP_MOVED_PERM
+                || code == HttpURLConnection.HTTP_MOVED_TEMP
+                || code == HttpURLConnection.HTTP_SEE_OTHER
+                || code == 307
+                || code == 308) {
+                String location = connection.getHeaderField("Location");
+                connection.disconnect();
+                if (!hasText(location)) {
+                    throw new IllegalStateException("Redirecionamento sem destino.");
+                }
+                url = new URL(url, location);
+                continue;
+            }
+
+            if (code >= 200 && code < 300) {
+                return connection;
+            }
+
+            String response = readAll(connection.getErrorStream());
+            connection.disconnect();
+            throw new IllegalStateException(hasText(response) ? response : "Servidor respondeu " + code + ".");
+        }
+
+        throw new IllegalStateException("Muitos redirecionamentos no download.");
+    }
+
+    private void showNativeUpdateProgressDialog(String versionName) {
+        if (isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+            return;
+        }
+
+        hideNativeUpdateProgressDialog();
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = dp(22);
+        layout.setPadding(padding, dp(12), padding, dp(6));
+
+        nativeUpdateProgressText = new TextView(this);
+        nativeUpdateProgressText.setText(hasText(versionName)
+            ? "Baixando versão " + versionName + "..."
+            : "Baixando atualização...");
+        nativeUpdateProgressText.setTextSize(15f);
+
+        nativeUpdateProgressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        nativeUpdateProgressBar.setMax(100);
+        nativeUpdateProgressBar.setProgress(0);
+
+        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        progressParams.setMargins(0, dp(14), 0, 0);
+        layout.addView(nativeUpdateProgressText);
+        layout.addView(nativeUpdateProgressBar, progressParams);
+
+        nativeUpdateProgressDialog = new AlertDialog.Builder(this)
+            .setTitle("Baixando atualização")
+            .setView(layout)
+            .setCancelable(false)
+            .show();
+    }
+
+    private void updateNativeUpdateProgress(long downloadedBytes, long totalBytes) {
+        if (nativeUpdateProgressBar == null || nativeUpdateProgressText == null) {
+            return;
+        }
+
+        if (totalBytes <= 0L) {
+            nativeUpdateProgressBar.setIndeterminate(true);
+            nativeUpdateProgressText.setText("Baixando atualização...");
+            return;
+        }
+
+        int percent = (int) Math.min(100L, (downloadedBytes * 100L) / totalBytes);
+        nativeUpdateProgressBar.setIndeterminate(false);
+        nativeUpdateProgressBar.setProgress(percent);
+        nativeUpdateProgressText.setText("Baixando atualização... " + percent + "%");
+    }
+
+    private void updateNativeUpdateProgressMessage(String message) {
+        if (nativeUpdateProgressText != null) {
+            nativeUpdateProgressText.setText(message);
+        }
+    }
+
+    private void hideNativeUpdateProgressDialog() {
+        if (nativeUpdateProgressDialog != null) {
+            nativeUpdateProgressDialog.dismiss();
+        }
+        nativeUpdateProgressDialog = null;
+        nativeUpdateProgressBar = null;
+        nativeUpdateProgressText = null;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void installDownloadedNativeUpdate() {

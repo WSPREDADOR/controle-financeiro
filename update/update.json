@@ -1,8 +1,8 @@
 {
-  "versionCode": 133,
-  "versionName": "2.4.5",
-  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.5/Controle.de.Dividas.apk",
+  "versionCode": 134,
+  "versionName": "2.4.6",
+  "apkUrl": "https://github.com/WSPREDADOR/controle-financeiro/releases/download/v2.4.6/Controle.de.Dividas.apk",
   "apkBase64": "",
-  "notes": "Teste do novo aviso nativo de atualizacao no Android.",
+  "notes": "Melhoria no atualizador nativo: o APK agora baixa em uma janela com progresso e o instalador abre automaticamente ao concluir.",
   "publishedAt": "2026-05-28"
 }
