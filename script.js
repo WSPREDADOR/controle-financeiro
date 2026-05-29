@@ -448,7 +448,7 @@ const BULK_PAYMENT_HISTORY_LIMIT = 10;
 const APP_APK_FILE_NAME = 'Controle.de.Dividas.apk';
 const APP_APK_FILE_URL_NAME = encodeURIComponent(APP_APK_FILE_NAME);
 const APP_SHARE_URL = `https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/${APP_APK_FILE_URL_NAME}`;
-const APP_ANDROID_VERSION_CODE = 136;
+const APP_ANDROID_VERSION_CODE = 137;
 
 const FIRST_USE_TUTORIAL_STEPS = [
   {
@@ -624,8 +624,8 @@ const Storage = {
 };
 const defaultUpdateConfig = {
   currentVersionCode: APP_ANDROID_VERSION_CODE,
-  currentVersionName: '2.4.8',
-  releaseDate: '28/05/2026',
+  currentVersionName: '2.4.9',
+  releaseDate: '29/05/2026',
   updateJsonUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
   updateJsonFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/update.json',
   checkOnStartup: true,
@@ -1221,7 +1221,7 @@ openNativeAppSettingsBtn?.addEventListener('click', async () => {
 contactDevBtn?.addEventListener('click', async () => {
   const phone = '5594992592305'; 
   const name = (await Storage.get(USER_NAME_KEY)) || '(seu nome aqui)';
-  const message = encodeURIComponent(`Olá Sr Werbert Silva, me chamo ${name}, vim através do seu app Controle de Dívidas!`);
+  const message = encodeURIComponent(`Olá Sr Werbert Silva, me chamo ${name}, vim através do seu app Controle de Pagamentos!`);
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 });
 
@@ -1278,13 +1278,13 @@ shareWhatsappBtn?.addEventListener('click', () => {
 
 shareTelegramBtn?.addEventListener('click', () => {
   window.open(
-    `https://t.me/share/url?url=${encodeURIComponent(APP_SHARE_URL)}&text=${encodeURIComponent('Controle de Dívidas')}`,
+    `https://t.me/share/url?url=${encodeURIComponent(APP_SHARE_URL)}&text=${encodeURIComponent('Controle de Pagamentos')}`,
     '_blank'
   );
 });
 
 shareEmailBtn?.addEventListener('click', () => {
-  const subject = encodeURIComponent('Controle de Dívidas');
+  const subject = encodeURIComponent('Controle de Pagamentos');
   const body = encodeURIComponent(getAppShareMessage());
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 });
@@ -1302,7 +1302,7 @@ copyAppLinkBtn?.addEventListener('click', async () => {
 });
 
 function getAppShareMessage() {
-  return `Baixe o app Controle de Dívidas: ${APP_SHARE_URL}`;
+  return `Baixe o app Controle de Pagamentos: ${APP_SHARE_URL}`;
 }
 
 function toggleShareOptionsPanel() {
@@ -1324,8 +1324,8 @@ function toggleShareOptionsPanel() {
 async function shareAppWithSystem() {
   const nativeShare = getNativeSharePlugin();
   const payload = {
-    title: 'Controle de Dívidas',
-    text: 'Baixe o app Controle de Dívidas.',
+    title: 'Controle de Pagamentos',
+    text: 'Baixe o app Controle de Pagamentos.',
     url: APP_SHARE_URL
   };
 
@@ -7038,7 +7038,7 @@ async function scheduleTestNotification() {
     notifications: [{
       id: 990001,
       title: 'Teste de lembrete',
-      body: 'Se este aviso apareceu, as notificações do Controle de Dívidas estão funcionando.',
+      body: 'Se este aviso apareceu, as notificações do Controle de Pagamentos estão funcionando.',
       schedule: {
         at: notifyAt,
         allowWhileIdle: true
@@ -7123,8 +7123,8 @@ function buildPaymentNotifications() {
           ? `Chegou a data de pagar "${plan.name}". Marque como pago no app quando concluir.`
           : `Chegou o mês de pagar "${plan.name}". Marque como pago no app quando concluir.`,
         largeBody: isAccount
-          ? `Chegou a data de pagar "${plan.name}". Abra o Controle de Dívidas para marcar como pago.`
-          : `Chegou o mês de pagar "${plan.name}". Abra o Controle de Dívidas para marcar como pago e manter seus compromissos atualizados.`,
+          ? `Chegou a data de pagar "${plan.name}". Abra o Controle de Pagamentos para marcar como pago.`
+          : `Chegou o mês de pagar "${plan.name}". Abra o Controle de Pagamentos para marcar como pago e manter seus compromissos atualizados.`,
         summaryText: 'Lembrete de pagamento',
         schedule: {
           at: notifyAt,

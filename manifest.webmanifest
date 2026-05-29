@@ -1,6 +1,6 @@
 {
-  "name": "Controle de Dívidas",
-  "short_name": "Dívidas",
+  "name": "Controle de Pagamentos",
+  "short_name": "Pagamentos",
   "description": "Aplicativo para controle de compromissos e pagamentos.",
   "start_url": ".",
   "display": "standalone",

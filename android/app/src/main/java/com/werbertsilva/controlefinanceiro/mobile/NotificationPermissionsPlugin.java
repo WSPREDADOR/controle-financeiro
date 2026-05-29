@@ -443,7 +443,7 @@ public class NotificationPermissionsPlugin extends Plugin {
         try {
             return getContext().getApplicationInfo().loadLabel(getContext().getPackageManager()).toString();
         } catch (Exception ignored) {
-            return "Controle de Dívidas";
+            return "Controle de Pagamentos";
         }
     }
 }

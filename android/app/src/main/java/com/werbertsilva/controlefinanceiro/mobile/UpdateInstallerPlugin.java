@@ -106,7 +106,7 @@ public class UpdateInstallerPlugin extends Plugin {
         }
 
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
-        request.setTitle("Atualização do Controle de Dívidas");
+        request.setTitle("Atualização do Controle de Pagamentos");
         request.setDescription("Baixando a versão " + (version.isEmpty() ? "mais recente" : version));
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
         request.setMimeType("application/vnd.android.package-archive");

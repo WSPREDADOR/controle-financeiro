@@ -13,5 +13,5 @@ rd /s /q "release-splash" 2>nul && echo   OK: release-splash removido || echo   
 
 echo.
 echo Limpeza concluida!
-echo Se ainda aparecerem avisos, feche o aplicativo Controle de Dívidas e rode novamente.
+echo Se ainda aparecerem avisos, feche o aplicativo Controle de Pagamentos e rode novamente.
 pause
