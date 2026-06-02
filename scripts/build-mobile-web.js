@@ -7,6 +7,7 @@ const assetsDir = path.join(targetDir, 'assets');
 
 const rootFiles = [
   'index.html',
+  'privacy-policy.html',
   'style.css',
   'script.js',
   'support-config.js',

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f1418">
+  <title>Política de Privacidade | Controle de Pagamentos</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #17202a;
+      --muted: #5f6f7e;
+      --border: #dce4ec;
+      --accent: #0f766e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.6;
+    }
+
+    main {
+      width: min(920px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 56px;
+    }
+
+    article {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: clamp(24px, 4vw, 44px);
+      box-shadow: 0 14px 42px rgba(15, 20, 24, 0.08);
+    }
+
+    h1, h2 {
+      line-height: 1.2;
+      margin: 0 0 14px;
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+    }
+
+    h2 {
+      margin-top: 30px;
+      font-size: 1.2rem;
+    }
+
+    p, li {
+      color: var(--muted);
+    }
+
+    a {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .meta {
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    .notice {
+      border-left: 4px solid var(--accent);
+      background: #ecfdf5;
+      padding: 14px 16px;
+      border-radius: 6px;
+      color: #134e4a;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Política de Privacidade</h1>
+      <p class="meta">Controle de Pagamentos, desenvolvido por Werbert Silva. Última atualização: 02/06/2026.</p>
+
+      <p class="notice">O Controle de Pagamentos foi projetado para manter seus dados financeiros no próprio dispositivo. Compromissos, valores, parcelas, histórico de pagamentos e saldos cadastrados no app não são enviados ao suporte remoto.</p>
+
+      <h2>Dados que você cadastra no app</h2>
+      <p>O app permite cadastrar compromissos, contas, dívidas, parcelas, valores, datas, pagamentos e saldos mensais. Esses dados são armazenados localmente no dispositivo usando armazenamento do app e localStorage/Preferences quando disponível.</p>
+
+      <h2>Dados enviados ao suporte remoto</h2>
+      <p>Quando o suporte remoto estiver habilitado e houver conexão com a internet, o app pode enviar ao serviço de suporte as seguintes informações para atendimento, liberação premium, avisos e diagnóstico:</p>
+      <ul>
+        <li>Nome informado no app.</li>
+        <li>ID de suporte gerado pelo aplicativo.</li>
+        <li>Token técnico do dispositivo, armazenado de forma protegida no banco por hash.</li>
+        <li>Nome/modelo do dispositivo, plataforma, versão do app e informações técnicas básicas.</li>
+        <li>Mensagens de texto e imagens que você enviar voluntariamente no chat de suporte.</li>
+      </ul>
+
+      <h2>Serviços de terceiros</h2>
+      <p>O suporte remoto usa Supabase para banco de dados, autenticação administrativa e troca de mensagens. O app também pode abrir WhatsApp, e-mail, SMS, Telegram ou outros apps do sistema quando você escolhe compartilhar o app ou solicitar atendimento.</p>
+
+      <h2>Notificações</h2>
+      <p>O app pode solicitar permissão para enviar notificações de lembrete de pagamentos e respostas do suporte. Você pode negar, revogar ou alterar essa permissão nas configurações do Android.</p>
+
+      <h2>Compartilhamento de dados</h2>
+      <p>Os dados financeiros cadastrados no app não são vendidos nem compartilhados. Dados de suporte são usados apenas para atendimento, administração do acesso, avisos e segurança operacional. Mensagens enviadas por WhatsApp, e-mail, SMS ou Telegram ficam sujeitas às políticas desses serviços.</p>
+
+      <h2>Segurança</h2>
+      <p>As comunicações remotas usam HTTPS. O token técnico do dispositivo é gravado no banco como hash. O acesso administrativo ao suporte é protegido por autenticação e políticas de acesso no banco.</p>
+
+      <h2>Retenção e exclusão</h2>
+      <p>Os dados locais podem ser removidos apagando os registros no app ou limpando/desinstalando o aplicativo no dispositivo. Para excluir dados de suporte remoto, use o botão "Excluir dados do suporte" dentro do app ou solicite pelo WhatsApp informado no suporte, incluindo seu ID de suporte.</p>
+
+      <h2>Contato</h2>
+      <p>Para dúvidas sobre privacidade, suporte ou exclusão de dados, entre em contato pelo WhatsApp: <a href="https://wa.me/5594992592305">+55 94 99259-2305</a>.</p>
+    </article>
+  </main>
+</body>
+</html>

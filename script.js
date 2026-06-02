@@ -76,6 +76,7 @@ const settingsUserId = document.getElementById('settingsUserId');
 const openSupportModalBtn = document.getElementById('openSupportModalBtn');
 const supportModal = document.getElementById('supportModal');
 const closeSupportModalBtn = document.getElementById('closeSupportModalBtn');
+const requestSupportDataDeletionBtn = document.getElementById('requestSupportDataDeletionBtn');
 const supportLicenseBadge = document.getElementById('supportLicenseBadge');
 const supportConnectionStatus = document.getElementById('supportConnectionStatus');
 const supportLastCheckIn = document.getElementById('supportLastCheckIn');
@@ -445,9 +446,7 @@ const NOTIFICATION_SOUND_FILE = 'payment_reminder.wav';
 const PAYMENT_NOTIFICATION_LIMIT = 120;
 const PAYMENT_NOTIFICATION_HOUR = 9;
 const BULK_PAYMENT_HISTORY_LIMIT = 10;
-const APP_APK_FILE_NAME = 'Controle.de.Dividas.apk';
-const APP_APK_FILE_URL_NAME = encodeURIComponent(APP_APK_FILE_NAME);
-const APP_SHARE_URL = `https://github.com/WSPREDADOR/controle-financeiro/releases/latest/download/${APP_APK_FILE_URL_NAME}`;
+const APP_SHARE_URL = 'https://play.google.com/store/apps/details?id=com.werbertsilva.controlefinanceiro.mobile';
 const APP_ANDROID_VERSION_CODE = 137;
 
 const FIRST_USE_TUTORIAL_STEPS = [
@@ -626,9 +625,10 @@ const defaultUpdateConfig = {
   currentVersionCode: APP_ANDROID_VERSION_CODE,
   currentVersionName: '2.4.9',
   releaseDate: '29/05/2026',
-  updateJsonUrl: 'https://raw.githubusercontent.com/WSPREDADOR/controle-financeiro/main/update/update.json',
-  updateJsonFallbackUrl: 'https://cdn.jsdelivr.net/gh/WSPREDADOR/controle-financeiro@main/update/update.json',
-  checkOnStartup: true,
+  updateJsonUrl: '',
+  updateJsonFallbackUrl: '',
+  checkOnStartup: false,
+  allowExternalApkUpdates: false,
   requestTimeoutMs: 15000,
   recheckIntervalMs: 45000
 };
@@ -1214,6 +1214,10 @@ closeSupportModalBtn?.addEventListener('click', () => {
   closeSupportModal();
 });
 
+requestSupportDataDeletionBtn?.addEventListener('click', () => {
+  requestSupportDataDeletion();
+});
+
 openNativeAppSettingsBtn?.addEventListener('click', async () => {
   await getNotificationPermissionsPlugin()?.openAppSettings?.();
 });
@@ -1224,6 +1228,16 @@ contactDevBtn?.addEventListener('click', async () => {
   const message = encodeURIComponent(`Olá Sr Werbert Silva, me chamo ${name}, vim através do seu app Controle de Pagamentos!`);
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 });
+
+async function requestSupportDataDeletion() {
+  const phone = '5594992592305';
+  const name = (await Storage.get(USER_NAME_KEY)) || '(nome não informado)';
+  const supportId = (await Storage.get(USER_ID_KEY)) || '(ID não disponível)';
+  const message = encodeURIComponent(
+    `Olá, quero solicitar a exclusão dos meus dados de suporte do app Controle de Pagamentos. Nome: ${name}. ID de suporte: ${supportId}.`
+  );
+  window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer');
+}
 
 shareAppBtn?.addEventListener('click', () => {
   toggleShareOptionsPanel();
@@ -1797,7 +1811,9 @@ async function executeSupportCommand(command) {
   }
 
   if (command.command_type === 'force_update') {
-    checkForUpdates({ force: true });
+    if (canUseExternalApkUpdates()) {
+      checkForUpdates({ force: true });
+    }
   }
 }
 
@@ -6893,10 +6909,6 @@ function getFilesystemPlugin() {
   return window.Capacitor?.Plugins?.Filesystem ?? null;
 }
 
-function getUpdateInstallerPlugin() {
-  return window.Capacitor?.Plugins?.UpdateInstaller ?? null;
-}
-
 function getNativeSharePlugin() {
   return window.Capacitor?.Plugins?.NativeShare ?? null;
 }
@@ -7040,8 +7052,7 @@ async function scheduleTestNotification() {
       title: 'Teste de lembrete',
       body: 'Se este aviso apareceu, as notificações do Controle de Pagamentos estão funcionando.',
       schedule: {
-        at: notifyAt,
-        allowWhileIdle: true
+        at: notifyAt
       },
       channelId: NOTIFICATION_CHANNEL_ID,
       sound: NOTIFICATION_SOUND_FILE,
@@ -7127,8 +7138,7 @@ function buildPaymentNotifications() {
           : `Chegou o mês de pagar "${plan.name}". Abra o Controle de Pagamentos para marcar como pago e manter seus compromissos atualizados.`,
         summaryText: 'Lembrete de pagamento',
         schedule: {
-          at: notifyAt,
-          allowWhileIdle: true
+          at: notifyAt
         },
         channelId: NOTIFICATION_CHANNEL_ID,
         sound: NOTIFICATION_SOUND_FILE,
@@ -7252,6 +7262,11 @@ function initializeUpdateCheck(installedVersion = null) {
 
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
 
+  if (!canUseExternalApkUpdates(config)) {
+    hideUpdateBanner();
+    return;
+  }
+
   if (!config.updateJsonUrl && !config.updateJsonFallbackUrl) {
     hideUpdateBanner();
     return;
@@ -7306,6 +7321,11 @@ async function checkForUpdates(options = {}) {
   }
 
   const config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) };
+
+  if (!canUseExternalApkUpdates(config)) {
+    hideUpdateBanner();
+    return;
+  }
 
   if (!config.updateJsonUrl && !config.updateJsonFallbackUrl) {
     hideUpdateBanner();
@@ -7423,6 +7443,10 @@ function getCurrentVersionCode(config) {
 
 function getCurrentAppVersion(config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) }) {
   return config.currentVersionName || defaultUpdateConfig.currentVersionName;
+}
+
+function canUseExternalApkUpdates(config = { ...defaultUpdateConfig, ...(window.APP_UPDATE_CONFIG || {}) }) {
+  return Boolean(config.allowExternalApkUpdates) && !isNativeAndroidApp();
 }
 
 function isRemoteVersionNewer(remoteVersion, currentVersion) {
@@ -7592,49 +7616,7 @@ function showUpdateError(message) {
 }
 
 async function startApkUpdate(update) {
-  if (!update?.apkBase64 && !update?.apkUrl) {
-    return;
-  }
-
-  const installer = getUpdateInstallerPlugin();
-
-  if (!installer?.installEmbeddedUpdate && !installer?.downloadAndInstall) {
-    openUpdateUrl(update.apkUrl);
-    hideUpdateBanner();
-    return;
-  }
-
-  setUpdateProgress('Preparando atualização...', 1);
-
-  try {
-    const result = update.apkBase64 && installer.installEmbeddedUpdate
-      ? await installer.installEmbeddedUpdate({
-        apkBase64: update.apkBase64,
-        versionName: update.versionName || ''
-      })
-      : await installer.downloadAndInstall({
-        apkUrl: update.apkUrl,
-        version: update.versionName || ''
-      });
-
-    if (result?.requiresPermission) {
-      showUpdateError('Permita a instalação por fontes desconhecidas para este app e toque em atualizar novamente.');
-      return;
-    }
-
-    setUpdateProgress('Instalador aberto', 100);
-    if (updateBannerMessage) {
-      updateBannerMessage.textContent = 'Confirme a instalação na tela do Android para concluir a atualização.';
-    }
-  } catch (error) {
-    if (update.apkUrl) {
-      openUpdateUrl(update.apkUrl);
-    } else {
-      showUpdateError(error?.message || 'Não foi possível abrir o instalador.');
-      return;
-    }
-    hideUpdateBanner();
-  }
+  hideUpdateBanner();
 }
 
 function resetUpdateProgress() {
@@ -7666,17 +7648,7 @@ function setUpdateProgress(message, percent = null) {
 }
 
 function openUpdateUrl(url) {
-  if (!url) {
-    return;
-  }
-
-  const link = document.createElement('a');
-  link.href = url;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  return;
 }
 
 function updatePlansSummary(visibleNumber = 0) {
